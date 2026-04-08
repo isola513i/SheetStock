@@ -1,7 +1,12 @@
 @import "tailwindcss";
 
+:root {
+  --brand-primary: #f99109;
+}
+
 @layer base {
   body {
     overscroll-behavior-y: none;
+    font-family: var(--font-line-seed), "Noto Sans Thai", "Segoe UI", sans-serif;
   }
 }
