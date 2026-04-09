@@ -1,7 +1,21 @@
+# dependencies
 node_modules/
+
+# next.js
 .next/
+out/
+
+# testing
 coverage/
-.DS_Store
-*.log
+
+# env
 .env*
 !.env.example
+
+# os
+.DS_Store
+*.log
+
+# ide
+.vscode/
+.idea/
