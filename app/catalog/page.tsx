@@ -2,12 +2,10 @@
 
 import { useMemo, useRef, useState, useEffect } from 'react';
 import useSWR from 'swr';
-
-
 import { motion, AnimatePresence } from 'motion/react';
 import Image from 'next/image';
 import PullToRefresh from 'pulltorefreshjs';
-import { Search, X } from 'lucide-react';
+import { ChevronDown, Search, X } from 'lucide-react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { BottomNav } from '@/components/BottomNav';
 import type { UserRole } from '@/lib/types';
@@ -21,8 +19,11 @@ type CatalogItem = {
   priceSource: 'base' | 'tier' | 'override';
 };
 
+type CustomerOption = { id: string; name: string };
+
 type CatalogResponse = {
-  customerId: string;
+  customerId: string | null;
+  customers?: CustomerOption[];
   items: CatalogItem[];
 };
 
@@ -34,12 +35,12 @@ function toSafeImageSrc(value: string) {
   if (!trimmed) return '/icons/icon-192x192.png';
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
   if (trimmed.startsWith('/')) return trimmed;
-  return `/${trimmed.replace(/^\.?\/*/, '')}`;
+  return '/icons/icon-192x192.png';
 }
 
 const SOURCE_LABELS: Record<string, string> = {
-  base: 'ราคาตั้งต้น',
-  tier: 'ราคาตามระดับ',
+  base: 'ราคาปกติ',
+  tier: 'ส่วนลดระดับ',
   override: 'ราคาพิเศษ',
 };
 
@@ -53,18 +54,32 @@ export default function CatalogPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isValidatingRef = useRef(false);
 
-  const { data, isLoading, isValidating, mutate } = useSWR('/api/catalog', fetcher, {
+  const { data: meData } = useSWR<{ user: { role: UserRole; name: string } | null }>('/api/auth/me', async (url: string) => {
+    const res = await fetch(url);
+    if (!res.ok) return { user: null };
+    return res.json();
+  });
+
+  const isCustomer = meData?.user?.role === 'customer';
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
+
+  const catalogUrl = useMemo(() => {
+    if (!meData?.user) return null;
+    if (isCustomer) return '/api/catalog';
+    if (selectedCustomerId) return `/api/catalog?customerId=${selectedCustomerId}`;
+    return '/api/catalog';
+  }, [meData, isCustomer, selectedCustomerId]);
+
+  const { data, isLoading, isValidating, mutate } = useSWR(catalogUrl, fetcher, {
     revalidateOnFocus: true,
     revalidateOnReconnect: true,
     refreshInterval: 30000,
     keepPreviousData: true,
   });
 
-  const { data: meData } = useSWR<{ user: { role: UserRole; name: string } | null }>('/api/auth/me', async (url: string) => {
-    const res = await fetch(url);
-    if (!res.ok) return { user: null };
-    return res.json();
-  });
+  const customers = data?.customers ?? [];
+  const activeCustomer = customers.find((c) => c.id === selectedCustomerId);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedItem, setSelectedItem] = useState<CatalogItem | null>(null);
@@ -83,12 +98,10 @@ export default function CatalogPage() {
     return items;
   }, [allItems, searchQuery, stockFilter]);
 
-  // Track validating state for pull-to-refresh guard
   useEffect(() => {
     isValidatingRef.current = isValidating;
   }, [isValidating]);
 
-  // Pull-to-refresh
   useEffect(() => {
     const target = scrollRef.current;
     if (!target) return;
@@ -119,8 +132,19 @@ export default function CatalogPage() {
       {/* Header */}
       <div className="shrink-0 bg-[var(--brand-primary)] rounded-b-[1.5rem] px-5 text-white shadow-sm" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)', paddingBottom: 20 }}>
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-medium">สินค้าแนะนำ</h1>
+          <h1 className="text-xl font-medium">{isCustomer ? 'สินค้าของคุณ' : 'แคตตาล็อกสินค้า'}</h1>
         </div>
+
+        {/* Customer picker for admin/sale */}
+        {!isCustomer && customers.length > 0 && (
+          <button
+            onClick={() => setCustomerPickerOpen(true)}
+            className="w-full h-12 bg-white/15 backdrop-blur rounded-xl px-4 flex items-center justify-between text-sm mb-3"
+          >
+            <span className="truncate">{activeCustomer?.name ?? 'ทุกลูกค้า (ราคาปกติ)'}</span>
+            <ChevronDown className="w-4 h-4 shrink-0 ml-2 opacity-70" />
+          </button>
+        )}
 
         {/* Search */}
         <div className="relative mb-3">
@@ -155,7 +179,7 @@ export default function CatalogPage() {
         </div>
       </div>
 
-      {/* Count + revalidation indicator */}
+      {/* Count */}
       <div className="px-5 pt-4 pb-2 flex items-center justify-between">
         <p className="text-sm text-gray-500">พบ {filteredItems.length} รายการ</p>
         {isValidating && !isLoading && (
@@ -165,7 +189,7 @@ export default function CatalogPage() {
         )}
       </div>
 
-      {/* Scrollable list */}
+      {/* List */}
       <div id="catalog-scroll" ref={scrollRef} className="flex-1 overflow-y-auto px-5 pb-24" style={{ WebkitOverflowScrolling: 'touch' }}>
         {isLoading ? (
           <div className="space-y-3">
@@ -224,7 +248,9 @@ export default function CatalogPage() {
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-base font-semibold text-[var(--brand-primary)]">฿{item.finalPrice.toFixed(2)}</p>
+                      <p className="text-base font-semibold text-[var(--brand-primary)]">
+                        {item.finalPrice > 0 ? `฿${item.finalPrice.toFixed(2)}` : '-'}
+                      </p>
                       <p className="mt-0.5 text-[10px] text-gray-400">{SOURCE_LABELS[item.priceSource] ?? item.priceSource}</p>
                     </div>
                   </motion.div>
@@ -240,7 +266,6 @@ export default function CatalogPage() {
         <SheetContent side="bottom" className="rounded-t-[2rem] bg-white border-none" showCloseButton={false}>
           {selectedItem && (
             <div className="px-5 pt-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
-              {/* Product image */}
               <div className="flex justify-center mb-4">
                 <div className="relative h-40 w-40 rounded-2xl overflow-hidden bg-gray-100">
                   <Image
@@ -262,7 +287,9 @@ export default function CatalogPage() {
               <div className="grid grid-cols-3 gap-2 mb-5">
                 <div className="bg-gray-50 rounded-xl p-3 text-center">
                   <p className="text-[10px] text-gray-400 mb-1">ราคา</p>
-                  <p className="text-sm font-semibold text-[var(--brand-primary)]">฿{selectedItem.finalPrice.toFixed(2)}</p>
+                  <p className="text-sm font-semibold text-[var(--brand-primary)]">
+                    {selectedItem.finalPrice > 0 ? `฿${selectedItem.finalPrice.toFixed(2)}` : '-'}
+                  </p>
                 </div>
                 <div className="bg-gray-50 rounded-xl p-3 text-center">
                   <p className="text-[10px] text-gray-400 mb-1">คงเหลือ</p>
@@ -284,6 +311,44 @@ export default function CatalogPage() {
               </button>
             </div>
           )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Customer Picker Sheet (admin/sale only) */}
+      <Sheet open={customerPickerOpen} onOpenChange={setCustomerPickerOpen}>
+        <SheetContent side="bottom" className="rounded-t-[2rem] px-5 pt-6 pb-8 bg-white border-none" showCloseButton={false}>
+          <h3 className="text-base font-medium text-gray-900 mb-4">เลือกลูกค้า</h3>
+          <div className="space-y-2" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+            <button
+              onClick={() => {
+                setSelectedCustomerId('');
+                setCustomerPickerOpen(false);
+              }}
+              className={`w-full h-12 rounded-xl px-4 text-left text-sm transition-colors ${
+                !selectedCustomerId
+                  ? 'bg-[var(--brand-primary)] text-white font-medium'
+                  : 'bg-gray-100 text-gray-700'
+              }`}
+            >
+              ทุกลูกค้า (ราคาปกติ)
+            </button>
+            {customers.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => {
+                  setSelectedCustomerId(c.id);
+                  setCustomerPickerOpen(false);
+                }}
+                className={`w-full h-12 rounded-xl px-4 text-left text-sm transition-colors ${
+                  selectedCustomerId === c.id
+                    ? 'bg-[var(--brand-primary)] text-white font-medium'
+                    : 'bg-gray-100 text-gray-700'
+                }`}
+              >
+                {c.name}
+              </button>
+            ))}
+          </div>
         </SheetContent>
       </Sheet>
 
