@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 
 export default function LoginPage() {
@@ -60,16 +60,7 @@ export default function LoginPage() {
   return (
     <main className="min-h-dvh bg-white text-gray-900">
       <div className="mx-auto min-h-dvh w-full max-w-md px-6 pt-[calc(env(safe-area-inset-top,0px)+20px)] pb-[calc(env(safe-area-inset-bottom,0px)+24px)]">
-        <button
-          type="button"
-          onClick={() => router.push('/')}
-          className="h-10 w-10 rounded-full flex items-center justify-center text-gray-700"
-          aria-label="Back"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-
-        <h1 className="mt-8 text-[2.2rem] leading-[2.6rem] text-gray-900">ยินดีต้อนรับกลับ</h1>
+        <h1 className="mt-4 text-[2.2rem] leading-[2.6rem] text-gray-900">ยินดีต้อนรับกลับ</h1>
         <p className="mt-2 text-sm text-gray-500">เข้าสู่ระบบเพื่อใช้งาน SheetStock ต่อ</p>
 
         <form onSubmit={onSubmit} className="mt-9 space-y-4">
@@ -106,10 +97,6 @@ export default function LoginPage() {
             </div>
             {passwordError ? <p className="mt-1 text-xs text-red-500">{passwordError}</p> : null}
           </div>
-
-          <button type="button" className="text-[1.02rem] underline text-[var(--brand-primary)]">
-            ลืมรหัสผ่าน?
-          </button>
 
           {error ? <p className="text-sm text-red-500">{error}</p> : null}
 

@@ -217,9 +217,8 @@ function InventoryDashboardContent() {
     const savedDark = window.localStorage.getItem('sheetstock-dark-mode');
     if (savedDark !== null) {
       setDarkMode(savedDark === 'on');
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setDarkMode(true);
     }
+    // Default to light mode — user can toggle dark mode in settings
     try {
       const savedScans = JSON.parse(window.localStorage.getItem('sheetstock-recent-scans') ?? '[]');
       if (Array.isArray(savedScans) && savedScans.length > 0) setRecentScans(savedScans);
