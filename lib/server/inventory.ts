@@ -86,7 +86,21 @@ export function parseInventoryQuery(searchParams: URLSearchParams): Required<Inv
   return { q, reason, stock, dateRange, minQty, maxQty, minPrice, maxPrice, from, to, type, sort, sortBy, sortOrder, page, pageSize };
 }
 
+// In-memory cache for inventory data — avoids redundant Google Sheets calls
+let inventoryCache: { data: InventoryItem[]; timestamp: number } | null = null;
+const INVENTORY_CACHE_TTL = 60_000; // 1 minute
+
 export async function loadInventoryFromGoogleSheets(): Promise<InventoryItem[]> {
+  if (inventoryCache && Date.now() - inventoryCache.timestamp < INVENTORY_CACHE_TTL) {
+    return inventoryCache.data;
+  }
+
+  const result = await fetchInventoryFromGoogleSheets();
+  inventoryCache = { data: result, timestamp: Date.now() };
+  return result;
+}
+
+async function fetchInventoryFromGoogleSheets(): Promise<InventoryItem[]> {
   const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const privateKey = process.env.GOOGLE_PRIVATE_KEY
     ?.replace(/^"/, '')

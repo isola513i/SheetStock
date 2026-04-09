@@ -11,7 +11,8 @@ export function PwaRegister() {
     if (!waitingWorker) return;
     waitingWorker.postMessage('SKIP_WAITING');
     setWaitingWorker(null);
-    window.location.reload();
+    // Don't reload here — the 'controllerchange' listener handles it
+    // after the new SW has actually taken control
   }, [waitingWorker]);
 
   useEffect(() => {

@@ -42,8 +42,6 @@
   /* Remove 300ms tap delay on interactive elements */
   button, a, [role="button"], [tabindex] {
     touch-action: manipulation;
-    -webkit-user-select: none;
-    user-select: none;
   }
 
   /* Prevent iOS Safari auto-zoom on input focus (requires >= 16px) */
@@ -72,9 +70,7 @@
   scroll-behavior: smooth;
 }
 
-/* Global scrollbar hiding */
-html, body { scrollbar-width: none; -ms-overflow-style: none; }
-::-webkit-scrollbar { display: none; width: 0; height: 0; background: transparent; }
+/* Note: use .hide-scrollbar on specific containers, not globally */
 
 /* Pull-to-refresh styling */
 .ptr--ptr { box-shadow: none !important; }

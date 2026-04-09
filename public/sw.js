@@ -67,8 +67,8 @@ self.addEventListener('fetch', (event) => {
         .catch(async () => {
           const cache = await caches.open(DATA_CACHE);
           const cached = await cache.match(event.request);
-          if (cached && !isCacheExpired(cached)) return cached;
-          // Expired or missing — return offline stub
+          // Serve stale data when offline — better than empty screen
+          if (cached) return cached;
           return new Response(JSON.stringify({ items: [], total: 0, offline: true }), {
             headers: { 'Content-Type': 'application/json' },
           });

@@ -39,11 +39,13 @@ function FullscreenImageViewer({ images, initialIndex, onClose }: { images: Gall
       if (e.touches.length === 2) {
         e.preventDefault();
         if (rafId) return; // skip if a frame is already scheduled
+        // Capture coordinates synchronously — TouchEvent may be recycled before rAF fires
+        const x0 = e.touches[0].clientX, y0 = e.touches[0].clientY;
+        const x1 = e.touches[1].clientX, y1 = e.touches[1].clientY;
         rafId = requestAnimationFrame(() => {
           rafId = 0;
-          const dx = e.touches[0].clientX - e.touches[1].clientX;
-          const dy = e.touches[0].clientY - e.touches[1].clientY;
-          // Use squared distance to avoid Math.sqrt per frame
+          const dx = x0 - x1;
+          const dy = y0 - y1;
           const distSq = dx * dx + dy * dy;
           if (lastDistRef.current > 0) {
             const delta = distSq / lastDistRef.current;

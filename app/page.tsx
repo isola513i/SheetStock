@@ -479,7 +479,7 @@ function InventoryDashboardContent() {
         id="inventory-scroll-container"
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto overscroll-none pb-24 bg-[var(--bg-primary)]"
+        className="flex-1 overflow-y-auto overscroll-none pb-24 bg-[var(--bg-primary)] hide-scrollbar"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {isSettingsTab ? (
