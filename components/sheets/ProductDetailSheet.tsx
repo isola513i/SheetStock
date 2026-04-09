@@ -231,6 +231,8 @@ function hasImage(value: unknown) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+const DISMISS_THRESHOLD = 120;
+
 export function ProductDetailSheet({
   open,
   onOpenChange,
@@ -241,6 +243,50 @@ export function ProductDetailSheet({
   const [copied, setCopied] = useState(false);
   const stock = getStockStatus(selectedItem?.totalQuantity ?? 0);
   const mainImageSrc = toSafeImageSrc(selectedItem?.imageUrl);
+
+  // Swipe-down to dismiss
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ y: 0, scrollTop: 0 });
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleDragStart = useCallback((e: React.TouchEvent) => {
+    const scrollEl = scrollContainerRef.current;
+    const scrollTop = scrollEl?.scrollTop ?? 0;
+    // Only allow drag-to-dismiss when scrolled to top
+    if (scrollTop > 5) return;
+    dragStartRef.current = { y: e.touches[0].clientY, scrollTop };
+    setIsDragging(true);
+  }, []);
+
+  const handleDragMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging) return;
+    const scrollEl = scrollContainerRef.current;
+    if (scrollEl && scrollEl.scrollTop > 5) {
+      setIsDragging(false);
+      setDragY(0);
+      return;
+    }
+    const dy = e.touches[0].clientY - dragStartRef.current.y;
+    if (dy > 0) {
+      setDragY(dy);
+    }
+  }, [isDragging]);
+
+  const handleDragEnd = useCallback(() => {
+    if (dragY > DISMISS_THRESHOLD) {
+      onOpenChange(false);
+    }
+    setDragY(0);
+    setIsDragging(false);
+  }, [dragY, onOpenChange]);
+
+  useEffect(() => {
+    if (!open) {
+      setDragY(0);
+      setIsDragging(false);
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -260,10 +306,21 @@ export function ProductDetailSheet({
             onClick={() => onOpenChange(false)}
             className="absolute inset-0 bg-black/35"
           />
-          <div className="absolute inset-x-0 bottom-0 h-[95dvh] rounded-t-[2.2rem] bg-[#F2F2F7] overflow-hidden shadow-2xl">
+          <div
+            className="absolute inset-x-0 bottom-0 h-[95dvh] rounded-t-[2.2rem] bg-[#F2F2F7] overflow-hidden shadow-2xl"
+            style={{
+              transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
+              transition: isDragging ? 'none' : 'transform 0.3s ease-out',
+              opacity: dragY > 0 ? Math.max(0.5, 1 - dragY / 400) : 1,
+            }}
+          >
             <div
+              ref={scrollContainerRef}
               className="relative h-full overflow-y-auto overscroll-contain touch-pan-y hide-scrollbar"
               style={{ WebkitOverflowScrolling: 'touch' }}
+              onTouchStart={handleDragStart}
+              onTouchMove={handleDragMove}
+              onTouchEnd={handleDragEnd}
             >
               <div className="sticky top-0 z-30 bg-[var(--brand-primary)] px-5 pt-2 pb-4 flex items-center justify-between">
                 <div className="absolute left-1/2 top-2 -translate-x-1/2 h-1.5 w-12 rounded-full bg-white/45" />
