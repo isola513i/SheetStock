@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import { Check, ChevronLeft, ChevronRight, Copy, Package, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Copy, Package, X, Clipboard } from 'lucide-react';
+import { t, getLocale, type Locale } from '@/lib/i18n';
 import { Badge } from '@/components/ui/badge';
 import { InventoryItem } from '@/lib/types';
 
@@ -241,7 +242,18 @@ export function ProductDetailSheet({
   setFullscreenImage,
 }: ProductDetailSheetProps) {
   const [copied, setCopied] = useState(false);
+  const [copiedBarcode, setCopiedBarcode] = useState<string | null>(null);
+  const [locale, setLocaleState] = useState<Locale>('th');
+  useEffect(() => { setLocaleState(getLocale()); }, []);
   const stock = getStockStatus(selectedItem?.totalQuantity ?? 0);
+
+  const copyBarcode = useCallback((barcode: string) => {
+    if (!barcode) return;
+    navigator.clipboard.writeText(barcode);
+    setCopiedBarcode(barcode);
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(20);
+    setTimeout(() => setCopiedBarcode(null), 2000);
+  }, []);
   const mainImageSrc = toSafeImageSrc(selectedItem?.imageUrl);
 
   // Swipe-down to dismiss
@@ -423,13 +435,43 @@ export function ProductDetailSheet({
                   <div className="mb-5">
                     <h3 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
                       <div className="w-1 h-4 bg-[var(--brand-primary)] rounded-full"></div>
-                      ตำแหน่งและบาร์โค้ด
+                      {t('product.locationBarcode', locale)}
                     </h3>
                     <div className="bg-gray-50 rounded-xl p-4 space-y-2 border border-gray-100">
-                      <DataRow label="จากที่ไหน" value={toDisplayText(selectedItem.fromLocation)} />
-                      <DataRow label="ส่งที่ไหน" value={toDisplayText(selectedItem.toLocation)} />
-                      <DataRow label="บาร์โค้ดกล่อง" value={toDisplayText(selectedItem.boxBarcode)} />
-                      <DataRow label="บาร์โค้ดแผ่น" value={toDisplayText(selectedItem.itemBarcode)} isLast />
+                      <DataRow label={t('product.from', locale)} value={toDisplayText(selectedItem.fromLocation)} />
+                      <DataRow label={t('product.to', locale)} value={toDisplayText(selectedItem.toLocation)} />
+                      <div className="flex justify-between items-center py-3 border-b border-dashed border-gray-200 gap-4">
+                        <span className="text-gray-500 font-medium text-sm shrink-0">{t('product.boxBarcode', locale)}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-900 text-sm font-mono">{toDisplayText(selectedItem.boxBarcode)}</span>
+                          {selectedItem.boxBarcode && (
+                            <button
+                              onClick={() => copyBarcode(selectedItem.boxBarcode)}
+                              className="shrink-0 w-7 h-7 rounded-md bg-orange-50 flex items-center justify-center active:scale-90 transition-transform"
+                            >
+                              {copiedBarcode === selectedItem.boxBarcode
+                                ? <Check className="w-3.5 h-3.5 text-green-600" />
+                                : <Clipboard className="w-3.5 h-3.5 text-[var(--brand-primary)]" />}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center py-3 gap-4">
+                        <span className="text-gray-500 font-medium text-sm shrink-0">{t('product.itemBarcode', locale)}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-900 text-sm font-mono">{toDisplayText(selectedItem.itemBarcode)}</span>
+                          {selectedItem.itemBarcode && (
+                            <button
+                              onClick={() => copyBarcode(selectedItem.itemBarcode)}
+                              className="shrink-0 w-7 h-7 rounded-md bg-orange-50 flex items-center justify-center active:scale-90 transition-transform"
+                            >
+                              {copiedBarcode === selectedItem.itemBarcode
+                                ? <Check className="w-3.5 h-3.5 text-green-600" />
+                                : <Clipboard className="w-3.5 h-3.5 text-[var(--brand-primary)]" />}
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
 

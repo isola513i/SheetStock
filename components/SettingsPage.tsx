@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { Clock, Grid3X3, List, LogOut, Moon, RefreshCcw, ShieldCheck, Smartphone, Sun, Trash2, Vibrate } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Clock, Globe, Grid3X3, List, LogOut, Moon, RefreshCcw, ShieldCheck, Smartphone, Sun, Trash2, Vibrate } from 'lucide-react';
 import type { InventoryViewMode, UserRole } from '@/lib/types';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
+import { t, getLocale, setLocale, type Locale } from '@/lib/i18n';
 
 type SettingsPageProps = {
   viewMode: InventoryViewMode;
@@ -85,7 +86,15 @@ export function SettingsPage({
   onClearRecentScans,
   onScanItemClick,
 }: SettingsPageProps) {
-  const roleLabel = userRole === 'admin' ? 'Admin' : userRole === 'sale' ? 'Sale' : userRole === 'customer' ? 'Customer' : 'Guest';
+  const [locale, setLocaleState] = useState<Locale>('th');
+  useEffect(() => { setLocaleState(getLocale()); }, []);
+  const toggleLocale = () => {
+    const next = locale === 'th' ? 'en' : 'th';
+    setLocale(next);
+    setLocaleState(next);
+  };
+
+  const roleLabel = t(userRole === 'admin' ? 'role.admin' : userRole === 'sale' ? 'role.sale' : userRole === 'customer' ? 'role.customer' : 'role.guest', locale);
   const roleBg = userRole === 'admin' ? 'bg-red-100 text-red-700' : userRole === 'sale' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700';
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const [confirmClearScansOpen, setConfirmClearScansOpen] = useState(false);
@@ -99,7 +108,7 @@ export function SettingsPage({
             {(userName ?? '?')[0].toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-[var(--text-primary)] truncate">{userName ?? 'ไม่ทราบ'}</p>
+            <p className="text-sm font-medium text-[var(--text-primary)] truncate">{userName ?? t('settings.unknown', locale)}</p>
             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium mt-0.5 ${roleBg}`}>
               <ShieldCheck className="h-3 w-3" />
               {roleLabel}
@@ -113,7 +122,7 @@ export function SettingsPage({
             className="w-full min-h-11 rounded-xl border border-red-200 text-red-500 text-sm inline-flex items-center justify-center gap-2 hover:bg-red-50 transition-colors"
           >
             <LogOut className="h-4 w-4" />
-            ออกจากระบบ
+            {t('settings.logout', locale)}
           </button>
         )}
       </section>
@@ -124,14 +133,14 @@ export function SettingsPage({
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-medium text-[var(--text-primary)] inline-flex items-center gap-2">
               <Clock className="h-4 w-4 text-[var(--text-muted)]" />
-              สแกนล่าสุด
+              {t('settings.recentScans', locale)}
             </p>
             <button
               type="button"
               onClick={() => setConfirmClearScansOpen(true)}
               className="text-[11px] text-red-500 font-medium"
             >
-              ล้างทั้งหมด
+              {t('settings.clearAll', locale)}
             </button>
           </div>
           <div className="flex gap-2 overflow-x-auto hide-scrollbar">
@@ -152,23 +161,47 @@ export function SettingsPage({
       {/* Preferences */}
       <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl px-4 py-1 divide-y divide-[var(--border-subtle)]">
         <SettingRow
+          icon={<Globe className="h-4.5 w-4.5" />}
+          label={t('settings.language', locale)}
+          description={t('settings.languageDesc', locale)}
+          right={
+            <div className="flex bg-[var(--bg-secondary)] rounded-lg p-0.5">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setLocale('th'); setLocaleState('th'); }}
+                className={`h-7 px-2.5 rounded-md flex items-center justify-center transition-colors text-xs font-medium ${locale === 'th' ? 'bg-[var(--bg-card)] shadow-sm text-[var(--brand-primary)]' : 'text-[var(--text-muted)]'}`}
+              >
+                TH
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setLocale('en'); setLocaleState('en'); }}
+                className={`h-7 px-2.5 rounded-md flex items-center justify-center transition-colors text-xs font-medium ${locale === 'en' ? 'bg-[var(--bg-card)] shadow-sm text-[var(--brand-primary)]' : 'text-[var(--text-muted)]'}`}
+              >
+                EN
+              </button>
+            </div>
+          }
+          onClick={toggleLocale}
+        />
+        <SettingRow
           icon={darkMode ? <Moon className="h-4.5 w-4.5" /> : <Sun className="h-4.5 w-4.5" />}
-          label="โหมดมืด"
-          description="ปรับสีหน้าจอให้ถนอมสายตา"
+          label={t('settings.darkMode', locale)}
+          description={t('settings.darkModeDesc', locale)}
           right={<ToggleSwitch enabled={darkMode} onToggle={onToggleDarkMode} />}
           onClick={onToggleDarkMode}
         />
         <SettingRow
           icon={<Vibrate className="h-4.5 w-4.5" />}
-          label="การสั่น"
-          description="สั่นเบาเมื่อกดปุ่มหรือสแกน"
+          label={t('settings.haptics', locale)}
+          description={t('settings.hapticsDesc', locale)}
           right={<ToggleSwitch enabled={hapticsEnabled} onToggle={onToggleHaptics} />}
           onClick={onToggleHaptics}
         />
         <SettingRow
           icon={viewMode === 'list' ? <List className="h-4.5 w-4.5" /> : <Grid3X3 className="h-4.5 w-4.5" />}
-          label="มุมมองสินค้า"
-          description={viewMode === 'list' ? 'แสดงแบบรายการ' : 'แสดงแบบตาราง'}
+          label={t('settings.viewMode', locale)}
+          description={viewMode === 'list' ? t('settings.viewModeList', locale) : t('settings.viewModeGrid', locale)}
           right={
             <div className="flex bg-[var(--bg-secondary)] rounded-lg p-0.5">
               <button
@@ -195,14 +228,14 @@ export function SettingsPage({
       <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl px-4 py-1 divide-y divide-[var(--border-subtle)]">
         <SettingRow
           icon={<RefreshCcw className="h-4.5 w-4.5" />}
-          label="รีเฟรชข้อมูล"
-          description="โหลดข้อมูลสินค้าใหม่จากเซิร์ฟเวอร์"
+          label={t('settings.refreshData', locale)}
+          description={t('settings.refreshDataDesc', locale)}
           onClick={onRefreshData}
         />
         <SettingRow
           icon={<Trash2 className="h-4.5 w-4.5 text-red-500" />}
-          label="รีเซ็ตการตั้งค่า"
-          description="คืนค่าทั้งหมดกลับเป็นค่าเริ่มต้น"
+          label={t('settings.resetPrefs', locale)}
+          description={t('settings.resetPrefsDesc', locale)}
           onClick={() => setConfirmResetOpen(true)}
         />
       </section>
@@ -224,9 +257,9 @@ export function SettingsPage({
       <ConfirmSheet
         open={confirmResetOpen}
         onOpenChange={setConfirmResetOpen}
-        title="รีเซ็ตการตั้งค่าทั้งหมด?"
-        description="ระบบจะคืนค่าโหมดแสดงผล, ตัวกรอง, และการตั้งค่าทั้งหมดกลับเป็นค่าเริ่มต้น"
-        confirmLabel="รีเซ็ต"
+        title={t('settings.resetTitle', locale)}
+        description={t('settings.resetDesc', locale)}
+        confirmLabel={t('settings.resetConfirm', locale)}
         variant="danger"
         onConfirm={onResetPreferences}
       />
@@ -235,9 +268,9 @@ export function SettingsPage({
       <ConfirmSheet
         open={confirmClearScansOpen}
         onOpenChange={setConfirmClearScansOpen}
-        title="ล้างประวัติสแกนทั้งหมด?"
-        description="ข้อมูลบาร์โค้ดที่สแกนล่าสุดจะถูกลบ"
-        confirmLabel="ล้าง"
+        title={t('settings.clearScansTitle', locale)}
+        description={t('settings.clearScansDesc', locale)}
+        confirmLabel={t('settings.clearScansConfirm', locale)}
         variant="warning"
         onConfirm={onClearRecentScans}
       />

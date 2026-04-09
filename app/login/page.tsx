@@ -1,9 +1,10 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Globe } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
+import { t, getLocale, setLocale, type Locale } from '@/lib/i18n';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,6 +16,15 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [locale, setLocaleState] = useState<Locale>('th');
+
+  useEffect(() => { setLocaleState(getLocale()); }, []);
+
+  const toggleLocale = () => {
+    const next = locale === 'th' ? 'en' : 'th';
+    setLocale(next);
+    setLocaleState(next);
+  };
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -26,12 +36,12 @@ export default function LoginPage() {
     const normalizedPassword = password.trim();
 
     if (!normalizedEmail) {
-      setEmailError('กรุณากรอกอีเมล');
+      setEmailError(t('login.emailRequired', locale));
       setLoading(false);
       return;
     }
     if (!normalizedPassword) {
-      setPasswordError('กรุณากรอกรหัสผ่าน');
+      setPasswordError(t('login.passwordRequired', locale));
       setLoading(false);
       return;
     }
@@ -44,13 +54,13 @@ export default function LoginPage() {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const msg = payload?.error ?? 'เข้าสู่ระบบไม่สำเร็จ';
+        const msg = payload?.error ?? t('login.failed', locale);
         setError(msg);
         toast(msg, 'error');
         return;
       }
 
-      toast('เข้าสู่ระบบสำเร็จ', 'success');
+      toast(t('login.success', locale), 'success');
       router.replace('/');
     } finally {
       setLoading(false);
@@ -60,15 +70,27 @@ export default function LoginPage() {
   return (
     <main className="min-h-dvh bg-white text-gray-900">
       <div className="mx-auto min-h-dvh w-full max-w-md px-6 pt-[calc(env(safe-area-inset-top,0px)+20px)] pb-[calc(env(safe-area-inset-bottom,0px)+24px)]">
-        <h1 className="mt-4 text-[2.2rem] leading-[2.6rem] text-gray-900">ยินดีต้อนรับกลับ</h1>
-        <p className="mt-2 text-sm text-gray-500">เข้าสู่ระบบเพื่อใช้งาน SheetStock ต่อ</p>
+        {/* Language toggle */}
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={toggleLocale}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-xs font-medium text-gray-600"
+          >
+            <Globe className="w-3.5 h-3.5" />
+            {locale === 'th' ? 'EN' : 'TH'}
+          </button>
+        </div>
+
+        <h1 className="mt-4 text-[2.2rem] leading-[2.6rem] text-gray-900">{t('login.welcome', locale)}</h1>
+        <p className="mt-2 text-sm text-gray-500">{t('login.subtitle', locale)}</p>
 
         <form onSubmit={onSubmit} className="mt-9 space-y-4">
           <div>
-            <label className="mb-2 block text-[1.12rem] text-gray-900">อีเมล</label>
+            <label className="mb-2 block text-[1.12rem] text-gray-900">{t('login.email', locale)}</label>
             <input
               type="email"
-              placeholder="กรอกอีเมล"
+              placeholder={t('login.emailPlaceholder', locale)}
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               className={`h-14 w-full rounded-lg border bg-[#F3F3F3] px-4 text-lg outline-none ${emailError ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-[var(--brand-primary)]'}`}
@@ -77,11 +99,11 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="mb-2 block text-[1.12rem] text-gray-900">รหัสผ่าน</label>
+            <label className="mb-2 block text-[1.12rem] text-gray-900">{t('login.password', locale)}</label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
-                placeholder="กรอกรหัสผ่าน"
+                placeholder={t('login.passwordPlaceholder', locale)}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 className={`h-14 w-full rounded-lg border bg-[#F3F3F3] px-4 pr-12 text-lg outline-none ${passwordError ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-[var(--brand-primary)]'}`}
@@ -105,7 +127,7 @@ export default function LoginPage() {
             disabled={loading}
             className="mt-2 h-14 w-full rounded-full bg-[var(--brand-primary)] text-white text-[1.25rem] disabled:opacity-60"
           >
-            {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+            {loading ? t('login.loading', locale) : t('login.submit', locale)}
           </button>
 
           <button
@@ -113,12 +135,12 @@ export default function LoginPage() {
             onClick={() => router.push('/register')}
             className="h-14 w-full rounded-full border-2 border-[var(--brand-primary)] bg-transparent text-[var(--brand-primary)] text-[1.25rem]"
           >
-            สมัครสมาชิก
+            {t('login.register', locale)}
           </button>
         </form>
 
         <div className="mt-6 rounded-xl border border-dashed border-gray-300 bg-white/60 p-3 text-[12px] text-gray-600">
-          <p className="text-gray-700">บัญชีทดสอบ (Demo)</p>
+          <p className="text-gray-700">{t('login.demo', locale)}</p>
           <p>- admin@sheetstock.app / admin1234</p>
           <p>- sale@sheetstock.app / sale1234</p>
           <p>- customer-a@sheetstock.app / cust1234</p>
