@@ -1,18 +1,17 @@
 'use client';
 
-import { ChartNoAxesCombined, LayoutGrid, PackageSearch, ScanLine, Settings } from 'lucide-react';
+import { ChartNoAxesCombined, LayoutGrid, PackageSearch, ScanLine, Settings, UserCheck } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import type { UserRole } from '@/lib/types';
 
-type ActivePage = 'inventory' | 'catalog' | 'pricing' | 'settings';
+type ActivePage = 'inventory' | 'catalog' | 'pricing' | 'settings' | 'approvals';
 
 type BottomNavProps = {
   activePage: ActivePage;
   userRole: UserRole;
   onScanClick?: () => void;
-  /** For in-page tab switching (inventory page settings tab) */
   onSettingsClick?: () => void;
   onInventoryClick?: () => void;
 };
@@ -52,44 +51,45 @@ function NavItem({
 export function BottomNav({ activePage, userRole, onScanClick, onSettingsClick, onInventoryClick }: BottomNavProps) {
   const router = useRouter();
   const isCustomer = userRole === 'customer';
+  const isAdmin = userRole === 'admin';
   const canSeePricing = userRole === 'admin' || userRole === 'sale';
-
-  const goTo = (page: ActivePage) => {
-    if (page === 'inventory') {
-      if (onInventoryClick) onInventoryClick();
-      else router.push('/');
-    } else if (page === 'settings') {
-      if (onSettingsClick) onSettingsClick();
-      else router.push('/');
-    } else if (page === 'catalog') {
-      router.push('/catalog');
-    } else if (page === 'pricing') {
-      router.push('/pricing');
-    }
-  };
 
   return (
     <nav
       className="fixed bottom-0 w-full backdrop-blur-md border-t border-[var(--border-color)] px-2 pt-2 flex justify-around items-center z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]"
       style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 6px)', backgroundColor: 'color-mix(in srgb, var(--bg-card) 80%, transparent)' }}
     >
-      {/* Customer: no inventory tab. Admin/Sale: show inventory */}
-      {!isCustomer && (
+      {/* Customer: catalog as home. Admin/Sale: inventory as home */}
+      {isCustomer ? (
+        <NavItem
+          icon={<PackageSearch className="w-5.5 h-5.5" />}
+          label="สินค้า"
+          active={activePage === 'catalog'}
+          onClick={() => router.push('/catalog')}
+        />
+      ) : (
         <NavItem
           icon={<LayoutGrid className="w-5.5 h-5.5" />}
           label="สินค้า"
           active={activePage === 'inventory'}
-          onClick={() => goTo('inventory')}
+          onClick={() => {
+            if (onInventoryClick) onInventoryClick();
+            else router.push('/');
+          }}
         />
       )}
 
-      <NavItem
-        icon={<PackageSearch className="w-5.5 h-5.5" />}
-        label="แคตตาล็อก"
-        active={activePage === 'catalog'}
-        onClick={() => goTo('catalog')}
-      />
+      {/* Admin/Sale: pricing tab */}
+      {canSeePricing && (
+        <NavItem
+          icon={<ChartNoAxesCombined className="w-5.5 h-5.5" />}
+          label="ราคา"
+          active={activePage === 'pricing'}
+          onClick={() => router.push('/pricing')}
+        />
+      )}
 
+      {/* Scan button */}
       <div className="relative -top-4">
         <button
           type="button"
@@ -100,20 +100,25 @@ export function BottomNav({ activePage, userRole, onScanClick, onSettingsClick, 
         </button>
       </div>
 
-      {canSeePricing && (
+      {/* Admin: approvals tab */}
+      {isAdmin && (
         <NavItem
-          icon={<ChartNoAxesCombined className="w-5.5 h-5.5" />}
-          label="ราคา"
-          active={activePage === 'pricing'}
-          onClick={() => goTo('pricing')}
+          icon={<UserCheck className="w-5.5 h-5.5" />}
+          label="อนุมัติ"
+          active={activePage === 'approvals'}
+          onClick={() => router.push('/admin/approvals')}
         />
       )}
 
+      {/* Settings */}
       <NavItem
         icon={<Settings className="w-5.5 h-5.5" />}
         label="ตั้งค่า"
         active={activePage === 'settings'}
-        onClick={() => goTo('settings')}
+        onClick={() => {
+          if (onSettingsClick) onSettingsClick();
+          else router.push('/');
+        }}
       />
     </nav>
   );

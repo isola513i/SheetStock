@@ -256,7 +256,7 @@ export default function AdminApprovalsPage() {
         </SheetContent>
       </Sheet>
 
-      <BottomNav activePage="settings" userRole="admin" />
+      <BottomNav activePage="approvals" userRole="admin" />
     </div>
   );
 }
