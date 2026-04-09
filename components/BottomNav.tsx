@@ -1,10 +1,14 @@
 'use client';
 
+import { memo } from 'react';
 import { ChartNoAxesCombined, LayoutGrid, PackageSearch, ScanLine, Settings, UserCheck } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import type { UserRole } from '@/lib/types';
+
+const TAB_SPRING = { type: 'spring' as const, stiffness: 500, damping: 30 };
+const ICON_SPRING = { type: 'spring' as const, stiffness: 400, damping: 25 };
 
 type ActivePage = 'inventory' | 'catalog' | 'pricing' | 'settings' | 'approvals';
 
@@ -37,10 +41,10 @@ function NavItem({
         <motion.div
           layoutId="activeTabIndicator"
           className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 bg-[var(--brand-primary)] rounded-b-full"
-          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+          transition={TAB_SPRING}
         />
       )}
-      <motion.div animate={{ scale: active ? 1.1 : 1 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }}>
+      <motion.div animate={{ scale: active ? 1.1 : 1 }} transition={ICON_SPRING}>
         {icon}
       </motion.div>
       <span className="text-[10px] font-medium leading-tight">{label}</span>
@@ -48,7 +52,7 @@ function NavItem({
   );
 }
 
-export function BottomNav({ activePage, userRole, onScanClick, onSettingsClick, onInventoryClick }: BottomNavProps) {
+export const BottomNav = memo(function BottomNav({ activePage, userRole, onScanClick, onSettingsClick, onInventoryClick }: BottomNavProps) {
   const router = useRouter();
   const isCustomer = userRole === 'customer';
   const isAdmin = userRole === 'admin';
@@ -122,4 +126,4 @@ export function BottomNav({ activePage, userRole, onScanClick, onSettingsClick, 
       />
     </nav>
   );
-}
+});

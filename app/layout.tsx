@@ -31,11 +31,21 @@ export const metadata: Metadata = {
   icons: {
     icon: '/icons/favicon.svg',
     shortcut: '/icons/favicon.svg',
-    apple: '/icons/icon-192x192.png',
+    apple: [
+      { url: '/icons/icon-152x152.png', sizes: '152x152' },
+      { url: '/icons/icon-192x192.png', sizes: '192x192' },
+    ],
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
   },
 };
 
 export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   themeColor: '#f99109',
   viewportFit: 'cover',
 };
@@ -44,7 +54,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
   const shouldEnablePwa = process.env.NODE_ENV === 'production';
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="th" suppressHydrationWarning>
       <body suppressHydrationWarning className={lineSeedSans.variable}>
         {shouldEnablePwa ? <PwaRegister /> : null}
         <ToastProvider>

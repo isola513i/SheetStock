@@ -50,10 +50,12 @@ function SettingRow({ icon, label, description, right, onClick }: {
   onClick?: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className="w-full flex items-center gap-3 px-1 py-2.5 text-left"
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick?.(); }}
+      className="w-full flex items-center gap-3 px-1 py-2.5 text-left cursor-pointer"
     >
       <div className="h-9 w-9 rounded-xl bg-[var(--bg-secondary)] flex items-center justify-center shrink-0 text-[var(--text-secondary)]">
         {icon}
@@ -62,8 +64,8 @@ function SettingRow({ icon, label, description, right, onClick }: {
         <p className="text-sm text-[var(--text-primary)]">{label}</p>
         {description && <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{description}</p>}
       </div>
-      {right && <div className="shrink-0">{right}</div>}
-    </button>
+      {right && <div className="shrink-0" onClick={(e) => e.stopPropagation()}>{right}</div>}
+    </div>
   );
 }
 

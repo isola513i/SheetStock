@@ -26,8 +26,61 @@
 }
 
 @layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     overscroll-behavior-y: none;
     font-family: var(--font-line-seed), "Noto Sans Thai", "Segoe UI", sans-serif;
   }
+
+  /* Remove 300ms tap delay on interactive elements */
+  button, a, [role="button"], [tabindex] {
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Prevent iOS Safari auto-zoom on input focus (requires >= 16px) */
+  input, select, textarea {
+    font-size: max(16px, 1em);
+  }
 }
+
+/* GPU-accelerated animation layers */
+.will-change-transform {
+  will-change: transform;
+}
+
+/* CSS containment for list items — limits repaint scope */
+.contain-card {
+  contain: layout style paint;
+}
+
+/* Hide scrollbars globally */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Smooth momentum scrolling */
+.scroll-smooth-touch {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Global scrollbar hiding */
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+::-webkit-scrollbar { display: none; width: 0; height: 0; background: transparent; }
+
+/* Pull-to-refresh styling */
+.ptr--ptr { box-shadow: none !important; }
+.ptr--box { display: flex; align-items: center; justify-content: center; min-height: 52px; }
+.ptr--content { color: #f99109 !important; font-size: 12px; letter-spacing: 0.01em; }
+.ptr--icon { color: #f99109 !important; }
+
+/* Safe area bottom padding utility */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 1rem); }

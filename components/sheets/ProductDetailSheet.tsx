@@ -29,26 +29,35 @@ function FullscreenImageViewer({ images, initialIndex, onClose }: { images: Gall
   const goPrev = useCallback(() => setCurrentIndex((i) => Math.max(0, i - 1)), []);
   const goNext = useCallback(() => setCurrentIndex((i) => Math.min(images.length - 1, i + 1)), [images.length]);
 
-  // Pinch-to-zoom via touch events
+  // Pinch-to-zoom via touch events (rAF-throttled for smooth 60fps)
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
+    let rafId = 0;
     const onTouchMove = (e: TouchEvent) => {
       if (e.touches.length === 2) {
         e.preventDefault();
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (lastDistRef.current > 0) {
-          const delta = dist / lastDistRef.current;
-          setScale((prev) => Math.min(4, Math.max(1, prev * delta)));
-        }
-        lastDistRef.current = dist;
+        if (rafId) return; // skip if a frame is already scheduled
+        rafId = requestAnimationFrame(() => {
+          rafId = 0;
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          // Use squared distance to avoid Math.sqrt per frame
+          const distSq = dx * dx + dy * dy;
+          if (lastDistRef.current > 0) {
+            const delta = distSq / lastDistRef.current;
+            // delta is ratio of squared distances, so take sqrt once
+            const scaleFactor = Math.sqrt(delta);
+            setScale((prev) => Math.min(4, Math.max(1, prev * scaleFactor)));
+          }
+          lastDistRef.current = distSq;
+        });
       }
     };
     const onTouchEnd = () => {
       lastDistRef.current = 0;
+      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
     };
 
     el.addEventListener('touchmove', onTouchMove, { passive: false });
@@ -56,6 +65,7 @@ function FullscreenImageViewer({ images, initialIndex, onClose }: { images: Gall
     return () => {
       el.removeEventListener('touchmove', onTouchMove);
       el.removeEventListener('touchend', onTouchEnd);
+      if (rafId) cancelAnimationFrame(rafId);
     };
   }, []);
 

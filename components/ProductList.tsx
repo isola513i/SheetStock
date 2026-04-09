@@ -1,10 +1,14 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { memo, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { AnimatePresence, motion, useMotionValue, useTransform, PanInfo } from 'motion/react';
 import { InventoryItem, InventoryViewMode } from '@/lib/types';
 import { Eye, Tag } from 'lucide-react';
+
+// Extract static transition objects to prevent re-creation each render
+const STAGGER_TRANSITION = (idx: number) => ({ duration: 0.2, delay: Math.min(idx * 0.03, 0.3) });
+const CONTAINER_TRANSITION = { duration: 0.15 };
 
 const BLUR_DATA_URL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=';
@@ -81,13 +85,13 @@ function SwipeableListItem({
       <motion.div
         initial={{ opacity: 0, x: -10 }}
         animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.2, delay: idx * 0.05 }}
+        transition={STAGGER_TRANSITION(idx)}
         style={{ x }}
         drag="x"
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.4}
         onDragEnd={handleDragEnd}
-        className={`relative bg-white p-3 flex items-center gap-4 cursor-pointer border transition-colors ${
+        className={`relative bg-white p-3 flex items-center gap-4 cursor-pointer border transition-colors contain-card ${
           isOutOfStock ? 'border-red-200 bg-red-50/30' : isLowStock ? 'border-yellow-200 bg-yellow-50/30' : 'border-gray-200'
         } rounded-[1.2rem]`}
         onClick={handleClick}
@@ -129,7 +133,7 @@ function SwipeableListItem({
   );
 }
 
-export function ProductList({ processedInventory, viewMode, onItemClick }: ProductListProps) {
+export const ProductList = memo(function ProductList({ processedInventory, viewMode, onItemClick }: ProductListProps) {
   return (
     <main className="px-5 pb-6">
       <AnimatePresence mode="wait">
@@ -139,7 +143,7 @@ export function ProductList({ processedInventory, viewMode, onItemClick }: Produ
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
+            transition={CONTAINER_TRANSITION}
             className="grid grid-cols-2 gap-4"
           >
             {processedInventory.map((item, idx) => {
@@ -149,9 +153,9 @@ export function ProductList({ processedInventory, viewMode, onItemClick }: Produ
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.2, delay: idx * 0.05 }}
+                  transition={STAGGER_TRANSITION(idx)}
                   key={item.id}
-                  className={`bg-white rounded-[1.5rem] p-4 flex flex-col cursor-pointer border ${isOutOfStock ? 'border-red-200 bg-red-50/30' : isLowStock ? 'border-yellow-200 bg-yellow-50/30' : 'border-gray-200'}`}
+                  className={`bg-white rounded-[1.5rem] p-4 flex flex-col cursor-pointer border contain-card ${isOutOfStock ? 'border-red-200 bg-red-50/30' : isLowStock ? 'border-yellow-200 bg-yellow-50/30' : 'border-gray-200'}`}
                   onClick={() => onItemClick(item)}
                 >
                   <div className="relative h-32 w-full mb-4">
@@ -194,7 +198,7 @@ export function ProductList({ processedInventory, viewMode, onItemClick }: Produ
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2 }}
+            transition={CONTAINER_TRANSITION}
             className="flex flex-col gap-3"
           >
             {processedInventory.map((item, idx) => (
@@ -205,4 +209,4 @@ export function ProductList({ processedInventory, viewMode, onItemClick }: Produ
       </AnimatePresence>
     </main>
   );
-}
+});

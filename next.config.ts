@@ -8,7 +8,27 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
-  // Allow access to remote image placeholder.
+  headers: async () => [
+    {
+      source: '/_next/static/:path*',
+      headers: [
+        { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+      ],
+    },
+    {
+      source: '/icons/:path*',
+      headers: [
+        { key: 'Cache-Control', value: 'public, max-age=86400' },
+      ],
+    },
+    {
+      source: '/api/:path*',
+      headers: [
+        { key: 'Cache-Control', value: 'private, no-cache, no-store' },
+        { key: 'X-Content-Type-Options', value: 'nosniff' },
+      ],
+    },
+  ],
   images: {
     remotePatterns: [
       {

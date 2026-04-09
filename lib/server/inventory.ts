@@ -174,8 +174,39 @@ export async function loadInventoryFromGoogleSheets(): Promise<InventoryItem[]> 
   }
 }
 
+// Facet cache: compute facets once per data load, not per request
+let facetCache: { data: InventoryItem[]; facets: ReturnType<typeof computeFacets> } | null = null;
+
+function countBy(values: string[]) {
+  const map = new Map<string, number>();
+  for (const value of values) {
+    if (value) map.set(value, (map.get(value) ?? 0) + 1);
+  }
+  return Array.from(map.entries())
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+function computeFacets(source: InventoryItem[]) {
+  return {
+    reasons: countBy(source.map((item) => item.mainReason)),
+    dataTypes: countBy(source.map((item) => item.dataType)),
+    fromLocations: countBy(source.map((item) => item.fromLocation)),
+    toLocations: countBy(source.map((item) => item.toLocation)),
+  };
+}
+
+function getCachedFacets(source: InventoryItem[]) {
+  // If the source array reference changed (new data loaded), recompute
+  if (!facetCache || facetCache.data !== source) {
+    facetCache = { data: source, facets: computeFacets(source) };
+  }
+  return facetCache.facets;
+}
+
 export async function getInventoryData(query: Required<InventoryQuery>): Promise<InventoryApiResponse> {
   const source = await loadInventoryFromGoogleSheets();
+  const cachedFacets = getCachedFacets(source);
   const lowerQ = query.q.trim().toLowerCase();
   const barcodeQuery = /^\d{6,}$/.test(query.q.trim()) ? query.q.trim() : '';
   const now = new Date();
@@ -238,29 +269,12 @@ export async function getInventoryData(query: Required<InventoryQuery>): Promise
   const start = (query.page - 1) * query.pageSize;
   const paged = filtered.slice(start, start + query.pageSize);
 
-  const countBy = (values: string[]) => {
-    const map = new Map<string, number>();
-    values.filter(Boolean).forEach((value) => {
-      map.set(value, (map.get(value) ?? 0) + 1);
-    });
-    return Array.from(map.entries())
-      .map(([value, count]) => ({ value, count }))
-      .sort((a, b) => b.count - a.count);
-  };
-
-  const availableFacets = {
-    reasons: countBy(source.map((item) => item.mainReason)),
-    dataTypes: countBy(source.map((item) => item.dataType)),
-    fromLocations: countBy(source.map((item) => item.fromLocation)),
-    toLocations: countBy(source.map((item) => item.toLocation)),
-  };
-
   return {
     items: paged,
     total: filtered.length,
     page: query.page,
     pageSize: query.pageSize,
-    reasons: availableFacets.reasons.map((item) => item.value),
-    availableFacets,
+    reasons: cachedFacets.reasons.map((item) => item.value),
+    availableFacets: cachedFacets,
   };
 }

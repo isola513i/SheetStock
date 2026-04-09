@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import useSWR from 'swr';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronDown, ChevronRight, Percent, Search, ShieldCheck, Tag, TrendingUp, X } from 'lucide-react';
+import { ArrowUpDown, ChevronDown, ChevronRight, Percent, Search, ShieldCheck, TrendingUp, X } from 'lucide-react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useToast } from '@/components/ui/toast';
 import { BottomNav } from '@/components/BottomNav';
@@ -66,6 +66,9 @@ export default function PricingPage() {
   const [bulkValue, setBulkValue] = useState('');
   const [bulkLoading, setBulkLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'nameAsc' | 'nameDesc' | 'priceHigh' | 'priceLow' | 'discountHigh'>('nameAsc');
+  const [filterSource, setFilterSource] = useState<'all' | 'base' | 'tier' | 'override'>('all');
+  const [sortSheetOpen, setSortSheetOpen] = useState(false);
 
   const { data: me, isLoading: isMeLoading } = useSWR<{ user: { role: string; name: string } | null }>('/api/auth/me', fetcher);
   const userRole = me?.user?.role;
@@ -84,10 +87,32 @@ export default function PricingPage() {
   const allRows = pricingData?.items ?? [];
 
   const rows = useMemo(() => {
-    if (!searchQuery.trim()) return allRows;
-    const q = searchQuery.trim().toLowerCase();
-    return allRows.filter((r) => r.name.toLowerCase().includes(q) || r.productId.toLowerCase().includes(q));
-  }, [allRows, searchQuery]);
+    let result = allRows;
+    // Filter by source
+    if (filterSource !== 'all') {
+      result = result.filter((r) => r.priceSource === filterSource);
+    }
+    // Filter by search
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter((r) => r.name.toLowerCase().includes(q) || r.productId.toLowerCase().includes(q));
+    }
+    // Sort
+    return [...result].sort((a, b) => {
+      switch (sortBy) {
+        case 'nameAsc': return a.name.localeCompare(b.name, 'th');
+        case 'nameDesc': return b.name.localeCompare(a.name, 'th');
+        case 'priceHigh': return b.finalPrice - a.finalPrice;
+        case 'priceLow': return a.finalPrice - b.finalPrice;
+        case 'discountHigh': {
+          const da = a.basePrice > 0 ? (a.basePrice - a.finalPrice) / a.basePrice : 0;
+          const db = b.basePrice > 0 ? (b.basePrice - b.finalPrice) / b.basePrice : 0;
+          return db - da;
+        }
+        default: return 0;
+      }
+    });
+  }, [allRows, searchQuery, filterSource, sortBy]);
 
   const openEdit = (row: PricingRow) => {
     setEditingRow(row);
@@ -221,18 +246,47 @@ export default function PricingPage() {
       </div>
 
       {/* Toolbar */}
-      <div className="px-5 pt-4 pb-2 flex items-center justify-between">
-        <p className="text-sm text-gray-500">
-          {rows.length} รายการ
-          {searchQuery && ` (ค้นหา "${searchQuery}")`}
-        </p>
-        <button
-          onClick={() => setBulkOpen(true)}
-          className="h-9 px-4 rounded-full bg-white border border-gray-200 text-xs font-medium text-gray-700 flex items-center gap-1.5 shadow-sm"
-        >
-          <Percent className="w-3.5 h-3.5" />
-          ปรับราคากลุ่ม
-        </button>
+      <div className="px-5 pt-3 pb-2 space-y-2.5">
+        {/* Row 1: count + actions */}
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-[var(--text-muted)]">{rows.length} รายการ</p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSortSheetOpen(true)}
+              className="h-8 px-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-medium text-[var(--text-secondary)] flex items-center gap-1.5 shadow-sm"
+            >
+              <ArrowUpDown className="w-3.5 h-3.5" />
+              {sortBy === 'nameAsc' ? 'ชื่อ ก-ฮ' : sortBy === 'nameDesc' ? 'ชื่อ ฮ-ก' : sortBy === 'priceHigh' ? 'ราคาสูง' : sortBy === 'priceLow' ? 'ราคาต่ำ' : 'ส่วนลดมาก'}
+            </button>
+            <button
+              onClick={() => setBulkOpen(true)}
+              className="h-8 px-3 rounded-full bg-[var(--bg-card)] border border-[var(--border-color)] text-xs font-medium text-[var(--text-secondary)] flex items-center gap-1.5 shadow-sm"
+            >
+              <Percent className="w-3.5 h-3.5" />
+              กลุ่ม
+            </button>
+          </div>
+        </div>
+        {/* Row 2: source filter chips */}
+        <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-0.5">
+          {(['all', 'base', 'tier', 'override'] as const).map((src) => {
+            const labels = { all: 'ทั้งหมด', base: 'ราคาปกติ', tier: 'ส่วนลดระดับ', override: 'ราคาพิเศษ' };
+            const active = filterSource === src;
+            return (
+              <button
+                key={src}
+                onClick={() => setFilterSource(src)}
+                className={`shrink-0 h-7 px-3 rounded-full text-[11px] font-medium transition-colors ${
+                  active
+                    ? 'bg-[var(--brand-primary)] text-white'
+                    : 'bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-secondary)]'
+                }`}
+              >
+                {labels[src]}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Product list */}
@@ -291,11 +345,11 @@ export default function PricingPage() {
                           )}
                         </div>
 
-                        <div className="flex items-baseline gap-2 mt-1">
+                        <div className="flex items-baseline gap-1.5 mt-1">
                           {row.basePrice !== row.finalPrice && (
-                            <span className="text-[11px] text-gray-400 line-through">{formatPrice(row.basePrice)}</span>
+                            <span className="text-[10px] text-gray-400 line-through">{formatPrice(row.basePrice)}</span>
                           )}
-                          <span className="text-base font-semibold text-[var(--brand-primary)]">{formatPrice(row.finalPrice)}</span>
+                          <span className="text-[13px] font-semibold text-[var(--brand-primary)]">{formatPrice(row.finalPrice)}</span>
                         </div>
                       </div>
 
@@ -311,6 +365,34 @@ export default function PricingPage() {
           </AnimatePresence>
         )}
       </div>
+
+      {/* Sort Sheet */}
+      <Sheet open={sortSheetOpen} onOpenChange={setSortSheetOpen}>
+        <SheetContent side="bottom" className="rounded-t-[2rem] px-5 pt-6 pb-8 bg-white border-none" showCloseButton={false}>
+          <h3 className="text-base font-medium text-gray-900 mb-4">เรียงลำดับ</h3>
+          <div className="space-y-2" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+            {([
+              { key: 'nameAsc', label: 'ชื่อสินค้า ก → ฮ' },
+              { key: 'nameDesc', label: 'ชื่อสินค้า ฮ → ก' },
+              { key: 'priceHigh', label: 'ราคาสูง → ต่ำ' },
+              { key: 'priceLow', label: 'ราคาต่ำ → สูง' },
+              { key: 'discountHigh', label: 'ส่วนลดมาก → น้อย' },
+            ] as const).map((opt) => (
+              <button
+                key={opt.key}
+                onClick={() => { setSortBy(opt.key); setSortSheetOpen(false); }}
+                className={`w-full h-12 rounded-xl px-4 text-left text-sm transition-colors ${
+                  sortBy === opt.key
+                    ? 'bg-[var(--brand-primary)] text-white font-medium'
+                    : 'bg-gray-100 text-gray-700'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Customer Picker Sheet */}
       <Sheet open={customerPickerOpen} onOpenChange={setCustomerPickerOpen}>

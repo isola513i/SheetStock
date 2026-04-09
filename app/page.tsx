@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import useSWR from 'swr';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'motion/react';
@@ -11,10 +12,12 @@ import { Input } from '@/components/ui/input';
 import { BottomNav } from '@/components/BottomNav';
 import { ProductList } from '@/components/ProductList';
 import { SettingsPage } from '@/components/SettingsPage';
-import { ProductDetailSheet } from '@/components/sheets/ProductDetailSheet';
-import { FilterSheet } from '@/components/sheets/FilterSheet';
-import { SortSheet } from '@/components/sheets/SortSheet';
-import { BarcodeScannerSheet } from '@/components/BarcodeScannerSheet';
+
+// Lazy-load sheets — they're only shown on user interaction
+const ProductDetailSheet = dynamic(() => import('@/components/sheets/ProductDetailSheet').then(m => ({ default: m.ProductDetailSheet })), { ssr: false });
+const FilterSheet = dynamic(() => import('@/components/sheets/FilterSheet').then(m => ({ default: m.FilterSheet })), { ssr: false });
+const SortSheet = dynamic(() => import('@/components/sheets/SortSheet').then(m => ({ default: m.SortSheet })), { ssr: false });
+const BarcodeScannerSheet = dynamic(() => import('@/components/BarcodeScannerSheet').then(m => ({ default: m.BarcodeScannerSheet })), { ssr: false });
 
 const PAGE_SIZE = 20;
 const DEFAULT_SORT: InventorySortPreset = 'latest';
@@ -256,10 +259,10 @@ function InventoryDashboardContent() {
     window.localStorage.setItem('sheetstock-recent-scans', JSON.stringify(recentScans));
   }, [recentScans, hydrated]);
 
-  const handleItemClick = (item: InventoryItem) => {
+  const handleItemClick = useCallback((item: InventoryItem) => {
     setSelectedItem(item);
     setIsOpen(true);
-  };
+  }, []);
 
   const clearFilters = () => {
     updateQuery({
@@ -656,49 +659,6 @@ function InventoryDashboardContent() {
       )}
       {!isSettingsTab && <BarcodeScannerSheet open={isScannerOpen} onOpenChange={setIsScannerOpen} onDetected={handleScanDetected} />}
 
-      <style jsx global>{`
-        html, body {
-          scrollbar-width: none;
-          -ms-overflow-style: none;
-        }
-        ::-webkit-scrollbar {
-          display: none;
-          width: 0;
-          height: 0;
-          background: transparent;
-        }
-        * {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .hide-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .hide-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .pb-safe {
-          padding-bottom: env(safe-area-inset-bottom, 1rem);
-        }
-        .ptr--ptr {
-          box-shadow: none !important;
-        }
-        .ptr--box {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 52px;
-        }
-        .ptr--content {
-          color: #f99109 !important;
-          font-size: 12px;
-          letter-spacing: 0.01em;
-        }
-        .ptr--icon {
-          color: #f99109 !important;
-        }
-      `}</style>
     </div>
   );
 }
