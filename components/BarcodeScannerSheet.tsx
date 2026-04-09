@@ -29,7 +29,12 @@ export function BarcodeScannerSheet({ open, onOpenChange, onDetected }: BarcodeS
         scanner = new Html5Qrcode(SCANNER_REGION_ID);
         await scanner.start(
           { facingMode: 'environment' },
-          { fps: 10, qrbox: 220 },
+          {
+            fps: 30,
+            qrbox: { width: 280, height: 160 },
+            aspectRatio: 1.0,
+            disableFlip: false,
+          },
           (decodedText: string) => {
             // Haptic feedback on supported devices for scan success.
             if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
@@ -64,7 +69,7 @@ export function BarcodeScannerSheet({ open, onOpenChange, onDetected }: BarcodeS
       >
         <h3 className="text-lg font-medium text-gray-900 mb-2">สแกนบาร์โค้ด</h3>
         <p className="text-sm text-gray-500 mb-4">เล็งกล้องไปที่บาร์โค้ดสินค้าเพื่อค้นหาอัตโนมัติ</p>
-        <div id={SCANNER_REGION_ID} className="w-full min-h-[280px] rounded-xl overflow-hidden bg-black/5" />
+        <div id={SCANNER_REGION_ID} className="w-full min-h-[320px] rounded-xl overflow-hidden bg-black/5" />
         {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
       </SheetContent>
     </Sheet>
