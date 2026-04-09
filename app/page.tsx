@@ -396,7 +396,7 @@ function InventoryDashboardContent() {
   };
 
   return (
-    <div className="h-[100dvh] w-full flex flex-col bg-[var(--bg-primary)] text-[var(--text-primary)] overflow-hidden overscroll-none">
+    <div className="fixed inset-0 w-full flex flex-col bg-[var(--bg-primary)] text-[var(--text-primary)] overflow-hidden overscroll-none">
       {/* Orange Header */}
       <div className={`shrink-0 z-30 bg-[var(--brand-primary)] rounded-b-[1.5rem] px-5 pt-8 text-white shadow-sm transition-all duration-300 ${scrollDir === 'down' ? 'pb-4' : 'pb-5'}`}>
         <div className="flex justify-between items-center mb-4">
