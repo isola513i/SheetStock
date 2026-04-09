@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     customerId,
-    result: bulkUpdateCustomerPrices({
+    result: await bulkUpdateCustomerPrices({
       actorId: guard.user.id,
       customerId,
       productIds,

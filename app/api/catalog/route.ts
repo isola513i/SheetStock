@@ -18,6 +18,6 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     customerId,
-    items: getCatalogForCustomer(customerId),
+    items: await getCatalogForCustomer(customerId),
   });
 }

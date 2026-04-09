@@ -10,7 +10,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   const { approvalId } = await params;
   try {
-    const result = approveRequest({ approvalId, actorId: guard.user.id });
+    const result = await approveRequest({ approvalId, actorId: guard.user.id });
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 400 });

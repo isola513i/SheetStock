@@ -18,7 +18,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
   }
 
   try {
-    const result = upsertCustomerProductPrice({
+    const result = await upsertCustomerProductPrice({
       actorId: guard.user.id,
       customerId: id,
       productId,

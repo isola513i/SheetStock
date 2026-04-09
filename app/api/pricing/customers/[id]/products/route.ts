@@ -8,7 +8,7 @@ export async function GET(request: NextRequest, { params }: Params) {
   const guard = requireUser(request, ['admin', 'sale']);
   if (!guard.ok) return guard.response;
   const { id } = await params;
-  return NextResponse.json({ customerId: id, items: getPricingRowsForCustomer(id) });
+  return NextResponse.json({ customerId: id, items: await getPricingRowsForCustomer(id) });
 }
 
 export async function POST(request: NextRequest, { params }: Params) {
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   return NextResponse.json({
     customerId: id,
-    result: bulkUpdateCustomerPrices({
+    result: await bulkUpdateCustomerPrices({
       actorId: guard.user.id,
       customerId: id,
       productIds,

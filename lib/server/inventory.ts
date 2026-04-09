@@ -86,7 +86,7 @@ export function parseInventoryQuery(searchParams: URLSearchParams): Required<Inv
   return { q, reason, stock, dateRange, minQty, maxQty, minPrice, maxPrice, from, to, type, sort, sortBy, sortOrder, page, pageSize };
 }
 
-async function loadInventoryFromGoogleSheets(): Promise<InventoryItem[]> {
+export async function loadInventoryFromGoogleSheets(): Promise<InventoryItem[]> {
   const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const privateKey = process.env.GOOGLE_PRIVATE_KEY
     ?.replace(/^"/, '')
@@ -138,10 +138,6 @@ async function loadInventoryFromGoogleSheets(): Promise<InventoryItem[]> {
 
     const rows = (response.data.values ?? []) as (string | undefined | null)[][];
     if (rows.length <= 1) return [];
-    // #region agent log
-    const sampleRow = rows[1] ?? [];
-    fetch('http://127.0.0.1:7562/ingest/23774785-1479-4541-8a3e-191135ee76a3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a00100'},body:JSON.stringify({sessionId:'a00100',runId:'pre-fix-3',hypothesisId:'H5',location:'lib/server/inventory.ts:141',message:'Sheet row index sample',data:{columns:sampleRow.length,col11:sampleRow[11] ?? null,col12:sampleRow[12] ?? null,col13:sampleRow[13] ?? null,col14:sampleRow[14] ?? null,col15:sampleRow[15] ?? null,col16:sampleRow[16] ?? null,col17:sampleRow[17] ?? null,col18:sampleRow[18] ?? null,col19:sampleRow[19] ?? null,col20:sampleRow[20] ?? null},timestamp:Date.now()})}).catch(()=>undefined);
-    // #endregion
 
     return rows.slice(1).map((row, idx) => {
       const boxBarcode = safeString(row[5]);

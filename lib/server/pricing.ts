@@ -1,11 +1,13 @@
 import 'server-only';
 
 import { randomUUID } from 'node:crypto';
+import { loadInventoryFromGoogleSheets } from '@/lib/server/inventory';
 import { mockInventory } from '@/lib/mock-data';
 import type {
   CatalogItem,
   CustomerAccount,
   CustomerProductOverride,
+  InventoryItem,
   PriceApprovalRequest,
   PriceAuditLog,
   PriceSource,
@@ -23,10 +25,6 @@ const customers: CustomerAccount[] = [
   { id: 'c-002', name: 'ร้านรุ่งเรืองเทรด', tierId: 'tier-gold', saleOwnerId: 'u-sale-a', status: 'active' },
 ];
 
-const productMinAllowedMap = new Map<string, number>(
-  mockInventory.map((item) => [item.id, Number((item.storePrice * 0.85).toFixed(2))])
-);
-
 const overrides: CustomerProductOverride[] = [
   {
     customerId: 'c-001',
@@ -41,6 +39,25 @@ const overrides: CustomerProductOverride[] = [
 
 const approvals: PriceApprovalRequest[] = [];
 const auditLogs: PriceAuditLog[] = [];
+
+// Cache for inventory data to avoid re-fetching on every pricing call
+let cachedProducts: InventoryItem[] | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL = 60_000; // 1 minute
+
+async function getProducts(): Promise<InventoryItem[]> {
+  const now = Date.now();
+  if (cachedProducts && now - cacheTimestamp < CACHE_TTL) {
+    return cachedProducts;
+  }
+  try {
+    cachedProducts = await loadInventoryFromGoogleSheets();
+    cacheTimestamp = now;
+    return cachedProducts;
+  } catch {
+    return cachedProducts ?? mockInventory;
+  }
+}
 
 function round2(value: number) {
   return Number(value.toFixed(2));
@@ -101,24 +118,27 @@ export function resolveCatalogItemPrice(customerId: string, productId: string, b
   return { finalPrice: basePrice, tierPrice, source: 'base' as PriceSource };
 }
 
-export function getCatalogForCustomer(customerId: string): CatalogItem[] {
-  return mockInventory.map((item) => {
-    const pricing = resolveCatalogItemPrice(customerId, item.id, item.storePrice);
+export async function getCatalogForCustomer(customerId: string): Promise<CatalogItem[]> {
+  const products = await getProducts();
+  return products.map((item) => {
+    const basePrice = item.storePrice || item.changedPrice || 0;
+    const pricing = resolveCatalogItemPrice(customerId, item.id, basePrice);
+    const minAllowed = round2(basePrice * 0.85);
     return {
       productId: item.id,
       name: item.details,
       imageUrl: item.imageUrl,
       stock: item.totalQuantity,
-      basePrice: item.storePrice,
+      basePrice,
       tierPrice: pricing.tierPrice,
       finalPrice: pricing.finalPrice,
       priceSource: pricing.source,
-      minAllowedPrice: productMinAllowedMap.get(item.id) ?? item.storePrice,
+      minAllowedPrice: minAllowed,
     };
   });
 }
 
-export function getPricingRowsForCustomer(customerId: string) {
+export async function getPricingRowsForCustomer(customerId: string) {
   return getCatalogForCustomer(customerId);
 }
 
@@ -130,7 +150,7 @@ export function getAuditLogs() {
   return auditLogs;
 }
 
-export function upsertCustomerProductPrice(params: {
+export async function upsertCustomerProductPrice(params: {
   actorId: string;
   customerId: string;
   productId: string;
@@ -138,12 +158,14 @@ export function upsertCustomerProductPrice(params: {
   reason: string;
 }) {
   const nowIso = new Date().toISOString();
-  const product = mockInventory.find((item) => item.id === params.productId);
+  const products = await getProducts();
+  const product = products.find((item) => item.id === params.productId);
   if (!product) {
     throw new Error('Product not found');
   }
 
-  const minAllowedPrice = productMinAllowedMap.get(params.productId) ?? product.storePrice;
+  const basePrice = product.storePrice || product.changedPrice || 0;
+  const minAllowedPrice = round2(basePrice * 0.85);
   const existing = getActiveOverride(params.customerId, params.productId);
 
   if (params.price < minAllowedPrice) {
@@ -179,7 +201,7 @@ export function upsertCustomerProductPrice(params: {
     });
   }
 
-  const oldPrice = existing?.price ?? resolveCatalogItemPrice(params.customerId, params.productId, product.storePrice).finalPrice;
+  const oldPrice = existing?.price ?? resolveCatalogItemPrice(params.customerId, params.productId, basePrice).finalPrice;
   auditLogs.push({
     id: randomUUID(),
     actorId: params.actorId,
@@ -195,7 +217,7 @@ export function upsertCustomerProductPrice(params: {
   return { ok: true, requiresApproval: false };
 }
 
-export function bulkUpdateCustomerPrices(params: {
+export async function bulkUpdateCustomerPrices(params: {
   actorId: string;
   customerId: string;
   productIds: string[];
@@ -203,29 +225,33 @@ export function bulkUpdateCustomerPrices(params: {
   adjustmentValue: number;
   reason: string;
 }) {
-  const result = params.productIds.map((productId) => {
-    const product = mockInventory.find((item) => item.id === productId);
-    if (!product) return { productId, ok: false, reason: 'Product not found' };
-    const base = resolveCatalogItemPrice(params.customerId, productId, product.storePrice).finalPrice;
+  const products = await getProducts();
+  const results = [];
+  for (const productId of params.productIds) {
+    const product = products.find((item) => item.id === productId);
+    if (!product) {
+      results.push({ productId, ok: false, reason: 'Product not found' });
+      continue;
+    }
+    const basePrice = product.storePrice || product.changedPrice || 0;
+    const current = resolveCatalogItemPrice(params.customerId, productId, basePrice).finalPrice;
     const nextPrice =
       params.adjustmentType === 'percent'
-        ? round2(base * (1 + params.adjustmentValue / 100))
-        : round2(base + params.adjustmentValue);
-    return {
+        ? round2(current * (1 + params.adjustmentValue / 100))
+        : round2(current + params.adjustmentValue);
+    const result = await upsertCustomerProductPrice({
+      actorId: params.actorId,
+      customerId: params.customerId,
       productId,
-      ...upsertCustomerProductPrice({
-        actorId: params.actorId,
-        customerId: params.customerId,
-        productId,
-        price: nextPrice,
-        reason: params.reason,
-      }),
-    };
-  });
-  return result;
+      price: nextPrice,
+      reason: params.reason,
+    });
+    results.push({ productId, ...result });
+  }
+  return results;
 }
 
-export function approveRequest(params: { approvalId: string; actorId: string }) {
+export async function approveRequest(params: { approvalId: string; actorId: string }) {
   const request = approvals.find((item) => item.id === params.approvalId);
   if (!request) throw new Error('Approval not found');
   request.status = 'approved';
