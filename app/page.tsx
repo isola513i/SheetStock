@@ -55,6 +55,9 @@ function InventoryDashboardContent() {
     if (typeof window === 'undefined') return true;
     return window.localStorage.getItem('sheetstock-haptics') !== 'off';
   });
+  const [darkMode, setDarkMode] = useState(false);
+  const [recentScans, setRecentScans] = useState<string[]>([]);
+  const [hydrated, setHydrated] = useState(false);
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -186,6 +189,13 @@ function InventoryDashboardContent() {
     if (!response.ok) return { user: null };
     return response.json();
   });
+  // Customer role → redirect to catalog (they don't see inventory)
+  useEffect(() => {
+    if (meData?.user?.role === 'customer') {
+      router.replace('/catalog');
+    }
+  }, [meData, router]);
+
   const totalItems = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
   const activeFilterCount = useMemo(() => {
@@ -198,6 +208,21 @@ function InventoryDashboardContent() {
   }, [filterReason, stockFilter, dateRange, dataTypeFilter]);
   const showFloatingPagination = scrollDir !== 'down';
   const isSettingsTab = activeTab === 'settings';
+
+  // Hydrate client-only state from localStorage after mount
+  useEffect(() => {
+    const savedDark = window.localStorage.getItem('sheetstock-dark-mode');
+    if (savedDark !== null) {
+      setDarkMode(savedDark === 'on');
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      setDarkMode(true);
+    }
+    try {
+      const savedScans = JSON.parse(window.localStorage.getItem('sheetstock-recent-scans') ?? '[]');
+      if (Array.isArray(savedScans) && savedScans.length > 0) setRecentScans(savedScans);
+    } catch { /* ignore */ }
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
     isValidatingRef.current = isValidating;
@@ -212,6 +237,24 @@ function InventoryDashboardContent() {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem('sheetstock-haptics', hapticsEnabled ? 'on' : 'off');
   }, [hapticsEnabled]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const root = document.documentElement;
+    if (darkMode) {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    if (hydrated) {
+      window.localStorage.setItem('sheetstock-dark-mode', darkMode ? 'on' : 'off');
+    }
+  }, [darkMode, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    window.localStorage.setItem('sheetstock-recent-scans', JSON.stringify(recentScans));
+  }, [recentScans, hydrated]);
 
   const handleItemClick = (item: InventoryItem) => {
     setSelectedItem(item);
@@ -278,6 +321,10 @@ function InventoryDashboardContent() {
   const handleScanDetected = (barcode: string) => {
     setSearchQuery(barcode);
     updateQuery({ q: barcode, page: 1 });
+    setRecentScans((prev) => {
+      const updated = [barcode, ...prev.filter((s) => s !== barcode)].slice(0, 10);
+      return updated;
+    });
   };
 
   useEffect(() => {
@@ -326,9 +373,13 @@ function InventoryDashboardContent() {
       window.localStorage.removeItem('sheetstock-sort');
       window.localStorage.removeItem('sheetstock-view-mode');
       window.localStorage.removeItem('sheetstock-haptics');
+      window.localStorage.removeItem('sheetstock-dark-mode');
+      window.localStorage.removeItem('sheetstock-recent-scans');
     }
     setViewMode('list');
     setHapticsEnabled(true);
+    setDarkMode(false);
+    setRecentScans([]);
     setSearchQuery('');
     updateQuery({
       q: '',
@@ -341,14 +392,8 @@ function InventoryDashboardContent() {
     });
   };
 
-  // #region agent log
-  useEffect(() => {
-    fetch('http://127.0.0.1:7562/ingest/23774785-1479-4541-8a3e-191135ee76a3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a00100'},body:JSON.stringify({sessionId:'a00100',runId:'pre-fix-2',hypothesisId:'H3',location:'app/page.tsx:214',message:'InventoryDashboard state snapshot',data:{hasData:!!data,hasAvailableFacets:!!data?.availableFacets,reasonsCount:(data?.availableFacets?.reasons ?? []).length,dataTypesCount:(data?.availableFacets?.dataTypes ?? []).length,isFilterOpen},timestamp:Date.now()})}).catch(()=>{});
-  }, [data, isFilterOpen]);
-  // #endregion
-
   return (
-    <div className="h-[100dvh] w-full flex flex-col bg-[#F2F2F7] text-gray-900 overflow-hidden overscroll-none">
+    <div className="h-[100dvh] w-full flex flex-col bg-[var(--bg-primary)] text-[var(--text-primary)] overflow-hidden overscroll-none">
       {/* Orange Header */}
       <div className={`shrink-0 z-30 bg-[var(--brand-primary)] rounded-b-[1.5rem] px-5 pt-8 text-white shadow-sm transition-all duration-300 ${scrollDir === 'down' ? 'pb-4' : 'pb-5'}`}>
         <div className="flex justify-between items-center mb-4">
@@ -431,22 +476,32 @@ function InventoryDashboardContent() {
         id="inventory-scroll-container"
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto overscroll-none pb-24"
+        className="flex-1 overflow-y-auto overscroll-none pb-24 bg-[var(--bg-primary)]"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {isSettingsTab ? (
           <SettingsPage
             viewMode={viewMode}
             hapticsEnabled={hapticsEnabled}
+            darkMode={darkMode}
             onChangeViewMode={setViewMode}
             onToggleHaptics={() => setHapticsEnabled((prev) => !prev)}
+            onToggleDarkMode={() => setDarkMode((prev) => !prev)}
             onRefreshData={handleRefreshData}
             onResetPreferences={handleResetPreferences}
-            onOpenLogin={() => router.push('/login')}
-            onOpenPricing={() => router.push('/pricing')}
-            onOpenCatalog={() => router.push('/catalog')}
+            onLogout={async () => {
+              await fetch('/api/auth/logout', { method: 'POST' });
+              router.push('/login');
+            }}
             userRole={meData?.user?.role}
             userName={meData?.user?.name}
+            recentScans={recentScans}
+            onClearRecentScans={() => setRecentScans([])}
+            onScanItemClick={(barcode) => {
+              setSearchQuery(barcode);
+              updateQuery({ q: barcode, page: 1 });
+              setActiveTab('inventory');
+            }}
           />
         ) : (
           <>
@@ -459,16 +514,16 @@ function InventoryDashboardContent() {
                 softHaptic();
                 setIsFilterOpen(true);
               }}
-              className="px-3 min-h-11 bg-white border border-gray-200 rounded-full flex items-center gap-1.5 text-xs font-medium text-gray-600 shadow-sm active:scale-95 transition-all"
+              className="px-3 min-h-11 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-full flex items-center gap-1.5 text-xs font-medium text-[var(--text-secondary)] shadow-sm active:scale-95 transition-all"
             >
               <SlidersHorizontal className="w-3.5 h-3.5" /> ตัวกรอง{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
             </button>
-            <button 
+            <button
               onClick={() => {
                 softHaptic();
                 setIsSortOpen(true);
               }}
-              className="px-3 min-h-11 bg-white border border-gray-200 rounded-full flex items-center gap-1.5 text-xs font-medium text-gray-600 shadow-sm active:scale-95 transition-all"
+              className="px-3 min-h-11 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-full flex items-center gap-1.5 text-xs font-medium text-[var(--text-secondary)] shadow-sm active:scale-95 transition-all"
             >
               <ArrowUpDown className="w-3.5 h-3.5" /> เรียงลำดับ
             </button>
@@ -489,14 +544,24 @@ function InventoryDashboardContent() {
           </main>
             ) : processedInventory.length === 0 ? (
           <main className="px-5 pb-6">
-            <div className="bg-white rounded-2xl border border-gray-200 px-5 py-8 text-center">
-              <p className="text-gray-800 font-medium mb-1">ไม่พบสินค้า</p>
-              <p className="text-sm text-gray-500 mb-4">ลองเปลี่ยนคำค้นหา หรือล้างตัวกรองทั้งหมด</p>
+            <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] px-5 py-10 text-center">
+              <div className="mx-auto w-20 h-20 rounded-full bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center mb-4">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--brand-primary)]">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" />
+                  <path d="M8 11h6" />
+                </svg>
+              </div>
+              <p className="text-[var(--text-primary)] font-medium mb-1">ไม่พบสินค้า</p>
+              <p className="text-sm text-[var(--text-secondary)] mb-2">ลองเปลี่ยนคำค้นหา หรือล้างตัวกรอง</p>
+              {debouncedSearchQuery && (
+                <p className="text-xs text-[var(--text-muted)] mb-4">ลองค้นด้วยบาร์โค้ดหรือชื่อสินค้า เช่น &quot;serum&quot;</p>
+              )}
               <button
                 onClick={clearFilters}
-                className="px-4 py-2 rounded-xl bg-[var(--brand-primary)] text-white text-sm font-medium"
+                className="px-5 py-2.5 rounded-xl bg-[var(--brand-primary)] text-white text-sm font-medium"
               >
-                ล้างตัวกรอง
+                ล้างตัวกรองทั้งหมด
               </button>
             </div>
           </main>
@@ -549,7 +614,13 @@ function InventoryDashboardContent() {
         )}
       </div>
 
-      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} onScanClick={() => setIsScannerOpen(true)} />
+      <BottomNav
+        activePage={activeTab === 'settings' ? 'settings' : 'inventory'}
+        userRole={meData?.user?.role ?? 'admin'}
+        onScanClick={() => setIsScannerOpen(true)}
+        onSettingsClick={() => setActiveTab('settings')}
+        onInventoryClick={() => setActiveTab('inventory')}
+      />
 
       {!isSettingsTab && (
         <ProductDetailSheet

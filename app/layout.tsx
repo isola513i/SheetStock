@@ -2,6 +2,7 @@ import type {Metadata, Viewport} from 'next';
 import localFont from 'next/font/local';
 import './globals.css'; // Global styles
 import {PwaRegister} from './pwa-register';
+import {ToastProvider} from '@/components/ui/toast';
 
 const lineSeedSans = localFont({
   src: [
@@ -43,10 +44,12 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
   const shouldEnablePwa = process.env.NODE_ENV === 'production';
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning className={lineSeedSans.variable}>
         {shouldEnablePwa ? <PwaRegister /> : null}
-        {children}
+        <ToastProvider>
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );

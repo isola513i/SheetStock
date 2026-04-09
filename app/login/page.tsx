@@ -3,9 +3,11 @@
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -42,10 +44,13 @@ export default function LoginPage() {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setError(payload?.error ?? 'เข้าสู่ระบบไม่สำเร็จ');
+        const msg = payload?.error ?? 'เข้าสู่ระบบไม่สำเร็จ';
+        setError(msg);
+        toast(msg, 'error');
         return;
       }
 
+      toast('เข้าสู่ระบบสำเร็จ', 'success');
       router.replace('/');
     } finally {
       setLoading(false);
@@ -118,7 +123,7 @@ export default function LoginPage() {
 
           <button
             type="button"
-            onClick={() => window.alert('ฟีเจอร์สมัครสมาชิกจะเปิดใช้งานเร็วๆ นี้\nหากต้องการทดสอบ ตอนนี้ใช้บัญชี demo ด้านล่างได้เลย')}
+            onClick={() => router.push('/register')}
             className="h-14 w-full rounded-full border-2 border-[var(--brand-primary)] bg-transparent text-[var(--brand-primary)] text-[1.25rem]"
           >
             สมัครสมาชิก

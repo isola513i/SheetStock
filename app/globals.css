@@ -2,6 +2,27 @@
 
 :root {
   --brand-primary: #f99109;
+  --bg-primary: #F2F2F7;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f9fafb;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --border-color: #e5e7eb;
+  --bg-secondary: #f3f4f6;
+  --border-subtle: #f3f4f6;
+}
+
+.dark {
+  --bg-primary: #0a0a0a;
+  --bg-card: #1a1a1a;
+  --bg-card-hover: #252525;
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  --border-color: #2a2a2a;
+  --bg-secondary: #252525;
+  --border-subtle: #1f1f1f;
 }
 
 @layer base {

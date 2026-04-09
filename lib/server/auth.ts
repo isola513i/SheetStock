@@ -71,3 +71,11 @@ export function getSessionFromToken(token: string | undefined): AuthSession | nu
 export function destroySession(token: string | undefined) {
   void token;
 }
+
+export function emailExists(email: string): boolean {
+  return mockUsers.some((u) => u.email.toLowerCase() === email.trim().toLowerCase());
+}
+
+export function addMockUser(user: AppUser & { password: string }) {
+  mockUsers.push(user);
+}

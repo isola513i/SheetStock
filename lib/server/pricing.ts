@@ -72,6 +72,14 @@ export function getCustomers() {
   return customers;
 }
 
+export function getAllTiers() {
+  return priceTiers;
+}
+
+export function addCustomerAccount(account: CustomerAccount) {
+  customers.push(account);
+}
+
 export function resolveCatalogItemPrice(customerId: string, productId: string, basePrice: number) {
   const customer = customers.find((item) => item.id === customerId);
   if (!customer) {
@@ -112,10 +120,6 @@ export function getCatalogForCustomer(customerId: string): CatalogItem[] {
 
 export function getPricingRowsForCustomer(customerId: string) {
   return getCatalogForCustomer(customerId);
-}
-
-export function getAllTiers() {
-  return priceTiers;
 }
 
 export function getApprovals() {

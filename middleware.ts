@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const SESSION_COOKIE = 'sheetstock_session';
-const PROTECTED_PATHS = ['/', '/catalog', '/pricing'];
+const PROTECTED_PATHS = ['/', '/catalog', '/pricing', '/admin'];
 
 function isProtectedPath(pathname: string) {
   return PROTECTED_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
@@ -11,7 +11,7 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
 
-  if (pathname === '/login') {
+  if (pathname === '/login' || pathname === '/register') {
     if (hasSession) {
       return NextResponse.redirect(new URL('/', request.url));
     }

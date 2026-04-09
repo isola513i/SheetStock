@@ -1,70 +1,303 @@
 'use client';
 
+import { useMemo, useRef, useState, useEffect } from 'react';
 import useSWR from 'swr';
-import { useRouter } from 'next/navigation';
+
+
+import { motion, AnimatePresence } from 'motion/react';
+import Image from 'next/image';
+import PullToRefresh from 'pulltorefreshjs';
+import { Search, X } from 'lucide-react';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { BottomNav } from '@/components/BottomNav';
+import type { UserRole } from '@/lib/types';
+
+type CatalogItem = {
+  productId: string;
+  name: string;
+  imageUrl: string;
+  stock: number;
+  finalPrice: number;
+  priceSource: 'base' | 'tier' | 'override';
+};
 
 type CatalogResponse = {
   customerId: string;
-  items: Array<{
-    productId: string;
-    name: string;
-    imageUrl: string;
-    stock: number;
-    finalPrice: number;
-    priceSource: 'base' | 'tier' | 'override';
-  }>;
+  items: CatalogItem[];
+};
+
+const BLUR_DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=';
+
+function toSafeImageSrc(value: string) {
+  const trimmed = (value ?? '').trim();
+  if (!trimmed) return '/icons/icon-192x192.png';
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+  if (trimmed.startsWith('/')) return trimmed;
+  return `/${trimmed.replace(/^\.?\/*/, '')}`;
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  base: 'ราคาตั้งต้น',
+  tier: 'ราคาตามระดับ',
+  override: 'ราคาพิเศษ',
 };
 
 const fetcher = async (url: string) => {
   const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error('Failed to fetch catalog');
-  }
+  if (!response.ok) throw new Error('Failed to fetch catalog');
   return (await response.json()) as CatalogResponse;
 };
 
 export default function CatalogPage() {
-  const router = useRouter();
-  const { data, isLoading } = useSWR('/api/catalog', fetcher, { revalidateOnFocus: true });
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isValidatingRef = useRef(false);
 
-  const onLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.replace('/login');
-  };
+  const { data, isLoading, isValidating, mutate } = useSWR('/api/catalog', fetcher, {
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    refreshInterval: 30000,
+    keepPreviousData: true,
+  });
+
+  const { data: meData } = useSWR<{ user: { role: UserRole; name: string } | null }>('/api/auth/me', async (url: string) => {
+    const res = await fetch(url);
+    if (!res.ok) return { user: null };
+    return res.json();
+  });
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedItem, setSelectedItem] = useState<CatalogItem | null>(null);
+  const [stockFilter, setStockFilter] = useState<'all' | 'inStock' | 'low'>('all');
+
+  const allItems = data?.items ?? [];
+
+  const filteredItems = useMemo(() => {
+    let items = allItems;
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      items = items.filter((item) => item.name.toLowerCase().includes(q) || item.productId.toLowerCase().includes(q));
+    }
+    if (stockFilter === 'inStock') items = items.filter((i) => i.stock > 0);
+    if (stockFilter === 'low') items = items.filter((i) => i.stock > 0 && i.stock < 10);
+    return items;
+  }, [allItems, searchQuery, stockFilter]);
+
+  // Track validating state for pull-to-refresh guard
+  useEffect(() => {
+    isValidatingRef.current = isValidating;
+  }, [isValidating]);
+
+  // Pull-to-refresh
+  useEffect(() => {
+    const target = scrollRef.current;
+    if (!target) return;
+
+    PullToRefresh.init({
+      mainElement: '#catalog-scroll',
+      triggerElement: '#catalog-scroll',
+      distThreshold: 72,
+      distMax: 96,
+      distReload: 64,
+      instructionsPullToRefresh: 'ดึงลงเพื่อรีเฟรช',
+      instructionsReleaseToRefresh: 'ปล่อยเพื่อรีเฟรช',
+      instructionsRefreshing: 'กำลังรีเฟรช...',
+      shouldPullToRefresh: () => {
+        const el = scrollRef.current;
+        if (!el) return false;
+        if (isValidatingRef.current) return false;
+        return el.scrollTop <= 0;
+      },
+      onRefresh: () => mutate(),
+    });
+
+    return () => { PullToRefresh.destroyAll(); };
+  }, [mutate]);
 
   return (
-    <main className="min-h-dvh bg-[#F2F2F7] px-5 py-6">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl text-gray-900">สินค้าแนะนำ</h1>
-        <button type="button" onClick={onLogout} className="h-10 rounded-full bg-white border border-gray-200 px-4 text-xs text-gray-600">
-          ออกจากระบบ
-        </button>
+    <div className="min-h-dvh bg-[#F2F2F7] flex flex-col">
+      {/* Header */}
+      <div className="shrink-0 bg-[var(--brand-primary)] rounded-b-[1.5rem] px-5 text-white shadow-sm" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)', paddingBottom: 20 }}>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-xl font-medium">สินค้าแนะนำ</h1>
+        </div>
+
+        {/* Search */}
+        <div className="relative mb-3">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="ค้นหาสินค้า..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-white text-gray-900 rounded-xl pl-10 pr-9 h-11 border-none text-sm shadow-sm outline-none"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+              <X className="w-4 h-4 text-gray-400" />
+            </button>
+          )}
+        </div>
+
+        {/* Quick filters */}
+        <div className="flex gap-2 overflow-x-auto hide-scrollbar">
+          {([['all', 'ทั้งหมด'], ['inStock', 'มีสินค้า'], ['low', 'ใกล้หมด']] as const).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setStockFilter(id)}
+              className={`shrink-0 min-h-9 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                stockFilter === id ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'bg-black/15 text-white'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, idx) => (
-            <div key={idx} className="h-24 rounded-2xl bg-white border border-gray-200 animate-pulse" />
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {(data?.items ?? []).map((item) => (
-            <div key={item.productId} className="rounded-2xl border border-gray-200 bg-white p-3 flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={item.imageUrl} alt={item.name} className="h-16 w-16 rounded-lg object-cover bg-gray-100" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-gray-900">{item.name}</p>
-                <p className="mt-1 text-xs text-gray-500">คงเหลือ {item.stock}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-[var(--brand-primary)]">฿{item.finalPrice.toFixed(2)}</p>
-                <p className="mt-1 text-[10px] text-gray-400">{item.priceSource}</p>
-              </div>
+      {/* Count + revalidation indicator */}
+      <div className="px-5 pt-4 pb-2 flex items-center justify-between">
+        <p className="text-sm text-gray-500">พบ {filteredItems.length} รายการ</p>
+        {isValidating && !isLoading && (
+          <div className="h-1.5 w-16 rounded-full bg-gray-200 overflow-hidden">
+            <div className="h-full w-1/3 bg-[var(--brand-primary)] animate-[pulse_900ms_ease-in-out_infinite]" />
+          </div>
+        )}
+      </div>
+
+      {/* Scrollable list */}
+      <div id="catalog-scroll" ref={scrollRef} className="flex-1 overflow-y-auto px-5 pb-24" style={{ WebkitOverflowScrolling: 'touch' }}>
+        {isLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-20 rounded-2xl bg-white border border-gray-100 animate-pulse" />
+            ))}
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-200 px-5 py-8 text-center mt-2">
+            <p className="text-gray-800 font-medium mb-1">ไม่พบสินค้า</p>
+            <p className="text-sm text-gray-500 mb-4">ลองเปลี่ยนคำค้นหาหรือตัวกรอง</p>
+            <button
+              onClick={() => { setSearchQuery(''); setStockFilter('all'); }}
+              className="px-4 py-2 rounded-xl bg-[var(--brand-primary)] text-white text-sm font-medium"
+            >
+              ล้างตัวกรอง
+            </button>
+          </div>
+        ) : (
+          <AnimatePresence>
+            <div className="space-y-3">
+              {filteredItems.map((item, idx) => {
+                const isLow = item.stock > 0 && item.stock < 10;
+                const isOut = item.stock <= 0;
+                return (
+                  <motion.div
+                    key={item.productId}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.2, delay: idx * 0.04 }}
+                    className={`rounded-2xl bg-white p-3 flex items-center gap-3 cursor-pointer border active:scale-[0.98] transition-transform ${
+                      isOut ? 'border-red-200 bg-red-50/30' : isLow ? 'border-yellow-200 bg-yellow-50/30' : 'border-gray-200'
+                    }`}
+                    onClick={() => setSelectedItem(item)}
+                  >
+                    <div className="relative h-16 w-16 shrink-0 rounded-lg overflow-hidden bg-gray-100">
+                      <Image
+                        src={toSafeImageSrc(item.imageUrl)}
+                        alt={item.name}
+                        fill
+                        sizes="64px"
+                        className={`object-contain ${isOut ? 'grayscale opacity-70' : ''}`}
+                        referrerPolicy="no-referrer"
+                        priority={idx < 6}
+                        placeholder="blur"
+                        blurDataURL={BLUR_DATA_URL}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`truncate text-sm font-medium text-gray-900 ${isOut ? 'opacity-70' : ''}`}>{item.name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className={`text-xs ${isOut ? 'text-red-500' : isLow ? 'text-yellow-600' : 'text-gray-500'}`}>
+                          {isOut ? 'สินค้าหมด' : `คงเหลือ ${item.stock}`}
+                        </p>
+                        {isLow && <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-[9px] font-medium rounded-sm">ใกล้หมด</span>}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-base font-semibold text-[var(--brand-primary)]">฿{item.finalPrice.toFixed(2)}</p>
+                      <p className="mt-0.5 text-[10px] text-gray-400">{SOURCE_LABELS[item.priceSource] ?? item.priceSource}</p>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </div>
-          ))}
-        </div>
+          </AnimatePresence>
+        )}
+      </div>
+
+      {/* Product Detail Sheet */}
+      <Sheet open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
+        <SheetContent side="bottom" className="rounded-t-[2rem] bg-white border-none" showCloseButton={false}>
+          {selectedItem && (
+            <div className="px-5 pt-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
+              {/* Product image */}
+              <div className="flex justify-center mb-4">
+                <div className="relative h-40 w-40 rounded-2xl overflow-hidden bg-gray-100">
+                  <Image
+                    src={toSafeImageSrc(selectedItem.imageUrl)}
+                    alt={selectedItem.name}
+                    fill
+                    sizes="160px"
+                    className="object-contain"
+                    referrerPolicy="no-referrer"
+                    placeholder="blur"
+                    blurDataURL={BLUR_DATA_URL}
+                  />
+                </div>
+              </div>
+
+              <h3 className="text-lg font-medium text-gray-900 text-center mb-1">{selectedItem.name}</h3>
+              <p className="text-xs text-gray-400 text-center mb-5">รหัส: {selectedItem.productId}</p>
+
+              <div className="grid grid-cols-3 gap-2 mb-5">
+                <div className="bg-gray-50 rounded-xl p-3 text-center">
+                  <p className="text-[10px] text-gray-400 mb-1">ราคา</p>
+                  <p className="text-sm font-semibold text-[var(--brand-primary)]">฿{selectedItem.finalPrice.toFixed(2)}</p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-3 text-center">
+                  <p className="text-[10px] text-gray-400 mb-1">คงเหลือ</p>
+                  <p className={`text-sm font-semibold ${selectedItem.stock <= 0 ? 'text-red-500' : selectedItem.stock < 10 ? 'text-yellow-600' : 'text-gray-900'}`}>
+                    {selectedItem.stock <= 0 ? 'หมด' : selectedItem.stock}
+                  </p>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-3 text-center">
+                  <p className="text-[10px] text-gray-400 mb-1">ประเภทราคา</p>
+                  <p className="text-xs font-medium text-gray-700">{SOURCE_LABELS[selectedItem.priceSource] ?? selectedItem.priceSource}</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedItem(null)}
+                className="w-full h-12 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium"
+              >
+                ปิด
+              </button>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {meData?.user?.role && (
+        <BottomNav activePage="catalog" userRole={meData.user.role} />
       )}
-    </main>
+
+      <style jsx global>{`
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .ptr--content { color: #f99109 !important; font-size: 12px; }
+        .ptr--icon { color: #f99109 !important; }
+        .ptr--ptr { box-shadow: none !important; }
+      `}</style>
+    </div>
   );
 }

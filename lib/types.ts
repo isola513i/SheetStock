@@ -38,6 +38,23 @@ export interface AuthSession {
   createdAt: number;
 }
 
+export type RegistrationStatus = 'pending' | 'approved' | 'rejected';
+
+export interface CustomerRegistration {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+  storeName: string;
+  phone: string;
+  status: RegistrationStatus;
+  tierId?: string;
+  rejectionReason?: string;
+  createdAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+}
+
 export type SortBy = 'date' | 'quantity' | 'price';
 export type SortOrder = 'asc' | 'desc';
 export type FilterReason = string | null;

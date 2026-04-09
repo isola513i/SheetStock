@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import type { FilterReason, InventoryDateRange, InventoryFacetData, InventoryFacetOption, InventoryStockFilter } from '@/lib/types';
 
@@ -26,8 +26,6 @@ const EMPTY_FACETS: InventoryFacetData = {
   fromLocations: [],
   toLocations: [],
 };
-
-const FILTER_SHEET_VERSION = 'v2-debug-a00100';
 
 const STOCK_OPTIONS: { id: InventoryStockFilter; label: string }[] = [
   { id: 'all', label: 'ทั้งหมด' },
@@ -89,18 +87,6 @@ export function FilterSheet(props: FilterSheetProps) {
   const [draftStock, setDraftStock] = useState<InventoryStockFilter>(stockFilter);
   const [draftDateRange, setDraftDateRange] = useState<InventoryDateRange>(dateRange);
   const [draftType, setDraftType] = useState(dataType);
-  // #region agent log
-  useEffect(() => {
-    fetch('http://127.0.0.1:7562/ingest/23774785-1479-4541-8a3e-191135ee76a3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a00100'},body:JSON.stringify({sessionId:'a00100',runId:'post-fix-2',hypothesisId:'H1',location:'components/sheets/FilterSheet.tsx:75',message:'FilterSheet effect snapshot',data:{version:FILTER_SHEET_VERSION,open,hasFacets:!!facets,facetKeys:facets?Object.keys(facets):[],hasReasonsArray:Array.isArray(facets?.reasons),hasDataTypesArray:Array.isArray(facets?.dataTypes),safeReasonsCount:safeFacets.reasons.length,safeDataTypesCount:safeFacets.dataTypes.length},timestamp:Date.now()})}).catch(()=>{});
-  }, [open, facets, safeFacets]);
-  // #endregion
-  // #region agent log
-  useEffect(() => {
-    if (!open) return;
-    fetch('http://127.0.0.1:7562/ingest/23774785-1479-4541-8a3e-191135ee76a3',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'a00100'},body:JSON.stringify({sessionId:'a00100',runId:'post-fix-2',hypothesisId:'H2',location:'components/sheets/FilterSheet.tsx:80',message:'FilterSheet opened',data:{version:FILTER_SHEET_VERSION,dataTypesCount:safeFacets.dataTypes.length,reasonsCount:safeFacets.reasons.length},timestamp:Date.now()})}).catch(()=>{});
-  }, [open, safeFacets]);
-  // #endregion
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="rounded-t-[2.5rem] px-5 pt-8 bg-white border-none focus:outline-none">

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authenticate, createSession, getSessionCookieName } from '@/lib/server/auth';
+import { findRegistrationByEmail } from '@/lib/server/registrations';
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -8,7 +9,17 @@ export async function POST(request: Request) {
 
   const user = authenticate(email, password);
   if (!user) {
-    return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
+    // Check if this is a pending or rejected registration
+    const reg = findRegistrationByEmail(email);
+    if (reg) {
+      if (reg.status === 'pending') {
+        return NextResponse.json({ error: 'บัญชีของคุณกำลังรอการอนุมัติจาก Admin' }, { status: 403 });
+      }
+      if (reg.status === 'rejected') {
+        return NextResponse.json({ error: 'การสมัครถูกปฏิเสธ กรุณาติดต่อ Admin' }, { status: 403 });
+      }
+    }
+    return NextResponse.json({ error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' }, { status: 401 });
   }
 
   const session = createSession(user);

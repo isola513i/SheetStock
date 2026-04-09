@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import { Check, Copy, Package, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Copy, Package, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { InventoryItem } from '@/lib/types';
 
@@ -17,6 +17,151 @@ type ProductDetailSheetProps = {
   fullscreenImage: string | null;
   setFullscreenImage: (value: string | null) => void;
 };
+
+type GalleryImage = { src: string; label: string };
+
+function FullscreenImageViewer({ images, initialIndex, onClose }: { images: GalleryImage[]; initialIndex: number; onClose: () => void }) {
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [scale, setScale] = useState(1);
+  const lastDistRef = useRef(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const goPrev = useCallback(() => setCurrentIndex((i) => Math.max(0, i - 1)), []);
+  const goNext = useCallback(() => setCurrentIndex((i) => Math.min(images.length - 1, i + 1)), [images.length]);
+
+  // Pinch-to-zoom via touch events
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (lastDistRef.current > 0) {
+          const delta = dist / lastDistRef.current;
+          setScale((prev) => Math.min(4, Math.max(1, prev * delta)));
+        }
+        lastDistRef.current = dist;
+      }
+    };
+    const onTouchEnd = () => {
+      lastDistRef.current = 0;
+    };
+
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd);
+    return () => {
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
+  }, []);
+
+  // Double-tap to toggle zoom
+  const lastTapRef = useRef(0);
+  const handleDoubleTap = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      setScale((prev) => (prev > 1 ? 1 : 2.5));
+    }
+    lastTapRef.current = now;
+  }, []);
+
+  // Swipe detection for navigation
+  const touchStartXRef = useRef(0);
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      touchStartXRef.current = e.touches[0].clientX;
+    }
+  }, []);
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (scale > 1) return; // Don't swipe while zoomed
+    const dx = e.changedTouches[0].clientX - touchStartXRef.current;
+    if (Math.abs(dx) > 60) {
+      if (dx < 0) goNext();
+      else goPrev();
+    }
+  }, [scale, goNext, goPrev]);
+
+  const current = images[currentIndex];
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col animate-in fade-in duration-200">
+      {/* Top bar */}
+      <div className="flex items-center justify-between p-4 shrink-0">
+        <p className="text-white/70 text-sm">{current.label} ({currentIndex + 1}/{images.length})</p>
+        <button
+          onClick={onClose}
+          className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white active:scale-95 transition-all"
+        >
+          <X className="w-6 h-6" />
+        </button>
+      </div>
+
+      {/* Image area with pinch zoom */}
+      <div
+        ref={containerRef}
+        className="flex-1 relative w-full overflow-hidden"
+        onClick={handleDoubleTap}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div
+          className="absolute inset-0 flex items-center justify-center transition-transform duration-200"
+          style={{ transform: `scale(${scale})` }}
+        >
+          <Image
+            key={current.src}
+            src={current.src}
+            fill
+            sizes="100vw"
+            className="object-contain"
+            alt={current.label}
+            referrerPolicy="no-referrer"
+            priority
+            placeholder="blur"
+            blurDataURL={BLUR_DATA_URL}
+          />
+        </div>
+      </div>
+
+      {/* Navigation + zoom hint */}
+      <div className="shrink-0 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3">
+        <p className="text-center text-white/40 text-[10px] mb-3">
+          {scale > 1 ? 'แตะ 2 ครั้งเพื่อย่อ' : 'แตะ 2 ครั้งเพื่อขยาย • ใช้ 2 นิ้วซูม'}
+        </p>
+        {images.length > 1 && (
+          <div className="flex items-center justify-center gap-4">
+            <button
+              onClick={goPrev}
+              disabled={currentIndex === 0}
+              className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white disabled:opacity-30"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <div className="flex gap-1.5">
+              {images.map((_, i) => (
+                <div
+                  key={i}
+                  className={`h-1.5 rounded-full transition-all ${i === currentIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/30'}`}
+                />
+              ))}
+            </div>
+            <button
+              onClick={goNext}
+              disabled={currentIndex === images.length - 1}
+              className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white disabled:opacity-30"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function DataRow({ label, value, isLast = false }: { label: string; value: string | number; isLast?: boolean }) {
   return (
@@ -267,30 +412,28 @@ export function ProductDetailSheet({
         </div>
       )}
 
-      {fullscreenImage && (
-        <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col animate-in fade-in duration-200">
-          <div className="flex justify-end p-5">
-            <button
-              onClick={() => setFullscreenImage(null)}
-              className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white active:scale-95 transition-all"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-          <div className="flex-1 relative w-full h-full pb-10">
-            <Image
-              src={toSafeImageSrc(fullscreenImage) ?? FALLBACK_IMAGE_SRC}
-              fill
-              sizes="100vw"
-              className="object-contain"
-              alt="Fullscreen view"
-              referrerPolicy="no-referrer"
-              priority
-              placeholder="blur"
-              blurDataURL={BLUR_DATA_URL}
-            />
-          </div>
-        </div>
+      {fullscreenImage && selectedItem && (
+        <FullscreenImageViewer
+          images={[
+            { src: toSafeImageSrc(selectedItem.imageUrl) ?? FALLBACK_IMAGE_SRC, label: 'รูปสินค้า' },
+            ...(hasImage(selectedItem.perBoxImageUrl)
+              ? [{ src: toSafeImageSrc(selectedItem.perBoxImageUrl) ?? FALLBACK_IMAGE_SRC, label: 'รูปต่อลัง' }]
+              : []),
+            ...(hasImage(selectedItem.expiryImageUrl)
+              ? [{ src: toSafeImageSrc(selectedItem.expiryImageUrl) ?? FALLBACK_IMAGE_SRC, label: 'วันหมดอายุ' }]
+              : []),
+          ]}
+          initialIndex={(() => {
+            const allSrcs = [
+              toSafeImageSrc(selectedItem.imageUrl),
+              ...(hasImage(selectedItem.perBoxImageUrl) ? [toSafeImageSrc(selectedItem.perBoxImageUrl)] : []),
+              ...(hasImage(selectedItem.expiryImageUrl) ? [toSafeImageSrc(selectedItem.expiryImageUrl)] : []),
+            ];
+            const idx = allSrcs.indexOf(toSafeImageSrc(fullscreenImage));
+            return idx >= 0 ? idx : 0;
+          })()}
+          onClose={() => setFullscreenImage(null)}
+        />
       )}
     </>
   );
