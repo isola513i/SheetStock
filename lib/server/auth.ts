@@ -12,8 +12,8 @@ export const REFRESH_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 // --- Secret for HMAC signing ---
 function getTokenSecret(): string {
   const secret = process.env.TOKEN_SECRET || '';
-  if (!secret && process.env.NODE_ENV === 'production' && typeof globalThis.EdgeRuntime === 'undefined') {
-    console.error('[auth] TOKEN_SECRET is not set — tokens will be insecure in production!');
+  if (!secret) {
+    console.warn('[auth] TOKEN_SECRET is not set — tokens will be insecure. Set TOKEN_SECRET in .env');
   }
   return secret;
 }
