@@ -56,7 +56,7 @@ async function verify(payload: string, signature: string): Promise<boolean> {
   const key = await getHmacKey();
   const encoder = new TextEncoder();
   const sigBytes = base64UrlToArrayBuffer(signature);
-  return crypto.subtle.verify('HMAC', key, sigBytes, encoder.encode(payload));
+  return crypto.subtle.verify('HMAC', key, sigBytes as BufferSource, encoder.encode(payload));
 }
 
 // --- Base64url helpers (Edge-compatible, no Buffer) ---
