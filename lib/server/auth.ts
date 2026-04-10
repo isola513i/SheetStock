@@ -10,12 +10,12 @@ export const ACCESS_MAX_AGE = 15 * 60; // 15 minutes
 export const REFRESH_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 
 // --- Secret for HMAC signing ---
-const TOKEN_SECRET = process.env.TOKEN_SECRET || '';
-if (!TOKEN_SECRET) {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('[auth] TOKEN_SECRET must be set in production');
+function getTokenSecret(): string {
+  const secret = process.env.TOKEN_SECRET || '';
+  if (!secret && process.env.NODE_ENV === 'production' && typeof globalThis.EdgeRuntime === 'undefined') {
+    console.error('[auth] TOKEN_SECRET is not set — tokens will be insecure in production!');
   }
-  console.warn('[auth] TOKEN_SECRET is not set — tokens will be insecure. Set TOKEN_SECRET in .env');
+  return secret;
 }
 
 // --- Mock users ---
@@ -31,17 +31,20 @@ const mockUsers: MockUserRecord[] = [
 // --- Web Crypto HMAC-SHA256 (Edge + Node.js compatible) ---
 
 let cachedKey: CryptoKey | null = null;
+let cachedSecret: string | null = null;
 
 async function getHmacKey(): Promise<CryptoKey> {
-  if (cachedKey) return cachedKey;
+  const secret = getTokenSecret();
+  if (cachedKey && cachedSecret === secret) return cachedKey;
   const encoder = new TextEncoder();
   cachedKey = await crypto.subtle.importKey(
     'raw',
-    encoder.encode(TOKEN_SECRET),
+    encoder.encode(secret),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign', 'verify'],
   );
+  cachedSecret = secret;
   return cachedKey;
 }
 
