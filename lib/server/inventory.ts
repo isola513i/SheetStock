@@ -172,7 +172,7 @@ export async function fetchInventoryFromGoogleSheets(): Promise<InventoryItem[]>
     const rows = (response.data.values ?? []) as (string | undefined | null)[][];
     if (rows.length <= 1) return [];
 
-    return rows.slice(1).map((row, idx) => {
+    const items = rows.slice(1).map((row, idx) => {
       const barcode = safeString(row[0]);
 
       return {
@@ -190,6 +190,19 @@ export async function fetchInventoryFromGoogleSheets(): Promise<InventoryItem[]>
         imageUrl: safeString(row[10]),
       };
     });
+
+    // Merge rows with the same barcode — sum quantities, keep first row's metadata
+    const merged = new Map<string, InventoryItem>();
+    for (const item of items) {
+      if (!item.barcode) { merged.set(item.id, item); continue; }
+      const existing = merged.get(item.barcode);
+      if (existing) {
+        existing.quantity += item.quantity;
+      } else {
+        merged.set(item.barcode, { ...item });
+      }
+    }
+    return Array.from(merged.values());
   } catch (error) {
     console.error('Failed to fetch inventory from Google Sheets', error);
     return mockInventory;
@@ -397,7 +410,7 @@ export async function updateProductQuantityInSheet(barcode: string, addQuantity:
     }
 
     const currentQty = safeNumber(rows[rowIndex][6]);
-    const newQuantity = currentQty + addQuantity;
+    const updatedRowQty = currentQty + addQuantity;
 
     // Update column G (quantity) — sheet rows are 1-indexed, so rowIndex+1
     const sheetName = range.split('!')[0] || 'inventory';
@@ -407,14 +420,22 @@ export async function updateProductQuantityInSheet(barcode: string, addQuantity:
       range: cellRange,
       auth,
       valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [[newQuantity]] },
+      requestBody: { values: [[updatedRowQty]] },
     });
+
+    // Compute merged total across all rows with same barcode
+    let mergedTotal = 0;
+    for (let i = 1; i < rows.length; i++) {
+      if (safeString(rows[i][0]) === barcode) {
+        mergedTotal += i === rowIndex ? updatedRowQty : safeNumber(rows[i][6]);
+      }
+    }
 
     inventoryCache = null;
     facetCache = null;
     notifyClientsIfConnected();
 
-    return { ok: true, newQuantity };
+    return { ok: true, newQuantity: mergedTotal };
   } catch (error) {
     console.error('Failed to update product quantity', error);
     return { ok: false, newQuantity: 0, error: 'Failed to update quantity' };
