@@ -3,7 +3,7 @@ import { requireUser } from '@/lib/server/api-auth';
 import { bulkUpdateCustomerPrices } from '@/lib/server/pricing';
 
 export async function POST(request: NextRequest) {
-  const guard = requireUser(request, ['admin', 'sale']);
+  const guard = await requireUser(request, ['admin', 'sale']);
   if (!guard.ok) return guard.response;
 
   const body = await request.json().catch(() => null);

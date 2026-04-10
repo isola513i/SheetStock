@@ -146,9 +146,14 @@ export interface PriceAuditLog {
 
 export interface CatalogItem {
   productId: string;
+  barcode: string;
   name: string;
+  category: string;
+  brand: string;
+  series: string;
   imageUrl: string;
   stock: number;
+  expiryDate: string;
   basePrice: number;
   tierPrice: number;
   finalPrice: number;

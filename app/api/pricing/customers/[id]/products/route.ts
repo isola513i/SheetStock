@@ -5,14 +5,14 @@ import { bulkUpdateCustomerPrices, getPricingRowsForCustomer } from '@/lib/serve
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(request: NextRequest, { params }: Params) {
-  const guard = requireUser(request, ['admin', 'sale']);
+  const guard = await requireUser(request, ['admin', 'sale']);
   if (!guard.ok) return guard.response;
   const { id } = await params;
   return NextResponse.json({ customerId: id, items: await getPricingRowsForCustomer(id) });
 }
 
 export async function POST(request: NextRequest, { params }: Params) {
-  const guard = requireUser(request, ['admin', 'sale']);
+  const guard = await requireUser(request, ['admin', 'sale']);
   if (!guard.ok) return guard.response;
   const { id } = await params;
 

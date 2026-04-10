@@ -5,7 +5,7 @@ import { upsertCustomerProductPrice } from '@/lib/server/pricing';
 type Params = { params: Promise<{ id: string; productId: string }> };
 
 export async function PUT(request: NextRequest, { params }: Params) {
-  const guard = requireUser(request, ['admin', 'sale']);
+  const guard = await requireUser(request, ['admin', 'sale']);
   if (!guard.ok) return guard.response;
   const { id, productId } = await params;
 

@@ -69,7 +69,10 @@ export const BottomNav = memo(function BottomNav({ activePage, userRole, onScanC
           icon={<PackageSearch className="w-5.5 h-5.5" />}
           label="สินค้า"
           active={activePage === 'catalog'}
-          onClick={() => router.push('/catalog')}
+          onClick={() => {
+            if (onInventoryClick) onInventoryClick();
+            else router.push('/catalog');
+          }}
         />
       ) : (
         <NavItem

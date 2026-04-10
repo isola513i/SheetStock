@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No refresh token' }, { status: 401 });
   }
 
-  const userId = verifyRefreshToken(refreshToken);
+  const userId = await verifyRefreshToken(refreshToken);
   if (!userId) {
     return NextResponse.json({ error: 'Invalid or expired refresh token' }, { status: 401 });
   }
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'User not found' }, { status: 401 });
   }
 
-  const newAccessToken = createAccessToken(user);
+  const newAccessToken = await createAccessToken(user);
   const response = NextResponse.json({ user });
   response.cookies.set(ACCESS_COOKIE, newAccessToken, ACCESS_COOKIE_OPTIONS);
   return response;

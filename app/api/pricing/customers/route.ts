@@ -3,7 +3,7 @@ import { requireUser } from '@/lib/server/api-auth';
 import { getCustomers } from '@/lib/server/pricing';
 
 export async function GET(request: NextRequest) {
-  const guard = requireUser(request, ['admin', 'sale']);
+  const guard = await requireUser(request, ['admin', 'sale']);
   if (!guard.ok) return guard.response;
 
   const customers = getCustomers().filter((item) => {

@@ -5,7 +5,7 @@ import { requireUser } from '@/lib/server/api-auth';
 type Params = { params: Promise<{ approvalId: string }> };
 
 export async function POST(request: NextRequest, { params }: Params) {
-  const guard = requireUser(request, ['admin']);
+  const guard = await requireUser(request, ['admin']);
   if (!guard.ok) return guard.response;
 
   const { approvalId } = await params;

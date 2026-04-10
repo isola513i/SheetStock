@@ -126,9 +126,14 @@ export async function getCatalogForCustomer(customerId: string): Promise<Catalog
     const minAllowed = round2(basePrice * 0.85);
     return {
       productId: item.id,
+      barcode: item.barcode,
       name: item.name,
+      category: item.category,
+      brand: item.brand,
+      series: item.series,
       imageUrl: item.imageUrl,
       stock: item.quantity,
+      expiryDate: item.expiryDate,
       basePrice,
       tierPrice: pricing.tierPrice,
       finalPrice: pricing.finalPrice,
@@ -184,6 +189,8 @@ export async function upsertCustomerProductPrice(params: {
     return { ok: true, requiresApproval: true, approval };
   }
 
+  const oldPrice = existing?.price ?? resolveCatalogItemPrice(params.customerId, params.productId, basePrice).finalPrice;
+
   if (existing) {
     existing.price = round2(params.price);
     existing.reason = params.reason;
@@ -200,8 +207,6 @@ export async function upsertCustomerProductPrice(params: {
       status: 'approved',
     });
   }
-
-  const oldPrice = existing?.price ?? resolveCatalogItemPrice(params.customerId, params.productId, basePrice).finalPrice;
   auditLogs.push({
     id: randomUUID(),
     actorId: params.actorId,

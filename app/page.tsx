@@ -635,7 +635,7 @@ function InventoryDashboardContent() {
 
       <BottomNav
         activePage={activeTab === 'settings' ? 'settings' : 'inventory'}
-        userRole={meData?.user?.role ?? 'admin'}
+        userRole={meData?.user?.role ?? 'sale'}
         onScanClick={() => setIsScannerOpen(true)}
         onSettingsClick={() => setActiveTab('settings')}
         onInventoryClick={() => setActiveTab('inventory')}

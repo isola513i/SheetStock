@@ -4,7 +4,7 @@ import { findProductByBarcode, updateProductQuantityInSheet } from '@/lib/server
 
 // GET: Look up barcode — check inventory + fetch from Open Food Facts if not found
 export async function GET(request: NextRequest) {
-  const guard = requireUser(request, ['admin']);
+  const guard = await requireUser(request, ['admin']);
   if (!guard.ok) return guard.response;
 
   const barcode = request.nextUrl.searchParams.get('barcode')?.trim();
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
 // POST: Add quantity to existing product
 export async function POST(request: NextRequest) {
-  const guard = requireUser(request, ['admin']);
+  const guard = await requireUser(request, ['admin']);
   if (!guard.ok) return guard.response;
 
   const body = await request.json().catch(() => null);

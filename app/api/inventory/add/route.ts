@@ -3,7 +3,7 @@ import { requireUser } from '@/lib/server/api-auth';
 import { appendProductToGoogleSheets, findProductByBarcode } from '@/lib/server/inventory';
 
 export async function POST(request: NextRequest) {
-  const guard = requireUser(request, ['admin']);
+  const guard = await requireUser(request, ['admin']);
   if (!guard.ok) return guard.response;
 
   const body = await request.json().catch(() => null);
