@@ -22,6 +22,13 @@ const nextConfig: NextConfig = {
       ],
     },
     {
+      source: '/api/inventory/stream',
+      headers: [
+        { key: 'Cache-Control', value: 'no-cache, no-transform' },
+        { key: 'X-Accel-Buffering', value: 'no' },
+      ],
+    },
+    {
       source: '/api/:path*',
       headers: [
         { key: 'Cache-Control', value: 'private, no-cache, no-store' },

@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import PullToRefresh from 'pulltorefreshjs';
+import { useInventoryStream } from '@/lib/hooks/use-inventory-stream';
 import { ArrowUpDown, Search, SlidersHorizontal, X } from 'lucide-react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
@@ -63,9 +64,11 @@ export default function CatalogPage() {
 
   const { data, isLoading, isValidating, mutate } = useSWR('/api/catalog', fetcher, {
     revalidateOnFocus: true,
-    refreshInterval: 30000,
+    refreshInterval: 60000,
     keepPreviousData: true,
   });
+
+  useInventoryStream(() => mutate());
 
   const [searchQuery, setSearchQuery] = useState('');
   const [stockFilter, setStockFilter] = useState<StockFilter>('all');

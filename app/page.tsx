@@ -6,6 +6,7 @@ import useSWR from 'swr';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import PullToRefresh from 'pulltorefreshjs';
+import { useInventoryStream } from '@/lib/hooks/use-inventory-stream';
 import { InventoryApiResponse, InventoryItem, InventorySortPreset, InventoryStockFilter, InventoryTabKey, InventoryViewMode, UserRole } from '@/lib/types';
 import type { ProductPrefill } from '@/components/sheets/AddProductSheet';
 import { Search, List, LayoutGrid, ArrowUpDown, SlidersHorizontal, ChevronLeft, ChevronRight, Plus, Loader2 } from 'lucide-react';
@@ -178,10 +179,12 @@ function InventoryDashboardContent() {
   const { data, isLoading, isValidating, mutate } = useSWR(apiUrl, fetcher, {
     revalidateOnFocus: true,
     revalidateOnReconnect: true,
-    refreshInterval: 15000,
+    refreshInterval: 60000,
     keepPreviousData: true,
-    dedupingInterval: 30000,
+    dedupingInterval: 2000,
   });
+
+  useInventoryStream(() => mutate());
 
   const processedInventory = data?.items ?? [];
   const { data: meData } = useSWR<{ user: { role: UserRole; name: string } | null }>('/api/auth/me', async (url: string) => {

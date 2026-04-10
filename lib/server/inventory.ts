@@ -3,6 +3,16 @@ import 'server-only';
 import { google } from 'googleapis';
 import { mockInventory } from '@/lib/mock-data';
 import { InventoryApiResponse, InventoryItem, InventoryQuery, InventorySortPreset, InventoryStockFilter } from '@/lib/types';
+// Lazy import to avoid circular dependency with inventory-events.ts
+let _notifyClients: (() => void) | null = null;
+
+export function setNotifyClients(fn: () => void) {
+  _notifyClients = fn;
+}
+
+function notifyClientsIfConnected() {
+  _notifyClients?.();
+}
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 20;
@@ -94,6 +104,11 @@ export function parseInventoryQuery(searchParams: URLSearchParams): Required<Inv
 let inventoryCache: { data: InventoryItem[]; timestamp: number } | null = null;
 const INVENTORY_CACHE_TTL = 60_000; // 1 minute
 
+export function invalidateInventoryCache() {
+  inventoryCache = null;
+  facetCache = null;
+}
+
 export async function loadInventoryFromGoogleSheets(): Promise<InventoryItem[]> {
   if (inventoryCache && Date.now() - inventoryCache.timestamp < INVENTORY_CACHE_TTL) {
     return inventoryCache.data;
@@ -104,7 +119,7 @@ export async function loadInventoryFromGoogleSheets(): Promise<InventoryItem[]> 
   return result;
 }
 
-async function fetchInventoryFromGoogleSheets(): Promise<InventoryItem[]> {
+export async function fetchInventoryFromGoogleSheets(): Promise<InventoryItem[]> {
   const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const privateKey = process.env.GOOGLE_PRIVATE_KEY
     ?.replace(/^"/, '')
@@ -335,6 +350,7 @@ export async function appendProductToGoogleSheets(product: NewProduct): Promise<
     // Clear cache so next fetch picks up the new row
     inventoryCache = null;
     facetCache = null;
+    notifyClientsIfConnected();
 
     return { ok: true };
   } catch (error) {
@@ -396,6 +412,7 @@ export async function updateProductQuantityInSheet(barcode: string, addQuantity:
 
     inventoryCache = null;
     facetCache = null;
+    notifyClientsIfConnected();
 
     return { ok: true, newQuantity };
   } catch (error) {
