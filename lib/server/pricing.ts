@@ -121,14 +121,14 @@ export function resolveCatalogItemPrice(customerId: string, productId: string, b
 export async function getCatalogForCustomer(customerId: string): Promise<CatalogItem[]> {
   const products = await getProducts();
   return products.map((item) => {
-    const basePrice = item.storePrice || item.changedPrice || 0;
+    const basePrice = item.price;
     const pricing = resolveCatalogItemPrice(customerId, item.id, basePrice);
     const minAllowed = round2(basePrice * 0.85);
     return {
       productId: item.id,
-      name: item.details,
+      name: item.name,
       imageUrl: item.imageUrl,
-      stock: item.totalQuantity,
+      stock: item.quantity,
       basePrice,
       tierPrice: pricing.tierPrice,
       finalPrice: pricing.finalPrice,
@@ -164,7 +164,7 @@ export async function upsertCustomerProductPrice(params: {
     throw new Error('Product not found');
   }
 
-  const basePrice = product.storePrice || product.changedPrice || 0;
+  const basePrice = product.price;
   const minAllowedPrice = round2(basePrice * 0.85);
   const existing = getActiveOverride(params.customerId, params.productId);
 
@@ -233,7 +233,7 @@ export async function bulkUpdateCustomerPrices(params: {
       results.push({ productId, ok: false, reason: 'Product not found' });
       continue;
     }
-    const basePrice = product.storePrice || product.changedPrice || 0;
+    const basePrice = product.price;
     const current = resolveCatalogItemPrice(params.customerId, productId, basePrice).finalPrice;
     const nextPrice =
       params.adjustmentType === 'percent'

@@ -11,13 +11,14 @@ type SortSheetProps = {
 };
 
 const SORT_OPTIONS: { id: InventorySortPreset; label: string }[] = [
-  { id: 'latest', label: 'ล่าสุด' },
+  { id: 'nameAsc', label: 'ชื่อสินค้า A-Z' },
+  { id: 'nameDesc', label: 'ชื่อสินค้า Z-A' },
   { id: 'lowStock', label: 'ใกล้หมดก่อน' },
   { id: 'highStock', label: 'คงเหลือมากสุด' },
   { id: 'priceHigh', label: 'ราคาสูงสุด' },
   { id: 'priceLow', label: 'ราคาต่ำสุด' },
-  { id: 'nameAsc', label: 'ชื่อสินค้า A-Z' },
-  { id: 'nameDesc', label: 'ชื่อสินค้า Z-A' },
+  { id: 'expiryAsc', label: 'หมดอายุเร็วสุด' },
+  { id: 'expiryDesc', label: 'หมดอายุช้าสุด' },
 ];
 
 function softHaptic() {

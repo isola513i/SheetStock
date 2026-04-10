@@ -1,25 +1,16 @@
 export interface InventoryItem {
   id: string;
-  date: string;
-  mainReason: string;
-  dataType: string;
-  fromLocation: string;
-  toLocation: string;
-  boxBarcode: string;
-  itemBarcode: string;
-  countedQuantity: number;
-  totalQuantity: number;
-  storePrice: number;
-  changedPrice: number;
+  barcode: string;
+  name: string;
+  category: string;
+  brand: string;
+  series: string;
+  price: number;
+  quantity: number;
+  expiryDate: string;
+  quantityPerBox: number;
+  notes: string;
   imageUrl: string;
-  expiryImageUrl: string;
-  perBoxImageUrl: string;
-  imageLinkUrl: string;
-  totalScanTime: string;
-  countNumber: number;
-  ofHowManyItems: number;
-  totalPiecesCounted: number;
-  details: string;
 }
 
 export type UserRole = 'admin' | 'sale' | 'customer';
@@ -55,28 +46,24 @@ export interface CustomerRegistration {
   reviewedBy?: string;
 }
 
-export type SortBy = 'date' | 'quantity' | 'price';
+export type SortBy = 'name' | 'quantity' | 'price' | 'category' | 'brand';
 export type SortOrder = 'asc' | 'desc';
-export type FilterReason = string | null;
 export type InventoryStockFilter = 'all' | 'inStock' | 'lowStock' | 'outOfStock';
-export type InventoryDateRange = 'all' | 'today' | '7d' | '30d';
-export type InventorySortPreset = 'latest' | 'lowStock' | 'highStock' | 'priceHigh' | 'priceLow' | 'nameAsc' | 'nameDesc';
+export type InventorySortPreset = 'lowStock' | 'highStock' | 'priceHigh' | 'priceLow' | 'nameAsc' | 'nameDesc' | 'expiryAsc' | 'expiryDesc';
 
 export type InventoryViewMode = 'grid' | 'list';
 export type InventoryTabKey = 'inventory' | 'search' | 'settings';
 
 export interface InventoryQuery {
   q?: string;
-  reason?: string;
   stock?: InventoryStockFilter;
-  dateRange?: InventoryDateRange;
+  category?: string;
+  brand?: string;
+  series?: string;
   minQty?: number;
   maxQty?: number;
   minPrice?: number;
   maxPrice?: number;
-  from?: string;
-  to?: string;
-  type?: string;
   sort?: InventorySortPreset;
   sortBy?: SortBy;
   sortOrder?: SortOrder;
@@ -90,10 +77,9 @@ export interface InventoryFacetOption {
 }
 
 export interface InventoryFacetData {
-  reasons: InventoryFacetOption[];
-  dataTypes: InventoryFacetOption[];
-  fromLocations: InventoryFacetOption[];
-  toLocations: InventoryFacetOption[];
+  categories: InventoryFacetOption[];
+  brands: InventoryFacetOption[];
+  series: InventoryFacetOption[];
 }
 
 export interface InventoryApiResponse {
@@ -101,7 +87,6 @@ export interface InventoryApiResponse {
   total: number;
   page: number;
   pageSize: number;
-  reasons: string[];
   availableFacets: InventoryFacetData;
 }
 

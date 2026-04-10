@@ -2,29 +2,29 @@
 
 import { useMemo, useState } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import type { FilterReason, InventoryDateRange, InventoryFacetData, InventoryFacetOption, InventoryStockFilter } from '@/lib/types';
+import type { InventoryFacetData, InventoryFacetOption, InventoryStockFilter } from '@/lib/types';
 
 type FilterSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   stockFilter: InventoryStockFilter;
-  dateRange: InventoryDateRange;
-  dataType: string;
+  category: string;
+  brand: string;
+  series: string;
   applyFilters: (filters: {
-    reason: FilterReason;
     stock: InventoryStockFilter;
-    dateRange: InventoryDateRange;
-    type: string;
+    category: string;
+    brand: string;
+    series: string;
   }) => void;
   clearFilters: () => void;
   facets?: InventoryFacetData | null;
 };
 
 const EMPTY_FACETS: InventoryFacetData = {
-  reasons: [],
-  dataTypes: [],
-  fromLocations: [],
-  toLocations: [],
+  categories: [],
+  brands: [],
+  series: [],
 };
 
 const STOCK_OPTIONS: { id: InventoryStockFilter; label: string }[] = [
@@ -34,27 +34,13 @@ const STOCK_OPTIONS: { id: InventoryStockFilter; label: string }[] = [
   { id: 'outOfStock', label: 'หมดสต็อก' },
 ];
 
-const DATE_OPTIONS: { id: InventoryDateRange; label: string }[] = [
-  { id: 'all', label: 'ทุกช่วงเวลา' },
-  { id: 'today', label: 'วันนี้' },
-  { id: '7d', label: '7 วันล่าสุด' },
-  { id: '30d', label: '30 วันล่าสุด' },
-];
-
-function toThaiDataType(value: string) {
-  if (value === 'Inbound') return 'รับเข้า';
-  if (value === 'Outbound') return 'จ่ายออก';
-  if (value === 'Internal') return 'ภายใน';
-  return value || 'อื่นๆ';
-}
-
 function softHaptic() {
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
     navigator.vibrate(20);
   }
 }
 
-function readFacetOptions(source: unknown, key: 'reasons' | 'dataTypes' | 'fromLocations' | 'toLocations'): InventoryFacetOption[] {
+function readFacetOptions(source: unknown, key: 'categories' | 'brands' | 'series'): InventoryFacetOption[] {
   if (!source || typeof source !== 'object') return [];
   const value = (source as Record<string, unknown>)[key];
   if (!Array.isArray(value)) return [];
@@ -65,28 +51,65 @@ function readFacetOptions(source: unknown, key: 'reasons' | 'dataTypes' | 'fromL
   });
 }
 
+function FacetSection({
+  label,
+  options,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  options: InventoryFacetOption[];
+  selected: string;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <section>
+      <p className="text-xs text-gray-500 mb-2">{label}</p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => { softHaptic(); onSelect(''); }}
+          className={`min-h-9 py-2 px-3 rounded-xl text-sm transition-colors ${selected === '' ? 'bg-[var(--brand-primary)] text-white' : 'bg-gray-100 text-gray-700'}`}
+        >
+          ทั้งหมด
+        </button>
+        {options.map((option) => (
+          <button
+            key={option.value}
+            onClick={() => { softHaptic(); onSelect(option.value); }}
+            className={`min-h-9 py-2 px-3 rounded-xl text-sm transition-colors ${selected === option.value ? 'bg-[var(--brand-primary)] text-white' : 'bg-gray-100 text-gray-700'}`}
+          >
+            {option.value} <span className="opacity-60">({option.count})</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function FilterSheet(props: FilterSheetProps) {
   const open = props?.open ?? false;
   const onOpenChange = props?.onOpenChange ?? (() => undefined);
   const stockFilter = props?.stockFilter ?? 'all';
-  const dateRange = props?.dateRange ?? 'all';
-  const dataType = props?.dataType ?? '';
+  const category = props?.category ?? '';
+  const brand = props?.brand ?? '';
+  const series = props?.series ?? '';
   const applyFilters = props?.applyFilters ?? (() => undefined);
   const clearFilters = props?.clearFilters ?? (() => undefined);
   const facets = props?.facets ?? EMPTY_FACETS;
 
   const safeFacets = useMemo<InventoryFacetData>(() => {
     return {
-      reasons: readFacetOptions(facets, 'reasons'),
-      dataTypes: readFacetOptions(facets, 'dataTypes'),
-      fromLocations: readFacetOptions(facets, 'fromLocations'),
-      toLocations: readFacetOptions(facets, 'toLocations'),
+      categories: readFacetOptions(facets, 'categories'),
+      brands: readFacetOptions(facets, 'brands'),
+      series: readFacetOptions(facets, 'series'),
     };
   }, [facets]);
 
   const [draftStock, setDraftStock] = useState<InventoryStockFilter>(stockFilter);
-  const [draftDateRange, setDraftDateRange] = useState<InventoryDateRange>(dateRange);
-  const [draftType, setDraftType] = useState(dataType);
+  const [draftCategory, setDraftCategory] = useState(category);
+  const [draftBrand, setDraftBrand] = useState(brand);
+  const [draftSeries, setDraftSeries] = useState(series);
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="rounded-t-[2.5rem] px-5 pt-8 bg-white border-none focus:outline-none">
@@ -110,50 +133,9 @@ export function FilterSheet(props: FilterSheetProps) {
             </div>
           </section>
 
-          <section>
-            <p className="text-xs text-gray-500 mb-2">ช่วงเวลา</p>
-            <div className="grid grid-cols-2 gap-2">
-              {DATE_OPTIONS.map((option) => (
-                <button
-                  key={option.id}
-                  onClick={() => {
-                    softHaptic();
-                    setDraftDateRange(option.id);
-                  }}
-                  className={`min-h-11 py-2.5 px-3 rounded-xl text-sm transition-colors ${draftDateRange === option.id ? 'bg-[var(--brand-primary)] text-white' : 'bg-gray-100 text-gray-700'}`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section>
-            <p className="text-xs text-gray-500 mb-2">ประเภทข้อมูล</p>
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => {
-                  softHaptic();
-                  setDraftType('');
-                }}
-                className={`min-h-11 py-2.5 px-3 rounded-xl text-left text-sm transition-colors ${draftType === '' ? 'bg-[var(--brand-primary)] text-white' : 'bg-gray-100 text-gray-700'}`}
-              >
-                ทั้งหมด
-              </button>
-              {safeFacets.dataTypes.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => {
-                    softHaptic();
-                    setDraftType(option.value);
-                  }}
-                  className={`min-h-11 py-2.5 px-3 rounded-xl text-left text-sm transition-colors ${draftType === option.value ? 'bg-[var(--brand-primary)] text-white' : 'bg-gray-100 text-gray-700'}`}
-                >
-                  {toThaiDataType(option.value)}
-                </button>
-              ))}
-            </div>
-          </section>
+          <FacetSection label="หมวดหมู่" options={safeFacets.categories} selected={draftCategory} onSelect={setDraftCategory} />
+          <FacetSection label="แบรนด์" options={safeFacets.brands} selected={draftBrand} onSelect={setDraftBrand} />
+          <FacetSection label="ซีรีส์" options={safeFacets.series} selected={draftSeries} onSelect={setDraftSeries} />
         </div>
 
         <div className="fixed left-0 right-0 bottom-0 bg-white/95 backdrop-blur border-t border-gray-100 p-4 flex gap-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 12px)' }}>
@@ -171,10 +153,10 @@ export function FilterSheet(props: FilterSheetProps) {
             onClick={() => {
               softHaptic();
               applyFilters({
-                reason: null,
                 stock: draftStock,
-                dateRange: draftDateRange,
-                type: draftType,
+                category: draftCategory,
+                brand: draftBrand,
+                series: draftSeries,
               });
               onOpenChange(false);
             }}

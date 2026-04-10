@@ -18,10 +18,10 @@ export async function GET(request: NextRequest) {
     const products = await loadInventoryFromGoogleSheets();
     const items = products.map((item) => ({
       productId: item.id,
-      name: item.details,
+      name: item.name,
       imageUrl: item.imageUrl,
-      stock: item.totalQuantity,
-      finalPrice: item.storePrice || item.changedPrice || 0,
+      stock: item.quantity,
+      finalPrice: item.price,
       priceSource: 'base' as const,
     }));
     return NextResponse.json({

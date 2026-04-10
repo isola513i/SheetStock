@@ -39,8 +39,8 @@ function SwipeableListItem({
   idx: number;
   onItemClick: (item: InventoryItem) => void;
 }) {
-  const isOutOfStock = item.totalQuantity <= 0;
-  const isLowStock = item.totalQuantity > 0 && item.totalQuantity < 10;
+  const isOutOfStock = item.quantity <= 0;
+  const isLowStock = item.quantity > 0 && item.quantity < 10;
   const x = useMotionValue(0);
   const actionOpacity = useTransform(x, [-SWIPE_THRESHOLD, -30, 0, 30, SWIPE_THRESHOLD], [1, 0.5, 0, 0.5, 1]);
   const didSwipeRef = useRef(false);
@@ -99,7 +99,7 @@ function SwipeableListItem({
         <div className="relative h-16 w-16 shrink-0">
           <Image
             src={toSafeImageSrc(item.imageUrl)}
-            alt={item.details}
+            alt={item.name}
             fill
             sizes="64px"
             className={`object-contain rounded-lg ${isOutOfStock ? 'grayscale opacity-70' : ''}`}
@@ -116,13 +116,13 @@ function SwipeableListItem({
           )}
         </div>
         <div className={`flex-1 min-w-0 ${isOutOfStock ? 'opacity-70' : ''}`}>
-          <h3 className="font-medium text-sm text-gray-900 leading-tight">{item.details}</h3>
-          <p className="text-[11px] text-gray-500 mt-1 truncate">รหัส: {item.boxBarcode}</p>
+          <h3 className="font-medium text-sm text-gray-900 leading-tight">{item.name}</h3>
+          <p className="text-[11px] text-gray-500 mt-1 truncate">บาร์โค้ด: {item.barcode}</p>
         </div>
         <div className="text-right shrink-0 flex flex-col items-end justify-center">
           {!isOutOfStock && (
             <p className={`text-lg font-medium leading-none ${isLowStock ? 'text-yellow-600' : 'text-[var(--brand-primary)]'}`}>
-              {item.totalQuantity} <span className="text-[11px] font-normal ml-0.5 text-gray-400">ชิ้น</span>
+              {item.quantity} <span className="text-[11px] font-normal ml-0.5 text-gray-400">ชิ้น</span>
             </p>
           )}
           {isLowStock && <span className="mt-1.5 px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-[9px] font-medium rounded-sm">ใกล้หมด</span>}
@@ -147,8 +147,8 @@ export const ProductList = memo(function ProductList({ processedInventory, viewM
             className="grid grid-cols-2 gap-4"
           >
             {processedInventory.map((item, idx) => {
-              const isOutOfStock = item.totalQuantity <= 0;
-              const isLowStock = item.totalQuantity > 0 && item.totalQuantity < 10;
+              const isOutOfStock = item.quantity <= 0;
+              const isLowStock = item.quantity > 0 && item.quantity < 10;
               return (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -161,7 +161,7 @@ export const ProductList = memo(function ProductList({ processedInventory, viewM
                   <div className="relative h-32 w-full mb-4">
                     <Image
                       src={toSafeImageSrc(item.imageUrl)}
-                      alt={item.details}
+                      alt={item.name}
                       fill
                       sizes="(max-width: 768px) 50vw, 33vw"
                       className={`object-contain ${isOutOfStock ? 'grayscale opacity-70' : ''}`}
@@ -177,12 +177,12 @@ export const ProductList = memo(function ProductList({ processedInventory, viewM
                     )}
                   </div>
                   <div className={`w-full text-center flex flex-col items-center ${isOutOfStock ? 'opacity-70' : ''}`}>
-                    <h3 className="font-medium text-sm text-gray-900 truncate w-full">{item.details}</h3>
-                    <p className="text-[11px] text-gray-500 mt-1 truncate w-full">กล่อง: {item.boxBarcode}</p>
+                    <h3 className="font-medium text-sm text-gray-900 truncate w-full">{item.name}</h3>
+                    <p className="text-[11px] text-gray-500 mt-1 truncate w-full">บาร์โค้ด: {item.barcode}</p>
                     <div className="flex items-center justify-center gap-1.5 mt-1">
                       {!isOutOfStock && (
                         <p className={`text-[12px] font-medium truncate ${isLowStock ? 'text-yellow-600' : 'text-gray-700'}`}>
-                          {item.totalQuantity} <span className="text-[10px] font-normal text-gray-400">ชิ้น</span>
+                          {item.quantity} <span className="text-[10px] font-normal text-gray-400">ชิ้น</span>
                         </p>
                       )}
                       {isLowStock && <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-[9px] font-medium rounded-sm">ใกล้หมด</span>}

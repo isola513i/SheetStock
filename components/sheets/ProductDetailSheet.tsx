@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import { Check, ChevronLeft, ChevronRight, Copy, Package, X, Clipboard } from 'lucide-react';
+import { Check, Clipboard, Package, X } from 'lucide-react';
 import { t, getLocale, type Locale } from '@/lib/i18n';
 import { Badge } from '@/components/ui/badge';
 import { InventoryItem } from '@/lib/types';
@@ -19,18 +19,11 @@ type ProductDetailSheetProps = {
   setFullscreenImage: (value: string | null) => void;
 };
 
-type GalleryImage = { src: string; label: string };
-
-function FullscreenImageViewer({ images, initialIndex, onClose }: { images: GalleryImage[]; initialIndex: number; onClose: () => void }) {
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+function FullscreenImageViewer({ src, onClose }: { src: string; onClose: () => void }) {
   const [scale, setScale] = useState(1);
   const lastDistRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const goPrev = useCallback(() => setCurrentIndex((i) => Math.max(0, i - 1)), []);
-  const goNext = useCallback(() => setCurrentIndex((i) => Math.min(images.length - 1, i + 1)), [images.length]);
-
-  // Pinch-to-zoom via touch events (rAF-throttled for smooth 60fps)
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -39,8 +32,7 @@ function FullscreenImageViewer({ images, initialIndex, onClose }: { images: Gall
     const onTouchMove = (e: TouchEvent) => {
       if (e.touches.length === 2) {
         e.preventDefault();
-        if (rafId) return; // skip if a frame is already scheduled
-        // Capture coordinates synchronously — TouchEvent may be recycled before rAF fires
+        if (rafId) return;
         const x0 = e.touches[0].clientX, y0 = e.touches[0].clientY;
         const x1 = e.touches[1].clientX, y1 = e.touches[1].clientY;
         rafId = requestAnimationFrame(() => {
@@ -50,7 +42,6 @@ function FullscreenImageViewer({ images, initialIndex, onClose }: { images: Gall
           const distSq = dx * dx + dy * dy;
           if (lastDistRef.current > 0) {
             const delta = distSq / lastDistRef.current;
-            // delta is ratio of squared distances, so take sqrt once
             const scaleFactor = Math.sqrt(delta);
             setScale((prev) => Math.min(4, Math.max(1, prev * scaleFactor)));
           }
@@ -72,7 +63,6 @@ function FullscreenImageViewer({ images, initialIndex, onClose }: { images: Gall
     };
   }, []);
 
-  // Double-tap to toggle zoom
   const lastTapRef = useRef(0);
   const handleDoubleTap = useCallback(() => {
     const now = Date.now();
@@ -82,29 +72,9 @@ function FullscreenImageViewer({ images, initialIndex, onClose }: { images: Gall
     lastTapRef.current = now;
   }, []);
 
-  // Swipe detection for navigation
-  const touchStartXRef = useRef(0);
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 1) {
-      touchStartXRef.current = e.touches[0].clientX;
-    }
-  }, []);
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (scale > 1) return; // Don't swipe while zoomed
-    const dx = e.changedTouches[0].clientX - touchStartXRef.current;
-    if (Math.abs(dx) > 60) {
-      if (dx < 0) goNext();
-      else goPrev();
-    }
-  }, [scale, goNext, goPrev]);
-
-  const current = images[currentIndex];
-
   return (
     <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col animate-in fade-in duration-200">
-      {/* Top bar */}
-      <div className="flex items-center justify-between p-4 shrink-0">
-        <p className="text-white/70 text-sm">{current.label} ({currentIndex + 1}/{images.length})</p>
+      <div className="flex items-center justify-end p-4 shrink-0">
         <button
           onClick={onClose}
           className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white active:scale-95 transition-all"
@@ -113,25 +83,21 @@ function FullscreenImageViewer({ images, initialIndex, onClose }: { images: Gall
         </button>
       </div>
 
-      {/* Image area with pinch zoom */}
       <div
         ref={containerRef}
         className="flex-1 relative w-full overflow-hidden"
         onClick={handleDoubleTap}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
       >
         <div
           className="absolute inset-0 flex items-center justify-center transition-transform duration-200"
           style={{ transform: `scale(${scale})` }}
         >
           <Image
-            key={current.src}
-            src={current.src}
+            src={src}
             fill
             sizes="100vw"
             className="object-contain"
-            alt={current.label}
+            alt="Product image"
             referrerPolicy="no-referrer"
             priority
             placeholder="blur"
@@ -140,37 +106,10 @@ function FullscreenImageViewer({ images, initialIndex, onClose }: { images: Gall
         </div>
       </div>
 
-      {/* Navigation + zoom hint */}
       <div className="shrink-0 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3">
-        <p className="text-center text-white/40 text-[10px] mb-3">
+        <p className="text-center text-white/40 text-[10px]">
           {scale > 1 ? 'แตะ 2 ครั้งเพื่อย่อ' : 'แตะ 2 ครั้งเพื่อขยาย • ใช้ 2 นิ้วซูม'}
         </p>
-        {images.length > 1 && (
-          <div className="flex items-center justify-center gap-4">
-            <button
-              onClick={goPrev}
-              disabled={currentIndex === 0}
-              className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white disabled:opacity-30"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <div className="flex gap-1.5">
-              {images.map((_, i) => (
-                <div
-                  key={i}
-                  className={`h-1.5 rounded-full transition-all ${i === currentIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/30'}`}
-                />
-              ))}
-            </div>
-            <button
-              onClick={goNext}
-              disabled={currentIndex === images.length - 1}
-              className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white disabled:opacity-30"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -196,23 +135,6 @@ function formatCurrency(value: number, zeroAsDash = false) {
   return `฿${value.toFixed(2)}`;
 }
 
-function formatCount(value: number, zeroAsDash = false) {
-  if (zeroAsDash && value === 0) return '-';
-  return String(value);
-}
-
-function formatThaiDate(value: string) {
-  const match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!match) return toDisplayText(value);
-  const day = Number(match[1]);
-  const month = Number(match[2]);
-  let year = Number(match[3]);
-  if (year > 2400) year -= 543;
-  const parsed = new Date(year, month - 1, day);
-  if (Number.isNaN(parsed.getTime())) return toDisplayText(value);
-  return parsed.toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
 function getStockStatus(qty: number) {
   if (qty <= 0) return { label: 'Out of Stock', color: 'bg-red-100 text-red-700 border-red-200' };
   if (qty < 50) return { label: 'Low Stock', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' };
@@ -228,10 +150,6 @@ function toSafeImageSrc(value: unknown) {
   return `/${trimmed.replace(/^\.?\/*/, '')}`;
 }
 
-function hasImage(value: unknown) {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
 const DISMISS_THRESHOLD = 120;
 
 export function ProductDetailSheet({
@@ -241,11 +159,10 @@ export function ProductDetailSheet({
   fullscreenImage,
   setFullscreenImage,
 }: ProductDetailSheetProps) {
-  const [copied, setCopied] = useState(false);
   const [copiedBarcode, setCopiedBarcode] = useState<string | null>(null);
   const [locale, setLocaleState] = useState<Locale>('th');
   useEffect(() => { setLocaleState(getLocale()); }, []);
-  const stock = getStockStatus(selectedItem?.totalQuantity ?? 0);
+  const stock = getStockStatus(selectedItem?.quantity ?? 0);
 
   const copyBarcode = useCallback((barcode: string) => {
     if (!barcode) return;
@@ -265,7 +182,6 @@ export function ProductDetailSheet({
   const handleDragStart = useCallback((e: React.TouchEvent) => {
     const scrollEl = scrollContainerRef.current;
     const scrollTop = scrollEl?.scrollTop ?? 0;
-    // Only allow drag-to-dismiss when scrolled to top
     if (scrollTop > 5) return;
     dragStartRef.current = { y: e.touches[0].clientY, scrollTop };
     setIsDragging(true);
@@ -336,7 +252,7 @@ export function ProductDetailSheet({
             >
               <div className="sticky top-0 z-30 bg-[var(--brand-primary)] px-5 pt-2 pb-4 flex items-center justify-between">
                 <div className="absolute left-1/2 top-2 -translate-x-1/2 h-1.5 w-12 rounded-full bg-white/45" />
-                <div className="text-white font-medium text-base">รายละเอียดสินค้า</div>
+                <div className="text-white font-medium text-base">{t('product.detail', locale)}</div>
                 <div className="flex gap-3">
                   <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center text-white">
                     <Package className="w-4 h-4" />
@@ -345,14 +261,17 @@ export function ProductDetailSheet({
               </div>
 
               <div className="bg-[var(--brand-primary)] rounded-b-[2.2rem] px-5 pb-8 pt-1 relative">
-                <div className="relative h-40 w-full">
+                <div
+                  className="relative h-40 w-full cursor-pointer"
+                  onClick={() => setFullscreenImage(mainImageSrc ?? FALLBACK_IMAGE_SRC)}
+                >
                   {mainImageSrc ? (
                     <Image
                       src={mainImageSrc}
                       fill
                       sizes="100vw"
                       className="object-contain"
-                      alt={selectedItem.details}
+                      alt={selectedItem.name}
                       referrerPolicy="no-referrer"
                       priority
                       placeholder="blur"
@@ -364,19 +283,19 @@ export function ProductDetailSheet({
                       fill
                       sizes="100vw"
                       className="object-contain"
-                      alt={selectedItem.details}
+                      alt={selectedItem.name}
                       priority
                     />
                   )}
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <div className="rounded-xl bg-white/16 px-3 py-2">
-                    <p className="text-[11px] text-white/80">จำนวนรวม</p>
-                    <p className="text-white text-sm font-medium">{selectedItem.totalQuantity} ชิ้น</p>
+                    <p className="text-[11px] text-white/80">{t('product.quantity', locale)}</p>
+                    <p className="text-white text-sm font-medium">{selectedItem.quantity} {t('product.pieces', locale)}</p>
                   </div>
                   <div className="rounded-xl bg-white/16 px-3 py-2">
-                    <p className="text-[11px] text-white/80">เวลาแสกน</p>
-                    <p className="text-white text-sm font-medium">{toDisplayText(selectedItem.totalScanTime)}</p>
+                    <p className="text-[11px] text-white/80">{t('product.price', locale)}</p>
+                    <p className="text-white text-sm font-medium">{formatCurrency(selectedItem.price)}</p>
                   </div>
                 </div>
               </div>
@@ -384,129 +303,69 @@ export function ProductDetailSheet({
               <div className="px-4 -mt-6 relative z-10 pb-24">
                 <div className="bg-white rounded-[1.6rem] p-5 border border-gray-200 shadow-sm">
                   <div className="mb-5">
-                    <h2 className="text-[1.35rem] leading-tight font-medium text-gray-900 mb-2">{toDisplayText(selectedItem.details)}</h2>
+                    <h2 className="text-[1.35rem] leading-tight font-medium text-gray-900 mb-2">{toDisplayText(selectedItem.name)}</h2>
                     <Badge className={`${stock.color} border px-2.5 py-0.5 rounded-full font-medium text-xs`}>
                       {stock.label}
                     </Badge>
                   </div>
 
-                  <div className="flex gap-3 overflow-x-auto pb-5 mb-5 border-b border-dashed border-gray-200 hide-scrollbar snap-x" style={{ WebkitOverflowScrolling: 'touch' }}>
-                    <div className="shrink-0 w-24 space-y-2 cursor-pointer" onClick={() => setFullscreenImage(mainImageSrc ?? FALLBACK_IMAGE_SRC)}>
-                      <div className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50 snap-start">
-                        <Image src={mainImageSrc ?? FALLBACK_IMAGE_SRC} fill sizes="96px" className="object-cover" alt="รูป" referrerPolicy="no-referrer" placeholder="blur" blurDataURL={BLUR_DATA_URL} />
-                      </div>
-                      <p className="text-[10px] text-center text-gray-500 font-medium">รูป</p>
+                  {/* Barcode */}
+                  <div className="flex items-center justify-between bg-gray-50 rounded-xl p-4 border border-gray-100 mb-5">
+                    <div>
+                      <p className="text-[11px] text-gray-500 font-medium">{t('product.barcode', locale)}</p>
+                      <p className="text-gray-900 text-sm font-mono mt-0.5">{toDisplayText(selectedItem.barcode)}</p>
                     </div>
-                    <div className={`shrink-0 w-24 space-y-2 ${hasImage(selectedItem.perBoxImageUrl) ? 'cursor-pointer' : ''}`} onClick={() => hasImage(selectedItem.perBoxImageUrl) && setFullscreenImage(toSafeImageSrc(selectedItem.perBoxImageUrl))}>
-                      <div className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50 snap-start">
-                        {hasImage(selectedItem.perBoxImageUrl) ? (
-                          <Image src={toSafeImageSrc(selectedItem.perBoxImageUrl) ?? FALLBACK_IMAGE_SRC} fill sizes="96px" className="object-cover" alt="รูปต่อลัง" referrerPolicy="no-referrer" placeholder="blur" blurDataURL={BLUR_DATA_URL} />
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center px-2 text-center text-[10px] text-gray-400">ไม่มีรูปต่อลัง</div>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-center text-gray-500 font-medium">รูปต่อลัง</p>
-                    </div>
-                    <div className={`shrink-0 w-24 space-y-2 ${hasImage(selectedItem.expiryImageUrl) ? 'cursor-pointer' : ''}`} onClick={() => hasImage(selectedItem.expiryImageUrl) && setFullscreenImage(toSafeImageSrc(selectedItem.expiryImageUrl))}>
-                      <div className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50 snap-start">
-                        {hasImage(selectedItem.expiryImageUrl) ? (
-                          <Image src={toSafeImageSrc(selectedItem.expiryImageUrl) ?? FALLBACK_IMAGE_SRC} fill sizes="96px" className="object-cover" alt="รูปวันหมดอายุ" referrerPolicy="no-referrer" placeholder="blur" blurDataURL={BLUR_DATA_URL} />
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center px-2 text-center text-[10px] text-gray-400">ไม่มีรูปวันหมดอายุ</div>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-center text-gray-500 font-medium">รูปวันหมดอายุ</p>
-                    </div>
+                    {selectedItem.barcode && (
+                      <button
+                        onClick={() => copyBarcode(selectedItem.barcode)}
+                        className="shrink-0 w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center active:scale-90 transition-transform"
+                      >
+                        {copiedBarcode === selectedItem.barcode
+                          ? <Check className="w-4 h-4 text-green-600" />
+                          : <Clipboard className="w-4 h-4 text-[var(--brand-primary)]" />}
+                      </button>
+                    )}
                   </div>
 
+                  {/* Product Info */}
                   <div className="mb-5">
                     <h3 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
                       <div className="w-1 h-4 bg-[var(--brand-primary)] rounded-full"></div>
-                      ข้อมูลทั่วไป
+                      {t('product.productInfo', locale)}
                     </h3>
                     <div className="bg-gray-50 rounded-xl p-4 space-y-2 border border-gray-100">
-                      <DataRow label="วันที่" value={formatThaiDate(selectedItem.date)} />
-                      <DataRow label="เวลาสแกน" value={toDisplayText(selectedItem.totalScanTime)} />
-                      <DataRow label="เหตุผลหลัก" value={toDisplayText(selectedItem.mainReason)} />
-                      <DataRow label="ประเภทข้อมูล" value={toDisplayText(selectedItem.dataType)} isLast />
+                      <DataRow label={t('product.category', locale)} value={toDisplayText(selectedItem.category)} />
+                      <DataRow label={t('product.brand', locale)} value={toDisplayText(selectedItem.brand)} />
+                      <DataRow label={t('product.series', locale)} value={toDisplayText(selectedItem.series)} />
+                      <DataRow label={t('product.expiryDate', locale)} value={toDisplayText(selectedItem.expiryDate)} isLast />
                     </div>
                   </div>
 
+                  {/* Quantity & Price */}
                   <div className="mb-5">
                     <h3 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
                       <div className="w-1 h-4 bg-[var(--brand-primary)] rounded-full"></div>
-                      {t('product.locationBarcode', locale)}
+                      {t('product.qtyPrice', locale)}
                     </h3>
                     <div className="bg-gray-50 rounded-xl p-4 space-y-2 border border-gray-100">
-                      <DataRow label={t('product.from', locale)} value={toDisplayText(selectedItem.fromLocation)} />
-                      <DataRow label={t('product.to', locale)} value={toDisplayText(selectedItem.toLocation)} />
-                      <div className="flex justify-between items-center py-3 border-b border-dashed border-gray-200 gap-4">
-                        <span className="text-gray-500 font-medium text-sm shrink-0">{t('product.boxBarcode', locale)}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-900 text-sm font-mono">{toDisplayText(selectedItem.boxBarcode)}</span>
-                          {selectedItem.boxBarcode && (
-                            <button
-                              onClick={() => copyBarcode(selectedItem.boxBarcode)}
-                              className="shrink-0 w-7 h-7 rounded-md bg-orange-50 flex items-center justify-center active:scale-90 transition-transform"
-                            >
-                              {copiedBarcode === selectedItem.boxBarcode
-                                ? <Check className="w-3.5 h-3.5 text-green-600" />
-                                : <Clipboard className="w-3.5 h-3.5 text-[var(--brand-primary)]" />}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center py-3 gap-4">
-                        <span className="text-gray-500 font-medium text-sm shrink-0">{t('product.itemBarcode', locale)}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-900 text-sm font-mono">{toDisplayText(selectedItem.itemBarcode)}</span>
-                          {selectedItem.itemBarcode && (
-                            <button
-                              onClick={() => copyBarcode(selectedItem.itemBarcode)}
-                              className="shrink-0 w-7 h-7 rounded-md bg-orange-50 flex items-center justify-center active:scale-90 transition-transform"
-                            >
-                              {copiedBarcode === selectedItem.itemBarcode
-                                ? <Check className="w-3.5 h-3.5 text-green-600" />
-                                : <Clipboard className="w-3.5 h-3.5 text-[var(--brand-primary)]" />}
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                      <DataRow label={t('product.price', locale)} value={formatCurrency(selectedItem.price)} />
+                      <DataRow label={t('product.quantity', locale)} value={`${selectedItem.quantity} ${t('product.pieces', locale)}`} />
+                      <DataRow label={t('product.quantityPerBox', locale)} value={selectedItem.quantityPerBox > 0 ? `${selectedItem.quantityPerBox}` : toDisplayText('')} isLast />
                     </div>
                   </div>
 
-                  <div className="mb-5">
-                    <h3 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
-                      <div className="w-1 h-4 bg-[var(--brand-primary)] rounded-full"></div>
-                      จำนวนและราคา
-                    </h3>
-                    <div className="bg-gray-50 rounded-xl p-4 space-y-2 border border-gray-100">
-                      <DataRow label="จำนวนนับ" value={selectedItem.countedQuantity} />
-                      <DataRow label="จำนวนรวม" value={selectedItem.totalQuantity} />
-                      <DataRow label="ราคาหน้าร้าน" value={formatCurrency(selectedItem.storePrice, true)} />
-                      <DataRow label="ราคาเปลี่ยน" value={formatCurrency(selectedItem.changedPrice, true)} />
-                      <DataRow label="นับครั้งที่" value={formatCount(selectedItem.countNumber, true)} />
-                      <DataRow label="รายการทั้งหมด" value={formatCount(selectedItem.ofHowManyItems, true)} />
-                      <DataRow label="นับรวมชิ้น" value={selectedItem.totalPiecesCounted} isLast />
+                  {/* Notes */}
+                  {selectedItem.notes && (
+                    <div className="mb-2">
+                      <h3 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
+                        <div className="w-1 h-4 bg-[var(--brand-primary)] rounded-full"></div>
+                        {t('product.notes', locale)}
+                      </h3>
+                      <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                        <p className="text-gray-900 text-sm">{selectedItem.notes}</p>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="flex items-center justify-between bg-gray-50 rounded-xl p-4 border border-gray-100 mb-2">
-                    <span className="text-sm text-gray-500 font-medium">ลิงก์รูปภาพสินค้า</span>
-                    <button
-                      onClick={() => {
-                        if (!selectedItem.imageLinkUrl) return;
-                        navigator.clipboard.writeText(selectedItem.imageLinkUrl);
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
-                      }}
-                      disabled={!selectedItem.imageLinkUrl}
-                      className="flex items-center gap-1.5 text-[var(--brand-primary)] text-sm font-medium bg-orange-50 px-3 py-1.5 rounded-lg active:scale-95 transition-all disabled:opacity-50"
-                    >
-                      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      {copied ? 'คัดลอกแล้ว' : 'คัดลอกลิงก์'}
-                    </button>
-                  </div>
+                  )}
                 </div>
               </div>
 
@@ -515,7 +374,7 @@ export function ProductDetailSheet({
                   onClick={() => onOpenChange(false)}
                   className="w-full h-12 rounded-full bg-[var(--brand-primary)] text-white font-medium shadow-lg shadow-orange-900/20 active:scale-[0.99] transition"
                 >
-                  ปิดหน้ารายละเอียด
+                  {t('product.close', locale)}
                 </button>
               </div>
             </div>
@@ -525,24 +384,7 @@ export function ProductDetailSheet({
 
       {fullscreenImage && selectedItem && (
         <FullscreenImageViewer
-          images={[
-            { src: toSafeImageSrc(selectedItem.imageUrl) ?? FALLBACK_IMAGE_SRC, label: 'รูปสินค้า' },
-            ...(hasImage(selectedItem.perBoxImageUrl)
-              ? [{ src: toSafeImageSrc(selectedItem.perBoxImageUrl) ?? FALLBACK_IMAGE_SRC, label: 'รูปต่อลัง' }]
-              : []),
-            ...(hasImage(selectedItem.expiryImageUrl)
-              ? [{ src: toSafeImageSrc(selectedItem.expiryImageUrl) ?? FALLBACK_IMAGE_SRC, label: 'วันหมดอายุ' }]
-              : []),
-          ]}
-          initialIndex={(() => {
-            const allSrcs = [
-              toSafeImageSrc(selectedItem.imageUrl),
-              ...(hasImage(selectedItem.perBoxImageUrl) ? [toSafeImageSrc(selectedItem.perBoxImageUrl)] : []),
-              ...(hasImage(selectedItem.expiryImageUrl) ? [toSafeImageSrc(selectedItem.expiryImageUrl)] : []),
-            ];
-            const idx = allSrcs.indexOf(toSafeImageSrc(fullscreenImage));
-            return idx >= 0 ? idx : 0;
-          })()}
+          src={toSafeImageSrc(fullscreenImage) ?? FALLBACK_IMAGE_SRC}
           onClose={() => setFullscreenImage(null)}
         />
       )}

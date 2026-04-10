@@ -6,7 +6,7 @@ import useSWR from 'swr';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import PullToRefresh from 'pulltorefreshjs';
-import { InventoryApiResponse, InventoryDateRange, InventoryItem, InventorySortPreset, InventoryStockFilter, InventoryTabKey, InventoryViewMode, FilterReason, UserRole } from '@/lib/types';
+import { InventoryApiResponse, InventoryItem, InventorySortPreset, InventoryStockFilter, InventoryTabKey, InventoryViewMode, UserRole } from '@/lib/types';
 import { Search, List, LayoutGrid, ArrowUpDown, SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { BottomNav } from '@/components/BottomNav';
@@ -20,7 +20,7 @@ const SortSheet = dynamic(() => import('@/components/sheets/SortSheet').then(m =
 const BarcodeScannerSheet = dynamic(() => import('@/components/BarcodeScannerSheet').then(m => ({ default: m.BarcodeScannerSheet })), { ssr: false });
 
 const PAGE_SIZE = 20;
-const DEFAULT_SORT: InventorySortPreset = 'latest';
+const DEFAULT_SORT: InventorySortPreset = 'nameAsc';
 const fetcher = async (url: string): Promise<InventoryApiResponse> => {
   const response = await fetch(url);
   if (!response.ok) {
@@ -77,10 +77,10 @@ function InventoryDashboardContent() {
   const isPullRefreshingRef = useRef(false);
 
   const sort = (searchParams.get('sort') as InventorySortPreset) || DEFAULT_SORT;
-  const filterReason: FilterReason = searchParams.get('reason');
   const stockFilter = (searchParams.get('stock') as InventoryStockFilter) || 'all';
-  const dateRange = (searchParams.get('dateRange') as InventoryDateRange) || 'all';
-  const dataTypeFilter = searchParams.get('type') ?? '';
+  const categoryFilter = searchParams.get('category') ?? '';
+  const brandFilter = searchParams.get('brand') ?? '';
+  const seriesFilter = searchParams.get('series') ?? '';
   const page = Math.max(1, Number(searchParams.get('page') ?? '1'));
 
   const updateQuery = useCallback(
@@ -172,11 +172,11 @@ function InventoryDashboardContent() {
     params.set('page', String(page));
     params.set('pageSize', String(PAGE_SIZE));
     if (stockFilter !== 'all') params.set('stock', stockFilter);
-    if (dateRange !== 'all') params.set('dateRange', dateRange);
-    if (dataTypeFilter) params.set('type', dataTypeFilter);
-    if (filterReason) params.set('reason', filterReason);
+    if (categoryFilter) params.set('category', categoryFilter);
+    if (brandFilter) params.set('brand', brandFilter);
+    if (seriesFilter) params.set('series', seriesFilter);
     return `/api/inventory?${params.toString()}`;
-  }, [debouncedSearchQuery, sort, page, filterReason, stockFilter, dateRange, dataTypeFilter]);
+  }, [debouncedSearchQuery, sort, page, stockFilter, categoryFilter, brandFilter, seriesFilter]);
 
   const { data, isLoading, isValidating, mutate } = useSWR(apiUrl, fetcher, {
     revalidateOnFocus: true,
@@ -203,12 +203,12 @@ function InventoryDashboardContent() {
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (filterReason) count += 1;
     if (stockFilter !== 'all') count += 1;
-    if (dateRange !== 'all') count += 1;
-    if (dataTypeFilter) count += 1;
+    if (categoryFilter) count += 1;
+    if (brandFilter) count += 1;
+    if (seriesFilter) count += 1;
     return count;
-  }, [filterReason, stockFilter, dateRange, dataTypeFilter]);
+  }, [stockFilter, categoryFilter, brandFilter, seriesFilter]);
   const showFloatingPagination = scrollDir !== 'down';
   const isSettingsTab = activeTab === 'settings';
 
@@ -266,10 +266,10 @@ function InventoryDashboardContent() {
   const clearFilters = () => {
     updateQuery({
       q: '',
-      reason: null,
       stock: null,
-      dateRange: null,
-      type: null,
+      category: null,
+      brand: null,
+      series: null,
       sort: DEFAULT_SORT,
       page: 1,
     });
@@ -280,42 +280,29 @@ function InventoryDashboardContent() {
     updateQuery({ sort: nextSort, page: 1 });
   };
 
-  const updateFilterReason = (reason: FilterReason) => {
-    updateQuery({ reason, page: 1 });
-  };
-
-  const updateQuickStockFilter = (stock: InventoryStockFilter) => {
-    updateQuery({ stock: stock === 'all' ? null : stock, page: 1 });
-  };
-
-  const updateQuickDateRange = (range: InventoryDateRange) => {
-    updateQuery({ dateRange: range === 'all' ? null : range, page: 1 });
-  };
-
-  const applyQuickPreset = (preset: 'all' | 'lowStock' | 'outOfStock' | '7d') => {
+  const applyQuickPreset = (preset: 'all' | 'lowStock' | 'outOfStock') => {
     softHaptic();
     if (preset === 'all') {
-      updateQuery({ stock: null, dateRange: null, reason: null, page: 1 });
+      updateQuery({ stock: null, page: 1 });
       return;
     }
     if (preset === 'lowStock') {
-      updateQuery({ stock: 'lowStock', dateRange: null, reason: null, page: 1 });
+      updateQuery({ stock: 'lowStock', page: 1 });
       return;
     }
     if (preset === 'outOfStock') {
-      updateQuery({ stock: 'outOfStock', dateRange: null, reason: null, page: 1 });
+      updateQuery({ stock: 'outOfStock', page: 1 });
       return;
     }
-    updateQuery({ stock: null, dateRange: '7d', reason: null, page: 1 });
   };
 
-  const applySheetFilters = (filters: { reason: FilterReason; stock: InventoryStockFilter; dateRange: InventoryDateRange; type: string }) => {
+  const applySheetFilters = (filters: { stock: InventoryStockFilter; category: string; brand: string; series: string }) => {
     softHaptic();
     updateQuery({
-      reason: filters.reason,
       stock: filters.stock === 'all' ? null : filters.stock,
-      dateRange: filters.dateRange === 'all' ? null : filters.dateRange,
-      type: filters.type || null,
+      category: filters.category || null,
+      brand: filters.brand || null,
+      series: filters.series || null,
       page: 1,
     });
   };
@@ -385,10 +372,10 @@ function InventoryDashboardContent() {
     setSearchQuery('');
     updateQuery({
       q: '',
-      reason: null,
       stock: null,
-      dateRange: null,
-      type: null,
+      category: null,
+      brand: null,
+      series: null,
       sort: DEFAULT_SORT,
       page: 1,
     });
@@ -446,7 +433,7 @@ function InventoryDashboardContent() {
           <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
             <button
               onClick={() => applyQuickPreset('all')}
-              className={`shrink-0 min-h-11 px-4 py-2 rounded-full text-xs font-medium transition-colors ${stockFilter === 'all' && dateRange === 'all' && !filterReason ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'bg-black/15 text-white hover:bg-black/25'}`}
+              className={`shrink-0 min-h-11 px-4 py-2 rounded-full text-xs font-medium transition-colors ${stockFilter === 'all' && !categoryFilter && !brandFilter && !seriesFilter ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'bg-black/15 text-white hover:bg-black/25'}`}
             >
               ทั้งหมด
             </button>
@@ -461,12 +448,6 @@ function InventoryDashboardContent() {
               className={`shrink-0 min-h-11 px-4 py-2 rounded-full text-xs font-medium transition-colors ${stockFilter === 'outOfStock' ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'bg-black/15 text-white hover:bg-black/25'}`}
             >
               หมดสต็อก
-            </button>
-            <button
-              onClick={() => applyQuickPreset('7d')}
-              className={`shrink-0 min-h-11 px-4 py-2 rounded-full text-xs font-medium transition-colors ${dateRange === '7d' ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'bg-black/15 text-white hover:bg-black/25'}`}
-            >
-              7 วัน
             </button>
           </div>
           </div>
@@ -636,15 +617,16 @@ function InventoryDashboardContent() {
 
       {!isSettingsTab && (
         <FilterSheet
-        key={`${isFilterOpen}-${stockFilter}-${dateRange}-${dataTypeFilter || 'all'}`}
+        key={`${isFilterOpen}-${stockFilter}-${categoryFilter}-${brandFilter}-${seriesFilter}`}
         open={isFilterOpen}
         onOpenChange={setIsFilterOpen}
         stockFilter={stockFilter}
-        dateRange={dateRange}
-        dataType={dataTypeFilter}
+        category={categoryFilter}
+        brand={brandFilter}
+        series={seriesFilter}
         applyFilters={applySheetFilters}
         clearFilters={clearFilters}
-        facets={data?.availableFacets ?? { reasons: [], dataTypes: [], fromLocations: [], toLocations: [] }}
+        facets={data?.availableFacets ?? { categories: [], brands: [], series: [] }}
         />
       )}
 
