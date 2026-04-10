@@ -47,8 +47,19 @@ function sign(payload: string): string {
   return simpleHash(payload);
 }
 
+// Edge-compatible base64url (no Buffer dependency)
+function toBase64Url(str: string): string {
+  return btoa(unescape(encodeURIComponent(str)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function fromBase64Url(b64: string): string {
+  const padded = b64.replace(/-/g, '+').replace(/_/g, '/');
+  return decodeURIComponent(escape(atob(padded)));
+}
+
 function createSignedToken(data: object): string {
-  const payload = Buffer.from(JSON.stringify(data), 'utf8').toString('base64url');
+  const payload = toBase64Url(JSON.stringify(data));
   const signature = sign(payload);
   return `${payload}.${signature}`;
 }
@@ -60,7 +71,7 @@ function verifySignedToken<T>(token: string): T | null {
     const payload = token.slice(0, dotIdx);
     const signature = token.slice(dotIdx + 1);
     if (sign(payload) !== signature) return null;
-    const raw = Buffer.from(payload, 'base64url').toString('utf8');
+    const raw = fromBase64Url(payload);
     return JSON.parse(raw) as T;
   } catch {
     return null;
