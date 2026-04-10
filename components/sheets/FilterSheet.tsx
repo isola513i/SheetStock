@@ -34,11 +34,7 @@ const STOCK_OPTIONS: { id: InventoryStockFilter; label: string }[] = [
   { id: 'outOfStock', label: 'หมดสต็อก' },
 ];
 
-function softHaptic() {
-  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-    navigator.vibrate(20);
-  }
-}
+import { softHaptic } from '@/lib/haptics';
 
 function readFacetOptions(source: unknown, key: 'categories' | 'brands' | 'series'): InventoryFacetOption[] {
   if (!source || typeof source !== 'object') return [];

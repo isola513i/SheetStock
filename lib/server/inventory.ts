@@ -129,7 +129,7 @@ async function fetchInventoryFromGoogleSheets(): Promise<InventoryItem[]> {
         const auth = new google.auth.JWT({
           email: clientEmail,
           key: privateKey,
-          scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+          scopes: ['https://www.googleapis.com/auth/spreadsheets'],
         });
         response = await sheets.spreadsheets.values.get({
           spreadsheetId,
@@ -271,4 +271,135 @@ export async function getInventoryData(query: Required<InventoryQuery>): Promise
     pageSize: query.pageSize,
     availableFacets: cachedFacets,
   };
+}
+
+export type NewProduct = {
+  barcode: string;
+  name: string;
+  category: string;
+  brand: string;
+  series: string;
+  price: number;
+  quantity: number;
+  expiryDate: string;
+  quantityPerBox: number;
+  notes: string;
+  imageUrl: string;
+};
+
+export async function appendProductToGoogleSheets(product: NewProduct): Promise<{ ok: boolean; error?: string }> {
+  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY
+    ?.replace(/^"/, '')
+    ?.replace(/"$/, '')
+    ?.replace(/\\n/g, '\n')
+    ?.replace(/\\"/g, '"')
+    ?.trim();
+  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:K';
+
+  if (!spreadsheetId || !clientEmail || !privateKey) {
+    return { ok: false, error: 'Google Sheets credentials not configured' };
+  }
+
+  try {
+    const auth = new google.auth.JWT({
+      email: clientEmail,
+      key: privateKey,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    const sheets = google.sheets({ version: 'v4' });
+    await sheets.spreadsheets.values.append({
+      spreadsheetId,
+      range,
+      auth,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[
+          product.barcode,
+          product.name,
+          product.category,
+          product.brand,
+          product.series,
+          product.price,
+          product.quantity,
+          product.expiryDate,
+          product.quantityPerBox,
+          product.notes,
+          product.imageUrl,
+        ]],
+      },
+    });
+
+    // Clear cache so next fetch picks up the new row
+    inventoryCache = null;
+    facetCache = null;
+
+    return { ok: true };
+  } catch (error) {
+    console.error('Failed to append product to Google Sheets', error);
+    return { ok: false, error: 'Failed to write to Google Sheets' };
+  }
+}
+
+export async function findProductByBarcode(barcode: string): Promise<InventoryItem | null> {
+  const items = await loadInventoryFromGoogleSheets();
+  return items.find((item) => item.barcode === barcode) ?? null;
+}
+
+export async function updateProductQuantityInSheet(barcode: string, addQuantity: number): Promise<{ ok: boolean; newQuantity: number; error?: string }> {
+  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY
+    ?.replace(/^"/, '')
+    ?.replace(/"$/, '')
+    ?.replace(/\\n/g, '\n')
+    ?.replace(/\\"/g, '"')
+    ?.trim();
+  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:K';
+
+  if (!spreadsheetId || !clientEmail || !privateKey) {
+    return { ok: false, newQuantity: 0, error: 'Google Sheets credentials not configured' };
+  }
+
+  try {
+    const auth = new google.auth.JWT({
+      email: clientEmail,
+      key: privateKey,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    const sheets = google.sheets({ version: 'v4' });
+    const response = await sheets.spreadsheets.values.get({ spreadsheetId, range, auth });
+    const rows = (response.data.values ?? []) as string[][];
+
+    // Find row index (skip header at index 0)
+    const rowIndex = rows.findIndex((row, idx) => idx > 0 && safeString(row[0]) === barcode);
+    if (rowIndex === -1) {
+      return { ok: false, newQuantity: 0, error: 'Product not found in sheet' };
+    }
+
+    const currentQty = safeNumber(rows[rowIndex][6]);
+    const newQuantity = currentQty + addQuantity;
+
+    // Update column G (quantity) — sheet rows are 1-indexed, so rowIndex+1
+    const sheetName = range.split('!')[0] || 'inventory';
+    const cellRange = `${sheetName}!G${rowIndex + 1}`;
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: cellRange,
+      auth,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [[newQuantity]] },
+    });
+
+    inventoryCache = null;
+    facetCache = null;
+
+    return { ok: true, newQuantity };
+  } catch (error) {
+    console.error('Failed to update product quantity', error);
+    return { ok: false, newQuantity: 0, error: 'Failed to update quantity' };
+  }
 }

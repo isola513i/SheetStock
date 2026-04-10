@@ -3,11 +3,11 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import useSWR from 'swr';
 import { motion, AnimatePresence } from 'motion/react';
-import Image from 'next/image';
 import PullToRefresh from 'pulltorefreshjs';
 import { ChevronDown, Search, X } from 'lucide-react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { BottomNav } from '@/components/BottomNav';
+import { ProductImage } from '@/components/ProductImage';
 import type { UserRole } from '@/lib/types';
 
 type CatalogItem = {
@@ -26,17 +26,6 @@ type CatalogResponse = {
   customers?: CustomerOption[];
   items: CatalogItem[];
 };
-
-const BLUR_DATA_URL =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=';
-
-function toSafeImageSrc(value: string) {
-  const trimmed = (value ?? '').trim();
-  if (!trimmed) return '/icons/icon-192x192.png';
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
-  if (trimmed.startsWith('/')) return trimmed;
-  return '/icons/icon-192x192.png';
-}
 
 const SOURCE_LABELS: Record<string, string> = {
   base: 'ราคาปกติ',
@@ -225,17 +214,11 @@ export default function CatalogPage() {
                     }`}
                     onClick={() => setSelectedItem(item)}
                   >
-                    <div className="relative h-16 w-16 shrink-0 rounded-lg overflow-hidden bg-gray-100">
-                      <Image
-                        src={toSafeImageSrc(item.imageUrl)}
+                    <div className="relative h-16 w-16 shrink-0 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                      <ProductImage
+                        src={item.imageUrl}
                         alt={item.name}
-                        fill
-                        sizes="64px"
-                        className={`object-contain ${isOut ? 'grayscale opacity-70' : ''}`}
-                        referrerPolicy="no-referrer"
-                        priority={idx < 6}
-                        placeholder="blur"
-                        blurDataURL={BLUR_DATA_URL}
+                        className={`max-h-full max-w-full object-contain ${isOut ? 'grayscale opacity-70' : ''}`}
                       />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -267,16 +250,11 @@ export default function CatalogPage() {
           {selectedItem && (
             <div className="px-5 pt-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
               <div className="flex justify-center mb-4">
-                <div className="relative h-40 w-40 rounded-2xl overflow-hidden bg-gray-100">
-                  <Image
-                    src={toSafeImageSrc(selectedItem.imageUrl)}
+                <div className="relative h-40 w-40 rounded-2xl overflow-hidden bg-gray-100 flex items-center justify-center">
+                  <ProductImage
+                    src={selectedItem.imageUrl}
                     alt={selectedItem.name}
-                    fill
-                    sizes="160px"
-                    className="object-contain"
-                    referrerPolicy="no-referrer"
-                    placeholder="blur"
-                    blurDataURL={BLUR_DATA_URL}
+                    className="max-h-full max-w-full object-contain"
                   />
                 </div>
               </div>

@@ -7,7 +7,8 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'motion/react';
 import PullToRefresh from 'pulltorefreshjs';
 import { InventoryApiResponse, InventoryItem, InventorySortPreset, InventoryStockFilter, InventoryTabKey, InventoryViewMode, UserRole } from '@/lib/types';
-import { Search, List, LayoutGrid, ArrowUpDown, SlidersHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
+import type { ProductPrefill } from '@/components/sheets/AddProductSheet';
+import { Search, List, LayoutGrid, ArrowUpDown, SlidersHorizontal, ChevronLeft, ChevronRight, Plus, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { BottomNav } from '@/components/BottomNav';
 import { ProductList } from '@/components/ProductList';
@@ -18,6 +19,8 @@ const ProductDetailSheet = dynamic(() => import('@/components/sheets/ProductDeta
 const FilterSheet = dynamic(() => import('@/components/sheets/FilterSheet').then(m => ({ default: m.FilterSheet })), { ssr: false });
 const SortSheet = dynamic(() => import('@/components/sheets/SortSheet').then(m => ({ default: m.SortSheet })), { ssr: false });
 const BarcodeScannerSheet = dynamic(() => import('@/components/BarcodeScannerSheet').then(m => ({ default: m.BarcodeScannerSheet })), { ssr: false });
+const AddProductSheet = dynamic(() => import('@/components/sheets/AddProductSheet').then(m => ({ default: m.AddProductSheet })), { ssr: false });
+const AddQuantitySheet = dynamic(() => import('@/components/sheets/AddQuantitySheet').then(m => ({ default: m.AddQuantitySheet })), { ssr: false });
 
 const PAGE_SIZE = 20;
 const DEFAULT_SORT: InventorySortPreset = 'nameAsc';
@@ -29,14 +32,7 @@ const fetcher = async (url: string): Promise<InventoryApiResponse> => {
   return response.json();
 };
 
-function softHaptic() {
-  if (typeof window !== 'undefined' && window.localStorage.getItem('sheetstock-haptics') === 'off') {
-    return;
-  }
-  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-    navigator.vibrate(20);
-  }
-}
+import { softHaptic } from '@/lib/haptics';
 
 function InventoryDashboardContent() {
   const router = useRouter();
@@ -47,23 +43,24 @@ function InventoryDashboardContent() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<InventoryViewMode>(() => {
-    if (typeof window === 'undefined') return 'list';
-    const saved = window.localStorage.getItem('sheetstock-view-mode');
-    return saved === 'grid' || saved === 'list' ? saved : 'list';
+  const [viewMode, setViewMode] = useState<InventoryViewMode>('list');
+  const [activeTab, setActiveTab] = useState<InventoryTabKey>(() => {
+    const tab = searchParams.get('tab');
+    return tab === 'settings' ? 'settings' : 'inventory';
   });
-  const [activeTab, setActiveTab] = useState<InventoryTabKey>('inventory');
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [hapticsEnabled, setHapticsEnabled] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    return window.localStorage.getItem('sheetstock-haptics') !== 'off';
-  });
+  const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [recentScans, setRecentScans] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [addProductPrefill, setAddProductPrefill] = useState<ProductPrefill | null>(null);
+  const [isAddQuantityOpen, setIsAddQuantityOpen] = useState(false);
+  const [scanFoundItem, setScanFoundItem] = useState<InventoryItem | null>(null);
+  const [isScanProcessing, setIsScanProcessing] = useState(false);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
   // Scroll state for collapsible header
@@ -214,11 +211,13 @@ function InventoryDashboardContent() {
 
   // Hydrate client-only state from localStorage after mount
   useEffect(() => {
+    const savedViewMode = window.localStorage.getItem('sheetstock-view-mode');
+    if (savedViewMode === 'grid' || savedViewMode === 'list') setViewMode(savedViewMode);
+    setHapticsEnabled(window.localStorage.getItem('sheetstock-haptics') !== 'off');
     const savedDark = window.localStorage.getItem('sheetstock-dark-mode');
     if (savedDark !== null) {
       setDarkMode(savedDark === 'on');
     }
-    // Default to light mode — user can toggle dark mode in settings
     try {
       const savedScans = JSON.parse(window.localStorage.getItem('sheetstock-recent-scans') ?? '[]');
       if (Array.isArray(savedScans) && savedScans.length > 0) setRecentScans(savedScans);
@@ -307,13 +306,50 @@ function InventoryDashboardContent() {
     });
   };
 
-  const handleScanDetected = (barcode: string) => {
-    setSearchQuery(barcode);
-    updateQuery({ q: barcode, page: 1 });
+  const handleScanDetected = async (barcode: string) => {
+    setIsScannerOpen(false);
+    // Save to recent scans
     setRecentScans((prev) => {
       const updated = [barcode, ...prev.filter((s) => s !== barcode)].slice(0, 10);
       return updated;
     });
+
+    // Admin: smart scan — check if product exists, then add qty or open add form
+    if (meData?.user?.role === 'admin') {
+      setIsScanProcessing(true);
+      try {
+        const res = await fetch(`/api/inventory/scan?barcode=${encodeURIComponent(barcode)}`);
+        const data = await res.json();
+
+        if (data.exists && data.item) {
+          // Product exists → open AddQuantitySheet
+          setScanFoundItem(data.item);
+          setIsAddQuantityOpen(true);
+        } else {
+          // Product not found → open AddProductSheet with auto-fill
+          const prefill: ProductPrefill = { barcode };
+          if (data.suggestion) {
+            if (data.suggestion.name) prefill.name = data.suggestion.name;
+            if (data.suggestion.brand) prefill.brand = data.suggestion.brand;
+            if (data.suggestion.category) prefill.category = data.suggestion.category;
+            if (data.suggestion.imageUrl) prefill.imageUrl = data.suggestion.imageUrl;
+          }
+          setAddProductPrefill(prefill);
+          setIsAddProductOpen(true);
+        }
+      } catch {
+        // Fallback: just search
+        setSearchQuery(barcode);
+        updateQuery({ q: barcode, page: 1 });
+      } finally {
+        setIsScanProcessing(false);
+      }
+      return;
+    }
+
+    // Non-admin: regular search
+    setSearchQuery(barcode);
+    updateQuery({ q: barcode, page: 1 });
   };
 
   useEffect(() => {
@@ -639,6 +675,49 @@ function InventoryDashboardContent() {
         />
       )}
       {!isSettingsTab && <BarcodeScannerSheet open={isScannerOpen} onOpenChange={setIsScannerOpen} onDetected={handleScanDetected} />}
+
+      {/* FAB: Add Product — admin only */}
+      {!isSettingsTab && meData?.user?.role === 'admin' && (
+        <button
+          onClick={() => {
+            softHaptic();
+            setIsAddProductOpen(true);
+          }}
+          className="fixed z-40 w-14 h-14 rounded-full bg-[var(--brand-primary)] text-white shadow-lg shadow-orange-500/30 flex items-center justify-center active:scale-95 transition-transform"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)', right: '20px' }}
+          aria-label="เพิ่มสินค้า"
+        >
+          <Plus className="w-7 h-7" />
+        </button>
+      )}
+
+      {!isSettingsTab && (
+        <AddProductSheet
+          open={isAddProductOpen}
+          onOpenChange={(v) => { setIsAddProductOpen(v); if (!v) setAddProductPrefill(null); }}
+          onSuccess={() => mutate()}
+          prefill={addProductPrefill}
+        />
+      )}
+
+      {!isSettingsTab && (
+        <AddQuantitySheet
+          open={isAddQuantityOpen}
+          onOpenChange={setIsAddQuantityOpen}
+          item={scanFoundItem}
+          onSuccess={() => mutate()}
+        />
+      )}
+
+      {/* Scan processing overlay */}
+      {isScanProcessing && (
+        <div className="fixed inset-0 z-[60] bg-black/30 flex items-center justify-center">
+          <div className="bg-white rounded-2xl px-6 py-5 flex items-center gap-3 shadow-xl">
+            <Loader2 className="w-5 h-5 animate-spin text-[var(--brand-primary)]" />
+            <span className="text-sm text-gray-700">กำลังตรวจสอบสินค้า...</span>
+          </div>
+        </div>
+      )}
 
     </div>
   );

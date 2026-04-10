@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import useSWR from 'swr';
-import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowUpDown, ChevronDown, ChevronRight, Percent, Search, ShieldCheck, TrendingUp, X } from 'lucide-react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -21,8 +20,11 @@ type PricingRow = {
   priceSource: 'base' | 'tier' | 'override';
 };
 
-const BLUR_DATA_URL =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=';
+const FALLBACK_IMG = '/icons/icon-192x192.png';
+function handleImgError(e: React.SyntheticEvent<HTMLImageElement>) {
+  const t = e.currentTarget;
+  if (!t.src.endsWith(FALLBACK_IMG)) t.src = FALLBACK_IMG;
+}
 
 const fetcher = async <T,>(url: string): Promise<T> => {
   const response = await fetch(url);
@@ -319,17 +321,9 @@ export default function PricingPage() {
                   >
                     <div className="p-3 flex gap-3">
                       {/* Product image */}
-                      <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden bg-gray-100">
-                        <Image
-                          src={toSafeImageSrc(row.imageUrl)}
-                          alt={row.name}
-                          fill
-                          sizes="64px"
-                          className="object-contain"
-                          referrerPolicy="no-referrer"
-                          placeholder="blur"
-                          blurDataURL={BLUR_DATA_URL}
-                        />
+                      <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={toSafeImageSrc(row.imageUrl)} alt={row.name} className="max-h-full max-w-full object-contain" referrerPolicy="no-referrer" onError={handleImgError} />
                       </div>
 
                       {/* Info */}
@@ -426,17 +420,9 @@ export default function PricingPage() {
             <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
               {/* Product header with image */}
               <div className="flex items-center gap-3 mb-5">
-                <div className="relative h-14 w-14 shrink-0 rounded-xl overflow-hidden bg-gray-100">
-                  <Image
-                    src={toSafeImageSrc(editingRow.imageUrl)}
-                    alt={editingRow.name}
-                    fill
-                    sizes="56px"
-                    className="object-contain"
-                    referrerPolicy="no-referrer"
-                    placeholder="blur"
-                    blurDataURL={BLUR_DATA_URL}
-                  />
+                <div className="relative h-14 w-14 shrink-0 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={toSafeImageSrc(editingRow.imageUrl)} alt={editingRow.name} className="max-h-full max-w-full object-contain" referrerPolicy="no-referrer" onError={handleImgError} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-base font-medium text-gray-900 leading-tight">{editingRow.name}</h3>

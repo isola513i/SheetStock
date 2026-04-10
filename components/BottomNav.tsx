@@ -121,7 +121,7 @@ export const BottomNav = memo(function BottomNav({ activePage, userRole, onScanC
         active={activePage === 'settings'}
         onClick={() => {
           if (onSettingsClick) onSettingsClick();
-          else router.push('/');
+          else router.push('/?tab=settings');
         }}
       />
     </nav>

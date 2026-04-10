@@ -1,28 +1,15 @@
 'use client';
 
 import { memo, useCallback, useRef } from 'react';
-import Image from 'next/image';
 import { AnimatePresence, motion, useMotionValue, useTransform, PanInfo } from 'motion/react';
 import { InventoryItem, InventoryViewMode } from '@/lib/types';
 import { Eye, Tag } from 'lucide-react';
+import { ProductImage } from '@/components/ProductImage';
 
-// Extract static transition objects to prevent re-creation each render
 const STAGGER_TRANSITION = (idx: number) => ({ duration: 0.2, delay: Math.min(idx * 0.03, 0.3) });
 const CONTAINER_TRANSITION = { duration: 0.15 };
 
-const BLUR_DATA_URL =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=';
-const FALLBACK_IMAGE_SRC = '/icons/icon-192x192.png';
-
 const SWIPE_THRESHOLD = 70;
-
-function toSafeImageSrc(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return FALLBACK_IMAGE_SRC;
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
-  if (trimmed.startsWith('/')) return trimmed;
-  return `/${trimmed.replace(/^\.?\/*/, '')}`;
-}
 
 type ProductListProps = {
   processedInventory: InventoryItem[];
@@ -50,9 +37,7 @@ function SwipeableListItem({
       const offset = info.offset.x;
       if (Math.abs(offset) >= SWIPE_THRESHOLD) {
         didSwipeRef.current = true;
-        // Both left and right swipe open detail
         onItemClick(item);
-        // Reset after a tick so the user sees the snap-back
         setTimeout(() => { didSwipeRef.current = false; }, 300);
       }
     },
@@ -67,14 +52,12 @@ function SwipeableListItem({
 
   return (
     <div className="relative overflow-hidden rounded-[1.2rem]">
-      {/* Left action (behind card) */}
       <motion.div
         className="absolute inset-y-0 left-0 w-20 flex items-center justify-center bg-[var(--brand-primary)] rounded-l-[1.2rem]"
         style={{ opacity: actionOpacity }}
       >
         <Eye className="w-5 h-5 text-white" />
       </motion.div>
-      {/* Right action (behind card) */}
       <motion.div
         className="absolute inset-y-0 right-0 w-20 flex items-center justify-center bg-blue-500 rounded-r-[1.2rem]"
         style={{ opacity: actionOpacity }}
@@ -97,16 +80,10 @@ function SwipeableListItem({
         onClick={handleClick}
       >
         <div className="relative h-16 w-16 shrink-0">
-          <Image
-            src={toSafeImageSrc(item.imageUrl)}
+          <ProductImage
+            src={item.imageUrl}
             alt={item.name}
-            fill
-            sizes="64px"
-            className={`object-contain rounded-lg ${isOutOfStock ? 'grayscale opacity-70' : ''}`}
-            referrerPolicy="no-referrer"
-            priority={idx < 6}
-            placeholder="blur"
-            blurDataURL={BLUR_DATA_URL}
+            className={`h-full w-full object-contain rounded-lg ${isOutOfStock ? 'grayscale opacity-70' : ''}`}
           />
           {isOutOfStock && (
             <div className="absolute -top-1 -right-1 flex items-center justify-center">
@@ -158,17 +135,11 @@ export const ProductList = memo(function ProductList({ processedInventory, viewM
                   className={`bg-white rounded-[1.5rem] p-4 flex flex-col cursor-pointer border contain-card ${isOutOfStock ? 'border-red-200 bg-red-50/30' : isLowStock ? 'border-yellow-200 bg-yellow-50/30' : 'border-gray-200'}`}
                   onClick={() => onItemClick(item)}
                 >
-                  <div className="relative h-32 w-full mb-4">
-                    <Image
-                      src={toSafeImageSrc(item.imageUrl)}
+                  <div className="relative h-32 w-full mb-4 flex items-center justify-center">
+                    <ProductImage
+                      src={item.imageUrl}
                       alt={item.name}
-                      fill
-                      sizes="(max-width: 768px) 50vw, 33vw"
-                      className={`object-contain ${isOutOfStock ? 'grayscale opacity-70' : ''}`}
-                      referrerPolicy="no-referrer"
-                      priority={idx < 4}
-                      placeholder="blur"
-                      blurDataURL={BLUR_DATA_URL}
+                      className={`max-h-full max-w-full object-contain ${isOutOfStock ? 'grayscale opacity-70' : ''}`}
                     />
                     {isOutOfStock && (
                       <div className="absolute inset-0 flex items-center justify-center">

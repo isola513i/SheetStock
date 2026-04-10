@@ -21,11 +21,7 @@ const SORT_OPTIONS: { id: InventorySortPreset; label: string }[] = [
   { id: 'expiryDesc', label: 'หมดอายุช้าสุด' },
 ];
 
-function softHaptic() {
-  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-    navigator.vibrate(20);
-  }
-}
+import { softHaptic } from '@/lib/haptics';
 
 export function SortSheet({ open, onOpenChange, sort, setSort }: SortSheetProps) {
   return (
