@@ -1,5 +1,14 @@
 import { NextResponse } from 'next/server';
-import { authenticate, createSession, getSessionCookieName } from '@/lib/server/auth';
+import {
+  authenticate,
+  createAccessToken,
+  createRefreshToken,
+  ACCESS_COOKIE,
+  REFRESH_COOKIE,
+  LEGACY_COOKIE,
+  ACCESS_COOKIE_OPTIONS,
+  REFRESH_COOKIE_OPTIONS,
+} from '@/lib/server/auth';
 import { findRegistrationByEmail } from '@/lib/server/registrations';
 
 export async function POST(request: Request) {
@@ -9,7 +18,6 @@ export async function POST(request: Request) {
 
   const user = authenticate(email, password);
   if (!user) {
-    // Check if this is a pending or rejected registration
     const reg = findRegistrationByEmail(email);
     if (reg) {
       if (reg.status === 'pending') {
@@ -22,14 +30,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' }, { status: 401 });
   }
 
-  const session = createSession(user);
+  const accessToken = createAccessToken(user);
+  const refreshToken = createRefreshToken(user.id);
+
   const response = NextResponse.json({ user });
-  response.cookies.set(getSessionCookieName(), session.token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7,
-  });
+  response.cookies.set(ACCESS_COOKIE, accessToken, ACCESS_COOKIE_OPTIONS);
+  response.cookies.set(REFRESH_COOKIE, refreshToken, REFRESH_COOKIE_OPTIONS);
+  // Clear legacy cookie
+  response.cookies.set(LEGACY_COOKIE, '', { path: '/', maxAge: 0 });
   return response;
 }

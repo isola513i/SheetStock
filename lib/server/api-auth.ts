@@ -1,11 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionCookieName, getSessionFromToken } from '@/lib/server/auth';
+import {
+  ACCESS_COOKIE,
+  REFRESH_COOKIE,
+  verifyAccessToken,
+  verifyRefreshToken,
+  findUserById,
+} from '@/lib/server/auth';
 import type { AppUser, UserRole } from '@/lib/types';
 
 export function getRequestUser(request: NextRequest): AppUser | null {
-  const token = request.cookies.get(getSessionCookieName())?.value;
-  const session = getSessionFromToken(token);
-  return session?.user ?? null;
+  // 1. Try access token
+  const accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
+  if (accessToken) {
+    const user = verifyAccessToken(accessToken);
+    if (user) return user;
+  }
+
+  // 2. Fallback: try refresh token (access expired but refresh still valid)
+  const refreshToken = request.cookies.get(REFRESH_COOKIE)?.value;
+  if (refreshToken) {
+    const userId = verifyRefreshToken(refreshToken);
+    if (userId) {
+      const user = findUserById(userId);
+      if (user) return user;
+    }
+  }
+
+  return null;
 }
 
 export function requireUser(request: NextRequest, allowedRoles?: UserRole[]) {
