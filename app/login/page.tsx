@@ -61,7 +61,9 @@ export default function LoginPage() {
       }
 
       toast(t('login.success', locale), 'success');
-      router.replace('/');
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get('next');
+      window.location.href = next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
     } finally {
       setLoading(false);
     }

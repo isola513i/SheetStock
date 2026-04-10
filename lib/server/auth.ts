@@ -11,7 +11,10 @@ export const REFRESH_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
 
 // --- Secret for HMAC signing ---
 const TOKEN_SECRET = process.env.TOKEN_SECRET || '';
-if (!TOKEN_SECRET && typeof process !== 'undefined') {
+if (!TOKEN_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('[auth] TOKEN_SECRET must be set in production');
+  }
   console.warn('[auth] TOKEN_SECRET is not set — tokens will be insecure. Set TOKEN_SECRET in .env');
 }
 
@@ -65,12 +68,12 @@ function arrayBufferToBase64Url(buf: ArrayBuffer): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function base64UrlToArrayBuffer(b64: string): ArrayBuffer {
+function base64UrlToArrayBuffer(b64: string): Uint8Array {
   const padded = b64.replace(/-/g, '+').replace(/_/g, '/');
   const binary = atob(padded);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes.buffer;
+  return bytes;
 }
 
 function toBase64Url(str: string): string {
