@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Clock, Globe, Grid3X3, List, LogOut, Moon, RefreshCcw, ShieldCheck, Smartphone, Sun, Trash2, Vibrate } from 'lucide-react';
+import { Clock, Globe, Grid3X3, List, LogOut, RefreshCcw, ShieldCheck, Smartphone, Trash2, Vibrate } from 'lucide-react';
 import type { InventoryViewMode, UserRole } from '@/lib/types';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { t, getLocale, setLocale, type Locale } from '@/lib/i18n';
@@ -9,10 +9,8 @@ import { t, getLocale, setLocale, type Locale } from '@/lib/i18n';
 type SettingsPageProps = {
   viewMode: InventoryViewMode;
   hapticsEnabled: boolean;
-  darkMode: boolean;
   onChangeViewMode: (mode: InventoryViewMode) => void;
   onToggleHaptics: () => void;
-  onToggleDarkMode: () => void;
   onRefreshData: () => void;
   onResetPreferences: () => void;
   onLogout: () => void;
@@ -73,10 +71,8 @@ function SettingRow({ icon, label, description, right, onClick }: {
 export function SettingsPage({
   viewMode,
   hapticsEnabled,
-  darkMode,
   onChangeViewMode,
   onToggleHaptics,
-  onToggleDarkMode,
   onRefreshData,
   onResetPreferences,
   onLogout,
@@ -183,13 +179,6 @@ export function SettingsPage({
             </div>
           }
           onClick={toggleLocale}
-        />
-        <SettingRow
-          icon={darkMode ? <Moon className="h-4.5 w-4.5" /> : <Sun className="h-4.5 w-4.5" />}
-          label={t('settings.darkMode', locale)}
-          description={t('settings.darkModeDesc', locale)}
-          right={<ToggleSwitch enabled={darkMode} onToggle={onToggleDarkMode} />}
-          onClick={onToggleDarkMode}
         />
         <SettingRow
           icon={<Vibrate className="h-4.5 w-4.5" />}

@@ -91,20 +91,12 @@ export default function CatalogPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'catalog' | 'settings'>('catalog');
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
 
   // Hydrate preferences
   useEffect(() => {
     setHapticsEnabled(window.localStorage.getItem('sheetstock-haptics') !== 'off');
-    const d = window.localStorage.getItem('sheetstock-dark-mode');
-    if (d === 'on') setDarkMode(true);
   }, []);
   useEffect(() => { window.localStorage.setItem('sheetstock-haptics', hapticsEnabled ? 'on' : 'off'); }, [hapticsEnabled]);
-  useEffect(() => {
-    const root = document.documentElement;
-    if (darkMode) root.classList.add('dark'); else root.classList.remove('dark');
-    window.localStorage.setItem('sheetstock-dark-mode', darkMode ? 'on' : 'off');
-  }, [darkMode]);
 
   // Compute facets from catalog data
   const facets = useMemo(() => {
@@ -208,12 +200,11 @@ export default function CatalogPage() {
       {isSettingsTab ? (
         <div className="flex-1 overflow-y-auto pb-24">
           <SettingsPage
-            viewMode="list" hapticsEnabled={hapticsEnabled} darkMode={darkMode}
+            viewMode="list" hapticsEnabled={hapticsEnabled}
             onChangeViewMode={() => {}}
             onToggleHaptics={() => setHapticsEnabled((p) => !p)}
-            onToggleDarkMode={() => setDarkMode((p) => !p)}
             onRefreshData={() => mutate()}
-            onResetPreferences={() => { setHapticsEnabled(true); setDarkMode(false); window.localStorage.removeItem('sheetstock-haptics'); window.localStorage.removeItem('sheetstock-dark-mode'); }}
+            onResetPreferences={() => { setHapticsEnabled(true); window.localStorage.removeItem('sheetstock-haptics'); }}
             onLogout={async () => { await fetch('/api/auth/logout', { method: 'POST' }); router.push('/login'); }}
             userRole={meData?.user?.role ?? 'customer'} userName={meData?.user?.name}
             recentScans={[]} onClearRecentScans={() => {}} onScanItemClick={() => {}}

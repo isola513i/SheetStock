@@ -36,6 +36,13 @@ export const metadata: Metadata = {
       { url: '/icons/icon-192x192.png', sizes: '192x192' },
     ],
   },
+  openGraph: {
+    title: 'SheetStock',
+    description: 'ระบบจัดการสต็อกสินค้าผ่าน Google Sheets',
+    siteName: 'SheetStock',
+    images: [{ url: '/icons/icon-512x512.png', width: 512, height: 512 }],
+    type: 'website',
+  },
   other: {
     'mobile-web-app-capable': 'yes',
   },
@@ -44,6 +51,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  maximumScale: 1,
   themeColor: '#f99109',
   viewportFit: 'cover',
 };

@@ -51,7 +51,6 @@ function InventoryDashboardContent() {
   });
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
   const [recentScans, setRecentScans] = useState<string[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
@@ -219,10 +218,6 @@ function InventoryDashboardContent() {
     const savedViewMode = window.localStorage.getItem('sheetstock-view-mode');
     if (savedViewMode === 'grid' || savedViewMode === 'list') setViewMode(savedViewMode);
     setHapticsEnabled(window.localStorage.getItem('sheetstock-haptics') !== 'off');
-    const savedDark = window.localStorage.getItem('sheetstock-dark-mode');
-    if (savedDark !== null) {
-      setDarkMode(savedDark === 'on');
-    }
     try {
       const savedScans = JSON.parse(window.localStorage.getItem('sheetstock-recent-scans') ?? '[]');
       if (Array.isArray(savedScans) && savedScans.length > 0) setRecentScans(savedScans);
@@ -243,19 +238,6 @@ function InventoryDashboardContent() {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem('sheetstock-haptics', hapticsEnabled ? 'on' : 'off');
   }, [hapticsEnabled]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const root = document.documentElement;
-    if (darkMode) {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-    if (hydrated) {
-      window.localStorage.setItem('sheetstock-dark-mode', darkMode ? 'on' : 'off');
-    }
-  }, [darkMode, hydrated]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -414,12 +396,10 @@ function InventoryDashboardContent() {
       window.localStorage.removeItem('sheetstock-sort');
       window.localStorage.removeItem('sheetstock-view-mode');
       window.localStorage.removeItem('sheetstock-haptics');
-      window.localStorage.removeItem('sheetstock-dark-mode');
       window.localStorage.removeItem('sheetstock-recent-scans');
     }
     setViewMode('list');
     setHapticsEnabled(true);
-    setDarkMode(false);
     setRecentScans([]);
     setSearchQuery('');
     updateQuery({
@@ -497,10 +477,8 @@ function InventoryDashboardContent() {
           <SettingsPage
             viewMode={viewMode}
             hapticsEnabled={hapticsEnabled}
-            darkMode={darkMode}
             onChangeViewMode={setViewMode}
             onToggleHaptics={() => setHapticsEnabled((prev) => !prev)}
-            onToggleDarkMode={() => setDarkMode((prev) => !prev)}
             onRefreshData={handleRefreshData}
             onResetPreferences={handleResetPreferences}
             onLogout={async () => {
