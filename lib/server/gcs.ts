@@ -42,7 +42,6 @@ export async function uploadImageToGCS(
   await storage.objects.insert({
     bucket: BUCKET_NAME,
     name: filename,
-    predefinedAcl: 'publicRead',
     media: {
       mimeType: contentType,
       body: bufferToStream(buffer),

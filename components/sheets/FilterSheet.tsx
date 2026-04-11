@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { InventoryFacetData, InventoryFacetOption, InventoryStockFilter } from '@/lib/types';
 
 type FilterSheetProps = {
@@ -34,6 +35,8 @@ const STOCK_OPTIONS: { id: InventoryStockFilter; label: string }[] = [
   { id: 'outOfStock', label: 'หมดสต็อก' },
 ];
 
+const COLLAPSED_LIMIT = 12;
+
 import { softHaptic } from '@/lib/haptics';
 
 function readFacetOptions(source: unknown, key: 'categories' | 'brands' | 'series'): InventoryFacetOption[] {
@@ -58,6 +61,16 @@ function FacetSection({
   selected: string;
   onSelect: (value: string) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
+  const hasMore = options.length > COLLAPSED_LIMIT;
+  const visibleOptions = expanded ? options : options.slice(0, COLLAPSED_LIMIT);
+
+  // If selected value is beyond collapsed limit, always show it
+  const selectedInHidden = !expanded && hasMore && options.findIndex((o) => o.value === selected) >= COLLAPSED_LIMIT;
+  const displayOptions = selectedInHidden
+    ? [...visibleOptions, options.find((o) => o.value === selected)!]
+    : visibleOptions;
+
   return (
     <section>
       <p className="text-xs text-gray-500 mb-2">{label}</p>
@@ -68,7 +81,7 @@ function FacetSection({
         >
           ทั้งหมด
         </button>
-        {options.map((option) => (
+        {displayOptions.map((option) => (
           <button
             key={option.value}
             onClick={() => { softHaptic(); onSelect(option.value); }}
@@ -78,6 +91,18 @@ function FacetSection({
           </button>
         ))}
       </div>
+      {hasMore && (
+        <button
+          onClick={() => { softHaptic(); setExpanded((p) => !p); }}
+          className="mt-2 flex items-center gap-1 text-xs text-[var(--brand-primary)] font-medium"
+        >
+          {expanded ? (
+            <><ChevronUp className="w-3.5 h-3.5" /> ย่อ</>
+          ) : (
+            <><ChevronDown className="w-3.5 h-3.5" /> ดูเพิ่มเติม ({options.length - COLLAPSED_LIMIT})</>
+          )}
+        </button>
+      )}
     </section>
   );
 }
@@ -108,9 +133,12 @@ export function FilterSheet(props: FilterSheetProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="rounded-t-[2.5rem] px-5 pt-8 bg-white border-none focus:outline-none">
-        <h3 className="text-lg font-medium text-gray-900 mb-6">ตัวกรอง</h3>
-        <div className="space-y-6 pb-[calc(env(safe-area-inset-bottom,0px)+112px)]">
+      <SheetContent side="bottom" className="rounded-t-[2.5rem] bg-white border-none focus:outline-none h-[85dvh] flex flex-col">
+        <div className="px-5 pt-8 pb-2 shrink-0">
+          <h3 className="text-lg font-medium text-gray-900">ตัวกรอง</h3>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-6 hide-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
           <section>
             <p className="text-xs text-gray-500 mb-2">สถานะสต็อก</p>
             <div className="grid grid-cols-2 gap-2">
@@ -131,9 +159,12 @@ export function FilterSheet(props: FilterSheetProps) {
 
           <FacetSection label="หมวดหมู่" options={safeFacets.categories} selected={draftCategory} onSelect={setDraftCategory} />
           <FacetSection label="แบรนด์" options={safeFacets.brands} selected={draftBrand} onSelect={setDraftBrand} />
+
+          {/* Spacer for bottom buttons */}
+          <div className="h-20" />
         </div>
 
-        <div className="fixed left-0 right-0 bottom-0 bg-white/95 backdrop-blur border-t border-gray-100 p-4 flex gap-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 12px)' }}>
+        <div className="shrink-0 bg-white/95 backdrop-blur border-t border-gray-100 p-4 flex gap-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 12px)' }}>
           <button
             onClick={() => {
               softHaptic();

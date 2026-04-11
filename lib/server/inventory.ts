@@ -342,9 +342,11 @@ export async function appendProductToGoogleSheets(product: NewProduct): Promise<
     });
 
     const sheets = google.sheets({ version: 'v4' });
+    // Use sheet name + A:L to anchor append at column A
+    const sheetName = range.split('!')[0] || 'inventory';
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range,
+      range: `${sheetName}!A:L`,
       auth,
       valueInputOption: 'USER_ENTERED',
       requestBody: {

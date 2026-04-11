@@ -200,7 +200,7 @@ function InventoryDashboardContent() {
   const totalItems = data?.total ?? 0;
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (stockFilter !== 'all') count += 1;
+    if (stockFilter !== 'all' && stockFilter !== 'inStock') count += 1;
     if (categoryFilter) count += 1;
     if (brandFilter) count += 1;
     return count;
@@ -288,7 +288,7 @@ function InventoryDashboardContent() {
     updateQuery({ sort: nextSort, page: 1 });
   };
 
-  const applyQuickPreset = (preset: 'all' | 'lowStock' | 'outOfStock') => {
+  const applyQuickPreset = (preset: 'all' | 'inStock' | 'lowStock' | 'outOfStock') => {
     softHaptic();
     if (preset === 'all') {
       updateQuery({ stock: null, page: 1 });
@@ -481,6 +481,12 @@ function InventoryDashboardContent() {
               className={`shrink-0 min-h-11 px-4 py-2 rounded-full text-xs font-medium transition-colors ${stockFilter === 'all' && !categoryFilter && !brandFilter ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'bg-black/15 text-white hover:bg-black/25'}`}
             >
               ทั้งหมด
+            </button>
+            <button
+              onClick={() => applyQuickPreset('inStock')}
+              className={`shrink-0 min-h-11 px-4 py-2 rounded-full text-xs font-medium transition-colors ${stockFilter === 'inStock' ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'bg-black/15 text-white hover:bg-black/25'}`}
+            >
+              มีสินค้า
             </button>
             <button
               onClick={() => applyQuickPreset('lowStock')}

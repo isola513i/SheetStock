@@ -95,7 +95,7 @@ function SwipeableListItem({
           )}
         </div>
         <div className={`flex-1 min-w-0 ${isOutOfStock ? 'opacity-70' : ''}`}>
-          <h3 className="font-medium text-sm text-gray-900 leading-tight">{item.name}</h3>
+          <h3 className="font-medium text-sm text-gray-900 leading-tight">{[item.brand, item.category, item.series].filter(Boolean).join('') || item.name || item.barcode}</h3>
           <p className="text-[11px] text-gray-500 mt-1 truncate">บาร์โค้ด: {item.barcode}</p>
         </div>
         <div className="text-right shrink-0 flex flex-col items-end justify-center">

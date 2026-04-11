@@ -140,10 +140,19 @@ export function AddProductSheet({ open, onOpenChange, onSuccess, prefill }: AddP
     }
   };
 
+  const [barcodeError, setBarcodeError] = useState('');
+
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof FormData, boolean>> = {};
+    setBarcodeError('');
     for (const field of REQUIRED_FIELDS) {
       if (!form[field].trim()) newErrors[field] = true;
+    }
+    // Barcode: must be 8, 12, or 13 digits
+    const bc = form.barcode.trim();
+    if (bc && !/^\d{8}$|^\d{12}$|^\d{13}$/.test(bc)) {
+      newErrors.barcode = true;
+      setBarcodeError('บาร์โค้ดต้องเป็นตัวเลข 8, 12 หรือ 13 หลัก');
     }
     if (form.price && (isNaN(Number(form.price)) || Number(form.price) < 0)) newErrors.price = true;
     if (form.quantity && (isNaN(Number(form.quantity)) || Number(form.quantity) < 0)) newErrors.quantity = true;
@@ -219,6 +228,7 @@ export function AddProductSheet({ open, onOpenChange, onSuccess, prefill }: AddP
                 type={field.type}
                 inputMode={field.inputMode as React.HTMLAttributes<HTMLInputElement>['inputMode']}
                 placeholder={field.placeholder}
+                maxLength={field.key === 'barcode' ? 13 : undefined}
                 value={form[field.key]}
                 onChange={(e) => updateField(field.key, e.target.value)}
                 className={`w-full h-11 px-3.5 rounded-xl border text-sm bg-gray-50 outline-none transition-colors focus:bg-white focus:border-[var(--brand-primary)] ${
@@ -226,7 +236,7 @@ export function AddProductSheet({ open, onOpenChange, onSuccess, prefill }: AddP
                 }`}
               />
               {errors[field.key] && (
-                <p className="text-[11px] text-red-500 mt-1">กรุณากรอก{field.label}</p>
+                <p className="text-[11px] text-red-500 mt-1">{field.key === 'barcode' && barcodeError ? barcodeError : `กรุณากรอก${field.label}`}</p>
               )}
             </div>
           ))}
