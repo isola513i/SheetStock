@@ -215,7 +215,7 @@ export default function CatalogPage() {
             onRefreshData={() => mutate()}
             onResetPreferences={() => { setHapticsEnabled(true); setDarkMode(false); window.localStorage.removeItem('sheetstock-haptics'); window.localStorage.removeItem('sheetstock-dark-mode'); }}
             onLogout={async () => { await fetch('/api/auth/logout', { method: 'POST' }); router.push('/login'); }}
-            userRole={meData?.user?.role} userName={meData?.user?.name}
+            userRole={meData?.user?.role ?? 'customer'} userName={meData?.user?.name}
             recentScans={[]} onClearRecentScans={() => {}} onScanItemClick={() => {}}
           />
         </div>

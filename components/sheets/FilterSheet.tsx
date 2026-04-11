@@ -130,15 +130,14 @@ export function FilterSheet(props: FilterSheetProps) {
   const [draftCategory, setDraftCategory] = useState(category);
   const [draftBrand, setDraftBrand] = useState(brand);
   const [draftSeries, setDraftSeries] = useState(series);
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="rounded-t-[2.5rem] bg-white border-none focus:outline-none h-[85dvh] flex flex-col">
-        <div className="px-5 pt-8 pb-2 shrink-0">
+      <SheetContent side="bottom" className="rounded-t-[2.5rem] bg-white border-none focus:outline-none h-[85dvh] overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div className="px-5 pt-8 pb-2">
           <h3 className="text-lg font-medium text-gray-900">ตัวกรอง</h3>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-6 hide-scrollbar" style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', overscrollBehavior: 'contain' }}>
+        <div className="px-5 pb-4 space-y-6">
           <section>
             <p className="text-xs text-gray-500 mb-2">สถานะสต็อก</p>
             <div className="grid grid-cols-2 gap-2">
@@ -160,11 +159,9 @@ export function FilterSheet(props: FilterSheetProps) {
           <FacetSection label="หมวดหมู่" options={safeFacets.categories} selected={draftCategory} onSelect={setDraftCategory} />
           <FacetSection label="แบรนด์" options={safeFacets.brands} selected={draftBrand} onSelect={setDraftBrand} />
 
-          {/* Spacer for bottom buttons */}
-          <div className="h-20" />
         </div>
 
-        <div className="shrink-0 bg-white/95 backdrop-blur border-t border-gray-100 p-4 flex gap-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 12px)' }}>
+        <div className="sticky bottom-0 bg-white/95 backdrop-blur border-t border-gray-100 p-4 flex gap-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 12px)' }}>
           <button
             onClick={() => {
               softHaptic();
