@@ -2,7 +2,7 @@ import 'server-only';
 
 import { randomUUID } from 'node:crypto';
 import { loadInventoryFromGoogleSheets } from '@/lib/server/inventory';
-import { mockInventory } from '@/lib/mock-data';
+import { loadUsersFromSheet } from './users-sheet';
 import type {
   CatalogItem,
   CustomerAccount,
@@ -42,7 +42,7 @@ async function getProducts(): Promise<InventoryItem[]> {
     cacheTimestamp = now;
     return cachedProducts;
   } catch {
-    return cachedProducts ?? mockInventory;
+    return cachedProducts ?? [];
   }
 }
 
@@ -72,8 +72,21 @@ function getActiveOverride(customerId: string, productId: string) {
   );
 }
 
-export function getCustomers() {
-  return customers;
+export async function getCustomers(): Promise<CustomerAccount[]> {
+  // Merge in-memory customers with active customers from Users Sheet
+  const sheetUsers = await loadUsersFromSheet();
+  const sheetCustomers: CustomerAccount[] = sheetUsers
+    .filter((u) => u.role === 'customer' && u.status === 'active' && u.customerId)
+    .map((u) => ({
+      id: u.customerId,
+      name: u.name,
+      tierId: 'tier-bronze',
+      saleOwnerId: '',
+      status: 'active' as const,
+    }));
+  // Merge: in-memory overrides sheet data
+  const ids = new Set(customers.map((c) => c.id));
+  return [...customers, ...sheetCustomers.filter((c) => !ids.has(c.id))];
 }
 
 export function getAllTiers() {
@@ -84,8 +97,8 @@ export function addCustomerAccount(account: CustomerAccount) {
   customers.push(account);
 }
 
-export function resolveCatalogItemPrice(customerId: string, productId: string, basePrice: number) {
-  const customer = customers.find((item) => item.id === customerId);
+export function resolveCatalogItemPrice(customerId: string, productId: string, basePrice: number, allCustomers?: CustomerAccount[]) {
+  const customer = (allCustomers ?? customers).find((item) => item.id === customerId);
   if (!customer) {
     return {
       finalPrice: basePrice,
@@ -106,10 +119,10 @@ export function resolveCatalogItemPrice(customerId: string, productId: string, b
 }
 
 export async function getCatalogForCustomer(customerId: string): Promise<CatalogItem[]> {
-  const products = await getProducts();
+  const [products, allCustomers] = await Promise.all([getProducts(), getCustomers()]);
   return products.map((item) => {
     const basePrice = item.price;
-    const pricing = resolveCatalogItemPrice(customerId, item.id, basePrice);
+    const pricing = resolveCatalogItemPrice(customerId, item.id, basePrice, allCustomers);
     const minAllowed = round2(basePrice * 0.85);
     return {
       productId: item.id,

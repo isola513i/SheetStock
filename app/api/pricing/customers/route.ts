@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   const guard = await requireUser(request, ['admin', 'sale']);
   if (!guard.ok) return guard.response;
 
-  const customers = getCustomers().filter((item) => {
+  const customers = (await getCustomers()).filter((item) => {
     if (guard.user.role === 'admin') return true;
     return item.saleOwnerId === guard.user.id;
   });

@@ -16,6 +16,7 @@ type SettingsPageProps = {
   onLogout: () => void;
   userRole?: UserRole;
   userName?: string;
+  customerTier?: string;
   recentScans: string[];
   onClearRecentScans: () => void;
   onScanItemClick: (barcode: string) => void;
@@ -78,6 +79,7 @@ export function SettingsPage({
   onLogout,
   userRole,
   userName,
+  customerTier,
   recentScans,
   onClearRecentScans,
   onScanItemClick,
@@ -105,10 +107,21 @@ export function SettingsPage({
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-[var(--text-primary)] truncate">{userName ?? t('settings.unknown', locale)}</p>
-            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium mt-0.5 ${roleBg}`}>
-              <ShieldCheck className="h-3 w-3" />
-              {roleLabel}
-            </span>
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${roleBg}`}>
+                <ShieldCheck className="h-3 w-3" />
+                {roleLabel}
+              </span>
+              {customerTier && (
+                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                  customerTier === 'Gold' ? 'bg-yellow-100 text-yellow-700' :
+                  customerTier === 'Silver' ? 'bg-gray-200 text-gray-700' :
+                  'bg-orange-100 text-orange-700'
+                }`}>
+                  {customerTier}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         {userName && (

@@ -317,6 +317,7 @@ function InventoryDashboardContent() {
       setIsScanProcessing(true);
       try {
         const res = await fetch(`/api/inventory/scan?barcode=${encodeURIComponent(barcode)}`);
+        if (!res.ok) throw new Error('scan API failed');
         const data = await res.json();
 
         if (data.exists && data.item) {

@@ -165,7 +165,7 @@ export default function CatalogPage() {
   }, []);
 
   const isSettingsTab = activeTab === 'settings';
-  const activeFilterCount = (stockFilter !== 'all' ? 1 : 0) + (categoryFilter ? 1 : 0) + (brandFilter ? 1 : 0);
+  const activeFilterCount = (categoryFilter ? 1 : 0) + (brandFilter ? 1 : 0);
 
   return (
     <div className="fixed inset-0 w-full flex flex-col bg-[#F2F2F7] overflow-hidden">

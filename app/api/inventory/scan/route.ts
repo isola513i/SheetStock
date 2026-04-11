@@ -52,6 +52,16 @@ type ProductSuggestion = {
 
 // --- Lookup barcode across multiple databases ---
 
+const UNRELIABLE_NAMES = /^(to be deleted|test|todo|n\/a|unknown|\.+|x+|\?+)$/i;
+
+function cleanSuggestion(s: ProductSuggestion | null): ProductSuggestion | null {
+  if (!s) return null;
+  if (!s.name || s.name.length < 2 || UNRELIABLE_NAMES.test(s.name.trim())) {
+    s.name = '';
+  }
+  return (s.name || s.brand) ? s : null;
+}
+
 async function lookupBarcode(barcode: string): Promise<ProductSuggestion | null> {
   // Try Open Food Facts + Open Beauty Facts in parallel
   const [food, beauty] = await Promise.all([
@@ -61,16 +71,21 @@ async function lookupBarcode(barcode: string): Promise<ProductSuggestion | null>
 
   // Prefer whichever returned more complete data
   if (food && beauty) {
-    const foodScore = [food.name, food.brand, food.category, food.imageUrl].filter(Boolean).length;
-    const beautyScore = [beauty.name, beauty.brand, beauty.category, beauty.imageUrl].filter(Boolean).length;
-    return beautyScore > foodScore ? beauty : food;
+    const cleanFood = cleanSuggestion(food);
+    const cleanBeauty = cleanSuggestion(beauty);
+    if (cleanFood && cleanBeauty) {
+      const foodScore = [cleanFood.name, cleanFood.brand, cleanFood.category, cleanFood.imageUrl].filter(Boolean).length;
+      const beautyScore = [cleanBeauty.name, cleanBeauty.brand, cleanBeauty.category, cleanBeauty.imageUrl].filter(Boolean).length;
+      return beautyScore > foodScore ? cleanBeauty : cleanFood;
+    }
+    return cleanFood || cleanBeauty;
   }
 
-  if (food) return food;
-  if (beauty) return beauty;
+  if (food) return cleanSuggestion(food);
+  if (beauty) return cleanSuggestion(beauty);
 
   // Fallback: UPC ItemDB
-  return fetchUpcItemDb(barcode);
+  return cleanSuggestion(await fetchUpcItemDb(barcode));
 }
 
 // --- Open Food Facts (food, snacks, beverages) ---

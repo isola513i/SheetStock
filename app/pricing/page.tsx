@@ -510,7 +510,7 @@ export default function PricingPage() {
                 value={bulkValue}
                 onChange={(e) => setBulkValue(e.target.value)}
                 className="h-12 w-full rounded-xl border border-gray-200 px-4 text-base focus:border-[var(--brand-primary)] focus:ring-1 focus:ring-[var(--brand-primary)] outline-none"
-                autoFocus
+                onFocus={(e) => setTimeout(() => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)}
               />
               <p className="mt-1.5 text-[11px] text-gray-400">ตัวเลขบวก = เพิ่มราคา · ตัวเลขลบ = ลดราคา</p>
             </div>

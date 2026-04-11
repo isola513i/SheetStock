@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     }));
     return NextResponse.json({
       customerId: null,
-      customers: getCustomers().map((c) => ({ id: c.id, name: c.name })),
+      customers: (await getCustomers()).map((c) => ({ id: c.id, name: c.name })),
       items,
     });
   }
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     customerId,
     customers: guard.user.role !== 'customer'
-      ? getCustomers().map((c) => ({ id: c.id, name: c.name }))
+      ? (await getCustomers()).map((c) => ({ id: c.id, name: c.name }))
       : undefined,
     items: await getCatalogForCustomer(customerId),
   });

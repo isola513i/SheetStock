@@ -131,7 +131,7 @@ export function FilterSheet(props: FilterSheetProps) {
   const [draftBrand, setDraftBrand] = useState(brand);
   const [draftSeries, setDraftSeries] = useState(series);
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetContent side="bottom" className="rounded-t-[2.5rem] bg-white border-none focus:outline-none h-[85dvh] overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
         <div className="px-5 pt-8 pb-2">
           <h3 className="text-lg font-medium text-gray-900">ตัวกรอง</h3>
