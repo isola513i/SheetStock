@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/server/api-auth';
 import { findProductByBarcode, updateProductQuantityInSheet } from '@/lib/server/inventory';
 
-// GET: Look up barcode — check inventory + fetch from Open Food Facts if not found
+// GET: Look up barcode — check inventory + fetch from external databases if not found
 export async function GET(request: NextRequest) {
   const guard = await requireUser(request, ['admin']);
   if (!guard.ok) return guard.response;
@@ -18,8 +18,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ exists: true, item: existing });
   }
 
-  // Product not found — try Open Food Facts for auto-fill suggestions
-  const suggestion = await fetchOpenFoodFacts(barcode);
+  // Product not found — try multiple databases for auto-fill suggestions
+  const suggestion = await lookupBarcode(barcode);
   return NextResponse.json({ exists: false, suggestion });
 }
 
@@ -41,12 +41,54 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ ok: true, newQuantity: result.newQuantity });
 }
 
-// Fetch product info from Open Food Facts (free, no API key needed)
-async function fetchOpenFoodFacts(barcode: string) {
+// --- Product suggestion type ---
+
+type ProductSuggestion = {
+  name: string;
+  brand: string;
+  category: string;
+  imageUrl: string;
+};
+
+// --- Lookup barcode across multiple databases ---
+
+async function lookupBarcode(barcode: string): Promise<ProductSuggestion | null> {
+  // Try Open Food Facts + Open Beauty Facts in parallel
+  const [food, beauty] = await Promise.all([
+    fetchOpenFoodFacts(barcode),
+    fetchOpenBeautyFacts(barcode),
+  ]);
+
+  // Prefer whichever returned more complete data
+  if (food && beauty) {
+    const foodScore = [food.name, food.brand, food.category, food.imageUrl].filter(Boolean).length;
+    const beautyScore = [beauty.name, beauty.brand, beauty.category, beauty.imageUrl].filter(Boolean).length;
+    return beautyScore > foodScore ? beauty : food;
+  }
+
+  if (food) return food;
+  if (beauty) return beauty;
+
+  // Fallback: UPC ItemDB
+  return fetchUpcItemDb(barcode);
+}
+
+// --- Open Food Facts (food, snacks, beverages) ---
+
+async function fetchOpenFoodFacts(barcode: string): Promise<ProductSuggestion | null> {
+  return fetchOpenDatabase(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`);
+}
+
+// --- Open Beauty Facts (skincare, cosmetics, K-beauty) ---
+
+async function fetchOpenBeautyFacts(barcode: string): Promise<ProductSuggestion | null> {
+  return fetchOpenDatabase(`https://world.openbeautyfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`);
+}
+
+// Shared parser for Open Food Facts / Open Beauty Facts (same API format)
+async function fetchOpenDatabase(url: string): Promise<ProductSuggestion | null> {
   try {
-    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`, {
-      signal: AbortSignal.timeout(5000),
-    });
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return null;
 
     const data = await res.json();
@@ -54,10 +96,34 @@ async function fetchOpenFoodFacts(barcode: string) {
 
     const p = data.product;
     return {
-      name: p.product_name_th || p.product_name || '',
+      name: p.product_name_ko || p.product_name_th || p.product_name || '',
       brand: p.brands || '',
-      category: p.categories_tags?.[0]?.replace('en:', '') || p.categories || '',
+      category: p.categories_tags?.[0]?.replace(/^[a-z]{2}:/, '') || p.categories || '',
       imageUrl: p.image_front_url || p.image_url || '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+// --- UPC ItemDB (broad international coverage, free tier) ---
+
+async function fetchUpcItemDb(barcode: string): Promise<ProductSuggestion | null> {
+  try {
+    const res = await fetch(`https://api.upcitemdb.com/prod/trial/lookup?upc=${encodeURIComponent(barcode)}`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    if (!data.items?.length) return null;
+
+    const item = data.items[0];
+    return {
+      name: item.title || '',
+      brand: item.brand || '',
+      category: item.category || '',
+      imageUrl: item.images?.[0] || '',
     };
   } catch {
     return null;

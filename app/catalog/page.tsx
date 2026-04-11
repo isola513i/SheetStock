@@ -15,6 +15,7 @@ import { SettingsPage } from '@/components/SettingsPage';
 import type { CatalogItem, UserRole } from '@/lib/types';
 
 const BarcodeScannerSheet = dynamic(() => import('@/components/BarcodeScannerSheet').then(m => ({ default: m.BarcodeScannerSheet })), { ssr: false });
+const FilterSheet = dynamic(() => import('@/components/sheets/FilterSheet').then(m => ({ default: m.FilterSheet })), { ssr: false });
 
 const FALLBACK_IMG = '/icons/icon-192x192.png';
 function handleImgError(e: React.SyntheticEvent<HTMLImageElement>) {
@@ -72,10 +73,14 @@ export default function CatalogPage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [stockFilter, setStockFilter] = useState<StockFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [brandFilter, setBrandFilter] = useState('');
+  const [seriesFilter, setSeriesFilter] = useState('');
   const [sort, setSort] = useState<SortOption>('nameAsc');
   const [selectedItem, setSelectedItem] = useState<CatalogItem | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'catalog' | 'settings'>('catalog');
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
@@ -93,6 +98,21 @@ export default function CatalogPage() {
     window.localStorage.setItem('sheetstock-dark-mode', darkMode ? 'on' : 'off');
   }, [darkMode]);
 
+  // Compute facets from catalog data
+  const facets = useMemo(() => {
+    const allItems = data?.items ?? [];
+    const countBy = (values: string[]) => {
+      const map = new Map<string, number>();
+      for (const v of values) if (v) map.set(v, (map.get(v) ?? 0) + 1);
+      return Array.from(map.entries()).map(([value, count]) => ({ value, count })).sort((a, b) => b.count - a.count);
+    };
+    return {
+      categories: countBy(allItems.map((i) => i.category ?? '')),
+      brands: countBy(allItems.map((i) => i.brand ?? '')),
+      series: countBy(allItems.map((i) => i.series ?? '')),
+    };
+  }, [data]);
+
   // Filter + sort client-side
   const items = useMemo(() => {
     let list = data?.items ?? [];
@@ -108,6 +128,9 @@ export default function CatalogPage() {
     if (stockFilter === 'inStock') list = list.filter((i) => i.stock > 0);
     if (stockFilter === 'lowStock') list = list.filter((i) => i.stock > 0 && i.stock < 10);
     if (stockFilter === 'outOfStock') list = list.filter((i) => i.stock <= 0);
+    if (categoryFilter) list = list.filter((i) => i.category === categoryFilter);
+    if (brandFilter) list = list.filter((i) => i.brand === brandFilter);
+    if (seriesFilter) list = list.filter((i) => i.series === seriesFilter);
 
     list = [...list].sort((a, b) => {
       if (sort === 'nameAsc') return a.name.localeCompare(b.name, 'th');
@@ -118,7 +141,7 @@ export default function CatalogPage() {
       return 0;
     });
     return list;
-  }, [data, searchQuery, stockFilter, sort]);
+  }, [data, searchQuery, stockFilter, categoryFilter, brandFilter, seriesFilter, sort]);
 
   useEffect(() => { isValidatingRef.current = isValidating; }, [isValidating]);
 
@@ -143,7 +166,7 @@ export default function CatalogPage() {
   }, []);
 
   const isSettingsTab = activeTab === 'settings';
-  const activeFilterCount = (stockFilter !== 'all' ? 1 : 0);
+  const activeFilterCount = (stockFilter !== 'all' ? 1 : 0) + (categoryFilter ? 1 : 0) + (brandFilter ? 1 : 0) + (seriesFilter ? 1 : 0);
 
   return (
     <div className="fixed inset-0 w-full flex flex-col bg-[#F2F2F7] overflow-hidden">
@@ -208,11 +231,15 @@ export default function CatalogPage() {
           <div className="px-5 pt-3 pb-1 flex items-center justify-between">
             <p className="text-sm text-gray-500">พบ {items.length} รายการ</p>
             <div className="flex gap-2">
-              {activeFilterCount > 0 && (
-                <button onClick={() => setStockFilter('all')} className="px-2.5 min-h-8 bg-white border border-gray-200 rounded-full flex items-center gap-1 text-[11px] text-gray-500">
-                  <SlidersHorizontal className="w-3 h-3" /> ล้าง
-                </button>
-              )}
+              <button
+                onClick={() => setIsFilterOpen(true)}
+                className="px-3 min-h-8 bg-white border border-gray-200 rounded-full flex items-center gap-1.5 text-xs text-gray-600 shadow-sm relative"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" /> ตัวกรอง
+                {activeFilterCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[var(--brand-primary)] text-white text-[9px] font-bold rounded-full flex items-center justify-center">{activeFilterCount}</span>
+                )}
+              </button>
               <button
                 onClick={() => setIsSortOpen(true)}
                 className="px-3 min-h-8 bg-white border border-gray-200 rounded-full flex items-center gap-1.5 text-xs text-gray-600 shadow-sm"
@@ -234,7 +261,7 @@ export default function CatalogPage() {
               <div className="bg-white rounded-2xl border border-gray-200 px-5 py-8 text-center mt-2">
                 <p className="text-gray-800 font-medium mb-1">ไม่พบสินค้า</p>
                 <p className="text-sm text-gray-500 mb-4">ลองเปลี่ยนคำค้นหาหรือตัวกรอง</p>
-                <button onClick={() => { setSearchQuery(''); setStockFilter('all'); }} className="px-4 py-2 rounded-xl bg-[var(--brand-primary)] text-white text-sm font-medium">
+                <button onClick={() => { setSearchQuery(''); setStockFilter('all'); setCategoryFilter(''); setBrandFilter(''); setSeriesFilter(''); }} className="px-4 py-2 rounded-xl bg-[var(--brand-primary)] text-white text-sm font-medium">
                   ล้างตัวกรอง
                 </button>
               </div>
@@ -352,6 +379,30 @@ export default function CatalogPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Filter Sheet */}
+      <FilterSheet
+        key={`${isFilterOpen}-${stockFilter}-${categoryFilter}-${brandFilter}-${seriesFilter}`}
+        open={isFilterOpen}
+        onOpenChange={setIsFilterOpen}
+        stockFilter={stockFilter}
+        category={categoryFilter}
+        brand={brandFilter}
+        series={seriesFilter}
+        facets={facets}
+        applyFilters={(f) => {
+          setStockFilter(f.stock as StockFilter);
+          setCategoryFilter(f.category);
+          setBrandFilter(f.brand);
+          setSeriesFilter(f.series);
+        }}
+        clearFilters={() => {
+          setStockFilter('all');
+          setCategoryFilter('');
+          setBrandFilter('');
+          setSeriesFilter('');
+        }}
+      />
 
       {/* BottomNav */}
       {meData?.user?.role && (
