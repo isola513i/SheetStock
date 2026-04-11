@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowUpDown, ChevronDown, ChevronRight, Percent, Search, ShieldCheck, TrendingUp, X } from 'lucide-react';
@@ -62,6 +62,9 @@ export default function PricingPage() {
   const [sortBy, setSortBy] = useState<'nameAsc' | 'nameDesc' | 'priceHigh' | 'priceLow' | 'discountHigh'>('nameAsc');
   const [filterSource, setFilterSource] = useState<'all' | 'base' | 'tier' | 'override'>('all');
   const [sortSheetOpen, setSortSheetOpen] = useState(false);
+  const PRICING_BATCH = 30;
+  const [visibleCount, setVisibleCount] = useState(PRICING_BATCH);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const { data: me, isLoading: isMeLoading } = useSWR<{ user: { role: string; name: string } | null }>('/api/auth/me', fetcher);
   const userRole = me?.user?.role;
@@ -106,6 +109,22 @@ export default function PricingPage() {
       }
     });
   }, [allRows, searchQuery, filterSource, sortBy]);
+
+  // Reset visible count when filters change
+  useEffect(() => { setVisibleCount(PRICING_BATCH); }, [rows]);
+  // Infinite scroll
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) setVisibleCount((c) => Math.min(c + PRICING_BATCH, rows.length)); },
+      { rootMargin: '200px' },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [rows.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const visibleRows = rows.slice(0, visibleCount);
 
   const openEdit = (row: PricingRow) => {
     setEditingRow(row);
@@ -214,7 +233,7 @@ export default function PricingPage() {
         {/* Customer selector */}
         <button
           onClick={() => setCustomerPickerOpen(true)}
-          className="w-full h-12 bg-white/15 backdrop-blur rounded-xl px-4 flex items-center justify-between text-sm mb-3"
+          className="w-full h-14 bg-white/20 rounded-xl px-4 flex items-center justify-between text-sm mb-3 active:bg-white/30 transition-colors"
         >
           <span className="truncate">{activeCustomer?.name ?? 'เลือกลูกค้า'}</span>
           <ChevronDown className="w-4 h-4 shrink-0 ml-2 opacity-70" />
@@ -296,9 +315,9 @@ export default function PricingPage() {
             <p className="text-sm text-gray-500">ลองเปลี่ยนคำค้นหา</p>
           </div>
         ) : (
-          <AnimatePresence>
+          <><AnimatePresence>
             <div className="space-y-2.5">
-              {rows.map((row, idx) => {
+              {visibleRows.map((row, idx) => {
                 const source = SOURCE_CONFIG[row.priceSource] ?? SOURCE_CONFIG.base;
                 const discount = discountPercent(row.basePrice, row.finalPrice);
                 return (
@@ -347,6 +366,12 @@ export default function PricingPage() {
               })}
             </div>
           </AnimatePresence>
+          {visibleCount < rows.length && (
+            <div ref={loadMoreRef} className="py-4 space-y-3">
+              {[0, 1].map((i) => <div key={i} className="h-20 rounded-2xl bg-white animate-pulse border border-gray-100" />)}
+            </div>
+          )}
+          </>
         )}
       </div>
 

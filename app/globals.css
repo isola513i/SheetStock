@@ -47,6 +47,13 @@ input, select, textarea {
   font-size: 16px !important;
 }
 
+/* Fix iOS PWA fixed positioning when virtual keyboard closes */
+@supports (-webkit-touch-callout: none) {
+  .fixed {
+    transform: translateZ(0);
+  }
+}
+
 /* GPU-accelerated animation layers */
 .will-change-transform {
   will-change: transform;

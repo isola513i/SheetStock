@@ -66,8 +66,8 @@ export const BottomNav = memo(function BottomNav({ activePage, userRole, pending
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 backdrop-blur-md border-t border-[var(--border-color)] px-2 pt-2 flex justify-around items-center z-40 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]"
-      style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)', backgroundColor: 'color-mix(in srgb, var(--bg-card) 95%, transparent)' }}
+      className="fixed bottom-0 left-0 right-0 border-t border-[var(--border-color)] px-2 pt-2 flex justify-around items-center z-40"
+      style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)', backgroundColor: 'var(--bg-card)' }}
     >
       {/* Customer: catalog as home. Admin/Sale: inventory as home */}
       {isCustomer ? (
