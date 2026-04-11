@@ -86,15 +86,18 @@ function FullscreenImageViewer({
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col animate-in fade-in duration-200">
-      <div className="flex items-center justify-end p-4 shrink-0">
-        <button
-          onClick={onClose}
-          className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white active:scale-95 transition-all"
-        >
-          <X className="w-6 h-6" />
-        </button>
-      </div>
+    <div
+      className="fixed inset-0 z-[100] bg-black/95 flex flex-col animate-in fade-in duration-200"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      {/* Close button — positioned below notch/dynamic island */}
+      <button
+        onClick={onClose}
+        className="absolute right-4 z-10 w-11 h-11 bg-white/15 backdrop-blur-sm rounded-full flex items-center justify-center text-white active:scale-90 transition-all"
+        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
+      >
+        <X className="w-5 h-5" />
+      </button>
 
       <div
         ref={containerRef}
