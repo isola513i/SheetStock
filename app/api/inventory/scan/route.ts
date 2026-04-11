@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/server/api-auth';
 import { findProductByBarcode, updateProductQuantityInSheet } from '@/lib/server/inventory';
 
+export const dynamic = 'force-dynamic';
+
 // GET: Look up barcode — check inventory + fetch from external databases if not found
 export async function GET(request: NextRequest) {
   const guard = await requireUser(request, ['admin']);

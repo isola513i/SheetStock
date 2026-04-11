@@ -141,7 +141,7 @@ export default function PricingPage() {
   };
 
   const submitBulk = async () => {
-    if (!activeCustomerId || !bulkValue) return;
+    if (!activeCustomerId || !bulkValue || Number(bulkValue) <= 0) return;
     setBulkLoading(true);
     try {
       const response = await fetch('/api/pricing/bulk-update', {
@@ -151,7 +151,7 @@ export default function PricingPage() {
           customerId: activeCustomerId,
           productIds: allRows.map((r) => r.productId),
           adjustmentType: 'percent',
-          adjustmentValue: Number(bulkValue),
+          adjustmentValue: -Math.abs(Number(bulkValue)),
           reason: 'Bulk adjustment',
         }),
       });
@@ -505,18 +505,20 @@ export default function PricingPage() {
             </div>
 
             <div className="mb-5">
-              <label className="text-xs text-gray-500 mb-1.5 block">ปรับเปอร์เซ็นต์ (%)</label>
+              <label className="text-xs text-gray-500 mb-1.5 block">ส่วนลด (%)</label>
               <input
                 type="number"
-                step="0.1"
-                inputMode="decimal"
-                placeholder="เช่น -5 (ลด) หรือ 10 (เพิ่ม)"
+                step="1"
+                min="0"
+                max="100"
+                inputMode="numeric"
+                placeholder="เช่น 5 (ลด 5%)"
                 value={bulkValue}
                 onChange={(e) => setBulkValue(e.target.value)}
                 className="h-12 w-full rounded-xl border border-gray-200 px-4 text-base focus:border-[var(--brand-primary)] focus:ring-1 focus:ring-[var(--brand-primary)] outline-none"
                 onFocus={(e) => setTimeout(() => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)}
               />
-              <p className="mt-1.5 text-[11px] text-gray-400">ตัวเลขบวก = เพิ่มราคา · ตัวเลขลบ = ลดราคา</p>
+              <p className="mt-1.5 text-[11px] text-gray-400">ใส่ตัวเลข เช่น 5 = ลดราคา 5% จากราคาปกติ</p>
             </div>
 
             <div className="flex gap-2">

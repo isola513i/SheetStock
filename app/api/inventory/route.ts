@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/server/api-auth';
 import { getInventoryData, parseInventoryQuery } from '@/lib/server/inventory';
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const guard = await requireUser(request, ['admin', 'sale']);
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(data, {
       headers: {
-        'Cache-Control': 's-maxage=60, stale-while-revalidate=120',
+        'Cache-Control': 'private, no-cache, no-store',
       },
     });
   } catch (error) {

@@ -142,6 +142,23 @@ export default function CatalogPage() {
     return list;
   }, [data, searchQuery, stockFilter, categoryFilter, brandFilter, sort]);
 
+  // Infinite scroll
+  const CATALOG_BATCH = 20;
+  const [visibleCount, setVisibleCount] = useState(CATALOG_BATCH);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { setVisibleCount(CATALOG_BATCH); }, [items]);
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) setVisibleCount((c) => Math.min(c + CATALOG_BATCH, items.length)); },
+      { rootMargin: '200px' },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [items.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const visibleItems = items.slice(0, visibleCount);
+
   useEffect(() => { isValidatingRef.current = isValidating; }, [isValidating]);
 
   useEffect(() => {
@@ -251,9 +268,9 @@ export default function CatalogPage() {
                 </button>
               </div>
             ) : (
-              <AnimatePresence>
+              <><AnimatePresence>
                 <div className="grid grid-cols-2 gap-3 mt-2">
-                  {items.map((item, idx) => {
+                  {visibleItems.map((item, idx) => {
                     const isOut = item.stock <= 0;
                     const isLow = item.stock > 0 && item.stock < 10;
                     return (
@@ -295,6 +312,13 @@ export default function CatalogPage() {
                   })}
                 </div>
               </AnimatePresence>
+
+              {visibleCount < items.length && (
+                <div ref={loadMoreRef} className="py-4 grid grid-cols-2 gap-3">
+                  {[0, 1].map((i) => <div key={i} className="h-48 rounded-2xl bg-white animate-pulse border border-gray-100" />)}
+                </div>
+              )}
+              </>
             )}
           </div>
         </>
@@ -379,6 +403,7 @@ export default function CatalogPage() {
         brand={brandFilter}
         series=""
         facets={facets}
+        allItems={data?.items}
         applyFilters={(f) => {
           setStockFilter(f.stock as StockFilter);
           setCategoryFilter(f.category);

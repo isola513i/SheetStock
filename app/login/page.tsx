@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Globe } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 import { t, getLocale, setLocale, type Locale } from '@/lib/i18n';
 
@@ -20,11 +20,7 @@ export default function LoginPage() {
 
   useEffect(() => { setLocaleState(getLocale()); }, []);
 
-  const toggleLocale = () => {
-    const next = locale === 'th' ? 'en' : 'th';
-    setLocale(next);
-    setLocaleState(next);
-  };
+
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -72,19 +68,7 @@ export default function LoginPage() {
   return (
     <main className="min-h-dvh bg-white text-gray-900">
       <div className="mx-auto min-h-dvh w-full max-w-md px-6 pt-[calc(env(safe-area-inset-top,0px)+20px)] pb-[calc(env(safe-area-inset-bottom,0px)+24px)]">
-        {/* Language toggle */}
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={toggleLocale}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-xs font-medium text-gray-600"
-          >
-            <Globe className="w-3.5 h-3.5" />
-            {locale === 'th' ? 'EN' : 'TH'}
-          </button>
-        </div>
-
-        <h1 className="mt-4 text-[2.2rem] leading-[2.6rem] text-gray-900">{t('login.welcome', locale)}</h1>
+        <h1 className="mt-8 text-[2.2rem] leading-[2.6rem] text-gray-900">{t('login.welcome', locale)}</h1>
         <p className="mt-2 text-sm text-gray-500">{t('login.subtitle', locale)}</p>
 
         <form onSubmit={onSubmit} className="mt-9 space-y-4">

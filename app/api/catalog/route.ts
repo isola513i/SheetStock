@@ -3,6 +3,8 @@ import { requireUser } from '@/lib/server/api-auth';
 import { getCatalogForCustomer, getCustomers } from '@/lib/server/pricing';
 import { loadInventoryFromGoogleSheets } from '@/lib/server/inventory';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const guard = await requireUser(request, ['customer', 'sale', 'admin']);
   if (!guard.ok) return guard.response;

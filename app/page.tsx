@@ -461,7 +461,27 @@ function InventoryDashboardContent() {
               }}
             />
           </div>
-          
+
+          <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+            <button
+              onClick={() => applyQuickPreset('inStock')}
+              className={`shrink-0 min-h-9 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${stockFilter === 'inStock' ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'bg-black/15 text-white'}`}
+            >
+              มีสินค้า
+            </button>
+            <button
+              onClick={() => applyQuickPreset('lowStock')}
+              className={`shrink-0 min-h-9 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${stockFilter === 'lowStock' ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'bg-black/15 text-white'}`}
+            >
+              ใกล้หมด
+            </button>
+            <button
+              onClick={() => applyQuickPreset('outOfStock')}
+              className={`shrink-0 min-h-9 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${stockFilter === 'outOfStock' ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'bg-black/15 text-white'}`}
+            >
+              หมดสต็อก
+            </button>
+          </div>
           </div>
         )}
       </div>
@@ -598,6 +618,7 @@ function InventoryDashboardContent() {
         applyFilters={applySheetFilters}
         clearFilters={clearFilters}
         facets={data?.availableFacets ?? { categories: [], brands: [], series: [] }}
+        allItems={data?.items}
         />
       )}
 

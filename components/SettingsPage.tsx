@@ -170,30 +170,6 @@ export function SettingsPage({
       {/* Preferences */}
       <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl px-4 py-1 divide-y divide-[var(--border-subtle)]">
         <SettingRow
-          icon={<Globe className="h-4.5 w-4.5" />}
-          label={t('settings.language', locale)}
-          description={t('settings.languageDesc', locale)}
-          right={
-            <div className="flex bg-[var(--bg-secondary)] rounded-lg p-0.5">
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setLocale('th'); setLocaleState('th'); }}
-                className={`h-7 px-2.5 rounded-md flex items-center justify-center transition-colors text-xs font-medium ${locale === 'th' ? 'bg-[var(--bg-card)] shadow-sm text-[var(--brand-primary)]' : 'text-[var(--text-muted)]'}`}
-              >
-                TH
-              </button>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setLocale('en'); setLocaleState('en'); }}
-                className={`h-7 px-2.5 rounded-md flex items-center justify-center transition-colors text-xs font-medium ${locale === 'en' ? 'bg-[var(--bg-card)] shadow-sm text-[var(--brand-primary)]' : 'text-[var(--text-muted)]'}`}
-              >
-                EN
-              </button>
-            </div>
-          }
-          onClick={toggleLocale}
-        />
-        <SettingRow
           icon={<Vibrate className="h-4.5 w-4.5" />}
           label={t('settings.haptics', locale)}
           description={t('settings.hapticsDesc', locale)}

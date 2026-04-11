@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useCallback, useRef } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, useMotionValue, useTransform, PanInfo } from 'motion/react';
 import { InventoryItem, InventoryViewMode } from '@/lib/types';
 import { Eye, Heart, Tag } from 'lucide-react';
@@ -131,7 +131,30 @@ function SwipeableListItem({
   );
 }
 
+const BATCH_SIZE = 30;
+
 export const ProductList = memo(function ProductList({ processedInventory, viewMode, onItemClick, onToggleFavorite }: ProductListProps) {
+  const [visibleCount, setVisibleCount] = useState(BATCH_SIZE);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  // Reset visible count when data changes
+  useEffect(() => { setVisibleCount(BATCH_SIZE); }, [processedInventory]);
+
+  // Infinite scroll via IntersectionObserver
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setVisibleCount((c) => Math.min(c + BATCH_SIZE, processedInventory.length)); },
+      { rootMargin: '200px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [processedInventory.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const visibleItems = processedInventory.slice(0, visibleCount);
+  const hasMore = visibleCount < processedInventory.length;
+
   return (
     <main className="px-5 pb-6">
       <AnimatePresence mode="wait">
@@ -144,7 +167,7 @@ export const ProductList = memo(function ProductList({ processedInventory, viewM
             transition={CONTAINER_TRANSITION}
             className="grid grid-cols-2 gap-4"
           >
-            {processedInventory.map((item, idx) => {
+            {visibleItems.map((item, idx) => {
               const isOutOfStock = item.quantity <= 0;
               const isLowStock = item.quantity > 0 && item.quantity < 10;
               return (
@@ -206,12 +229,23 @@ export const ProductList = memo(function ProductList({ processedInventory, viewM
             transition={CONTAINER_TRANSITION}
             className="flex flex-col gap-3"
           >
-            {processedInventory.map((item, idx) => (
+            {visibleItems.map((item, idx) => (
               <SwipeableListItem key={item.id} item={item} idx={idx} onItemClick={onItemClick} />
             ))}
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Infinite scroll sentinel */}
+      {hasMore && (
+        <div ref={loadMoreRef} className="py-4 flex justify-center">
+          <div className="grid grid-cols-2 gap-4 w-full">
+            {[0, 1].map((i) => (
+              <div key={i} className="h-48 rounded-2xl bg-white animate-pulse border border-gray-100" />
+            ))}
+          </div>
+        </div>
+      )}
     </main>
   );
 });

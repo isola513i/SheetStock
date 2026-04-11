@@ -4,6 +4,8 @@ import { bulkUpdateCustomerPrices, getPricingRowsForCustomer } from '@/lib/serve
 
 type Params = { params: Promise<{ id: string }> };
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest, { params }: Params) {
   const guard = await requireUser(request, ['admin', 'sale']);
   if (!guard.ok) return guard.response;
