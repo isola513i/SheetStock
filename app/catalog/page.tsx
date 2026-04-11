@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import PullToRefresh from 'pulltorefreshjs';
 import { useInventoryStream } from '@/lib/hooks/use-inventory-stream';
 import { ArrowUpDown, Search, SlidersHorizontal, X } from 'lucide-react';
+import { ProductImage } from '@/components/ProductImage';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { BottomNav } from '@/components/BottomNav';
@@ -17,11 +18,6 @@ import type { CatalogItem, UserRole } from '@/lib/types';
 const BarcodeScannerSheet = dynamic(() => import('@/components/BarcodeScannerSheet').then(m => ({ default: m.BarcodeScannerSheet })), { ssr: false });
 const FilterSheet = dynamic(() => import('@/components/sheets/FilterSheet').then(m => ({ default: m.FilterSheet })), { ssr: false });
 
-const FALLBACK_IMG = '/icons/icon-192x192.png';
-function handleImgError(e: React.SyntheticEvent<HTMLImageElement>) {
-  const t = e.currentTarget;
-  if (!t.src.endsWith(FALLBACK_IMG)) t.src = FALLBACK_IMG;
-}
 
 type CatalogResponse = {
   customerId: string | null;
@@ -72,10 +68,9 @@ export default function CatalogPage() {
   useInventoryStream(() => mutate());
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [stockFilter, setStockFilter] = useState<StockFilter>('all');
+  const [stockFilter, setStockFilter] = useState<StockFilter>('inStock');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [brandFilter, setBrandFilter] = useState('');
-  const [seriesFilter, setSeriesFilter] = useState('');
   const [sort, setSort] = useState<SortOption>('nameAsc');
   const [selectedItem, setSelectedItem] = useState<CatalogItem | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -130,7 +125,7 @@ export default function CatalogPage() {
     if (stockFilter === 'outOfStock') list = list.filter((i) => i.stock <= 0);
     if (categoryFilter) list = list.filter((i) => i.category === categoryFilter);
     if (brandFilter) list = list.filter((i) => i.brand === brandFilter);
-    if (seriesFilter) list = list.filter((i) => i.series === seriesFilter);
+
 
     list = [...list].sort((a, b) => {
       if (sort === 'nameAsc') return a.name.localeCompare(b.name, 'th');
@@ -141,7 +136,7 @@ export default function CatalogPage() {
       return 0;
     });
     return list;
-  }, [data, searchQuery, stockFilter, categoryFilter, brandFilter, seriesFilter, sort]);
+  }, [data, searchQuery, stockFilter, categoryFilter, brandFilter, sort]);
 
   useEffect(() => { isValidatingRef.current = isValidating; }, [isValidating]);
 
@@ -166,7 +161,7 @@ export default function CatalogPage() {
   }, []);
 
   const isSettingsTab = activeTab === 'settings';
-  const activeFilterCount = (stockFilter !== 'all' ? 1 : 0) + (categoryFilter ? 1 : 0) + (brandFilter ? 1 : 0) + (seriesFilter ? 1 : 0);
+  const activeFilterCount = (stockFilter !== 'all' ? 1 : 0) + (categoryFilter ? 1 : 0) + (brandFilter ? 1 : 0);
 
   return (
     <div className="fixed inset-0 w-full flex flex-col bg-[#F2F2F7] overflow-hidden">
@@ -261,7 +256,7 @@ export default function CatalogPage() {
               <div className="bg-white rounded-2xl border border-gray-200 px-5 py-8 text-center mt-2">
                 <p className="text-gray-800 font-medium mb-1">ไม่พบสินค้า</p>
                 <p className="text-sm text-gray-500 mb-4">ลองเปลี่ยนคำค้นหาหรือตัวกรอง</p>
-                <button onClick={() => { setSearchQuery(''); setStockFilter('all'); setCategoryFilter(''); setBrandFilter(''); setSeriesFilter(''); }} className="px-4 py-2 rounded-xl bg-[var(--brand-primary)] text-white text-sm font-medium">
+                <button onClick={() => { setSearchQuery(''); setStockFilter('all'); setCategoryFilter(''); setBrandFilter(''); }} className="px-4 py-2 rounded-xl bg-[var(--brand-primary)] text-white text-sm font-medium">
                   ล้างตัวกรอง
                 </button>
               </div>
@@ -277,28 +272,33 @@ export default function CatalogPage() {
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.2, delay: Math.min(idx * 0.03, 0.3) }}
-                        className={`bg-white rounded-2xl p-3 flex flex-col cursor-pointer border active:scale-[0.98] transition-transform ${
-                          isOut ? 'border-red-200 bg-red-50/30' : isLow ? 'border-yellow-200 bg-yellow-50/30' : 'border-gray-200'
+                        className={`bg-white rounded-2xl overflow-hidden flex flex-col cursor-pointer border active:scale-[0.98] transition-transform ${
+                          isOut ? 'border-red-200' : isLow ? 'border-yellow-200' : 'border-gray-200'
                         }`}
                         onClick={() => setSelectedItem(item)}
                       >
-                        <div className="relative h-28 w-full mb-3 flex items-center justify-center">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={item.imageUrl || FALLBACK_IMG} alt={item.name} className={`max-h-full max-w-full object-contain ${isOut ? 'grayscale opacity-70' : ''}`} referrerPolicy="no-referrer" onError={handleImgError} />
+                        <div className="relative aspect-square w-full bg-gray-100">
+                          <ProductImage src={item.imageUrl} alt={item.name} sizes="(max-width: 768px) 45vw, 200px" className={`object-cover ${isOut ? 'grayscale opacity-70' : ''}`} />
                           {isOut && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <span className="bg-red-500 text-white text-[10px] font-medium px-2 py-1 rounded-full shadow-sm">สินค้าหมด</span>
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                              <span className="bg-red-500 text-white text-[10px] font-medium px-2.5 py-1 rounded-full shadow-sm">สินค้าหมด</span>
                             </div>
                           )}
                         </div>
-                        <h3 className={`font-medium text-sm text-gray-900 truncate ${isOut ? 'opacity-70' : ''}`}>{item.name}</h3>
-                        <p className="text-[11px] text-gray-400 mt-0.5 truncate">{[item.brand, item.series].filter(Boolean).join(' • ') || '\u00A0'}</p>
-                        <div className="flex items-center justify-between mt-2">
-                          <p className="text-base font-semibold text-[var(--brand-primary)]">
-                            {item.finalPrice > 0 ? `฿${item.finalPrice.toFixed(2)}` : '-'}
-                          </p>
-                          {isLow && <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-[9px] font-medium rounded-sm">ใกล้หมด</span>}
-                          {!isOut && !isLow && <span className="text-[11px] text-gray-400">{item.stock} ชิ้น</span>}
+                        <div className={`px-3 py-2.5 ${isOut ? 'opacity-60' : ''}`}>
+                          {item.brand && (
+                            <span className="inline-block px-2 py-0.5 text-[10px] font-medium text-gray-600 border border-gray-200 rounded-full mb-1.5">{item.brand}</span>
+                          )}
+                          <h3 className="font-semibold text-[13px] text-gray-900 leading-tight line-clamp-2">{[item.brand, item.category, item.series].filter(Boolean).join('') || item.name || item.barcode}</h3>
+                          {item.category && <p className="text-[11px] text-gray-400 mt-0.5 truncate">{item.category}</p>}
+                          <div className="flex items-center justify-between mt-1.5">
+                            <p className="text-base font-bold text-[var(--brand-primary)]">
+                              {item.finalPrice > 0 ? `฿${Math.round(item.finalPrice)}` : '-'}
+                            </p>
+                            {item.quantityPerBox && (
+                              <span className="text-[10px] text-gray-400">{item.quantityPerBox}</span>
+                            )}
+                          </div>
                         </div>
                       </motion.div>
                     );
@@ -316,9 +316,8 @@ export default function CatalogPage() {
           {selectedItem && (
             <div className="px-5 pt-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
               <div className="flex justify-center mb-4">
-                <div className="h-40 w-40 rounded-2xl overflow-hidden bg-gray-100 flex items-center justify-center">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={selectedItem.imageUrl || FALLBACK_IMG} alt={selectedItem.name} className="max-h-full max-w-full object-contain" referrerPolicy="no-referrer" onError={handleImgError} />
+                <div className="relative h-40 w-40 rounded-2xl overflow-hidden bg-gray-100">
+                  <ProductImage src={selectedItem.imageUrl} alt={selectedItem.name} sizes="160px" className="object-contain" />
                 </div>
               </div>
 
@@ -382,25 +381,23 @@ export default function CatalogPage() {
 
       {/* Filter Sheet */}
       <FilterSheet
-        key={`${isFilterOpen}-${stockFilter}-${categoryFilter}-${brandFilter}-${seriesFilter}`}
+        key={`${isFilterOpen}-${stockFilter}-${categoryFilter}-${brandFilter}`}
         open={isFilterOpen}
         onOpenChange={setIsFilterOpen}
         stockFilter={stockFilter}
         category={categoryFilter}
         brand={brandFilter}
-        series={seriesFilter}
+        series=""
         facets={facets}
         applyFilters={(f) => {
           setStockFilter(f.stock as StockFilter);
           setCategoryFilter(f.category);
           setBrandFilter(f.brand);
-          setSeriesFilter(f.series);
         }}
         clearFilters={() => {
           setStockFilter('all');
           setCategoryFilter('');
           setBrandFilter('');
-          setSeriesFilter('');
         }}
       />
 
@@ -409,7 +406,7 @@ export default function CatalogPage() {
         <BottomNav
           activePage={isSettingsTab ? 'settings' : 'catalog'}
           userRole={meData.user.role}
-          onScanClick={() => { setActiveTab('catalog'); setIsScannerOpen(true); }}
+          onScanClick={() => {}}
           onSettingsClick={() => setActiveTab('settings')}
           onInventoryClick={() => setActiveTab('catalog')}
         />

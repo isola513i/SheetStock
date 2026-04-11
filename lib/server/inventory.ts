@@ -129,7 +129,7 @@ export async function fetchInventoryFromGoogleSheets(): Promise<InventoryItem[]>
     ?.trim();
   const apiKey = process.env.GOOGLE_API_KEY;
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:K';
+  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:L';
 
   if (!spreadsheetId || (!apiKey && (!clientEmail || !privateKey))) {
     return mockInventory;
@@ -185,9 +185,10 @@ export async function fetchInventoryFromGoogleSheets(): Promise<InventoryItem[]>
         price: safeNumber(row[5]),
         quantity: safeNumber(row[6]),
         expiryDate: safeString(row[7]),
-        quantityPerBox: safeNumber(row[8]),
+        quantityPerBox: safeString(row[8]),
         notes: safeString(row[9]),
         imageUrl: safeString(row[10]),
+        favorite: safeString(row[11]) === '1',
       };
     });
 
@@ -198,6 +199,7 @@ export async function fetchInventoryFromGoogleSheets(): Promise<InventoryItem[]>
       const existing = merged.get(item.barcode);
       if (existing) {
         existing.quantity += item.quantity;
+        if (item.favorite) existing.favorite = true;
       } else {
         merged.set(item.barcode, { ...item });
       }
@@ -272,6 +274,8 @@ export async function getInventoryData(query: Required<InventoryQuery>): Promise
   });
 
   filtered.sort((a, b) => {
+    // Favorites always come first
+    if (a.favorite !== b.favorite) return a.favorite ? -1 : 1;
     if (query.sort === 'lowStock') return a.quantity - b.quantity;
     if (query.sort === 'highStock') return b.quantity - a.quantity;
     if (query.sort === 'priceHigh') return b.price - a.price;
@@ -310,7 +314,7 @@ export type NewProduct = {
   price: number;
   quantity: number;
   expiryDate: string;
-  quantityPerBox: number;
+  quantityPerBox: string;
   notes: string;
   imageUrl: string;
 };
@@ -324,7 +328,7 @@ export async function appendProductToGoogleSheets(product: NewProduct): Promise<
     ?.replace(/\\"/g, '"')
     ?.trim();
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:K';
+  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:L';
 
   if (!spreadsheetId || !clientEmail || !privateKey) {
     return { ok: false, error: 'Google Sheets credentials not configured' };
@@ -356,6 +360,7 @@ export async function appendProductToGoogleSheets(product: NewProduct): Promise<
           product.quantityPerBox,
           product.notes,
           product.imageUrl,
+          '0',
         ]],
       },
     });
@@ -386,7 +391,7 @@ export async function updateProductQuantityInSheet(barcode: string, addQuantity:
     ?.replace(/\\"/g, '"')
     ?.trim();
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:K';
+  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:L';
 
   if (!spreadsheetId || !clientEmail || !privateKey) {
     return { ok: false, newQuantity: 0, error: 'Google Sheets credentials not configured' };
@@ -439,5 +444,63 @@ export async function updateProductQuantityInSheet(barcode: string, addQuantity:
   } catch (error) {
     console.error('Failed to update product quantity', error);
     return { ok: false, newQuantity: 0, error: 'Failed to update quantity' };
+  }
+}
+
+export async function toggleFavoriteInSheet(barcode: string, favorite: boolean): Promise<{ ok: boolean; error?: string }> {
+  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY
+    ?.replace(/^"/, '')
+    ?.replace(/"$/, '')
+    ?.replace(/\\n/g, '\n')
+    ?.replace(/\\"/g, '"')
+    ?.trim();
+  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:L';
+
+  if (!spreadsheetId || !clientEmail || !privateKey) {
+    return { ok: false, error: 'Google Sheets credentials not configured' };
+  }
+
+  try {
+    const auth = new google.auth.JWT({
+      email: clientEmail,
+      key: privateKey,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    const sheets = google.sheets({ version: 'v4' });
+    const response = await sheets.spreadsheets.values.get({ spreadsheetId, range, auth });
+    const rows = (response.data.values ?? []) as string[][];
+
+    // Update all rows with matching barcode
+    const sheetName = range.split('!')[0] || 'inventory';
+    const value = favorite ? '1' : '0';
+    let found = false;
+
+    for (let i = 1; i < rows.length; i++) {
+      if (safeString(rows[i][0]) === barcode) {
+        found = true;
+        const cellRange = `${sheetName}!L${i + 1}`;
+        await sheets.spreadsheets.values.update({
+          spreadsheetId,
+          range: cellRange,
+          auth,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [[value]] },
+        });
+      }
+    }
+
+    if (!found) return { ok: false, error: 'Product not found' };
+
+    inventoryCache = null;
+    facetCache = null;
+    notifyClientsIfConnected();
+
+    return { ok: true };
+  } catch (error) {
+    console.error('Failed to toggle favorite', error);
+    return { ok: false, error: 'Failed to update favorite' };
   }
 }

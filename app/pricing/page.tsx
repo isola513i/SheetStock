@@ -7,6 +7,7 @@ import { ArrowUpDown, ChevronDown, ChevronRight, Percent, Search, ShieldCheck, T
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useToast } from '@/components/ui/toast';
 import { BottomNav } from '@/components/BottomNav';
+import { ProductImage } from '@/components/ProductImage';
 
 type Customer = { id: string; name: string; tierId: string };
 type PricingRow = {
@@ -20,12 +21,6 @@ type PricingRow = {
   priceSource: 'base' | 'tier' | 'override';
 };
 
-const FALLBACK_IMG = '/icons/icon-192x192.png';
-function handleImgError(e: React.SyntheticEvent<HTMLImageElement>) {
-  const t = e.currentTarget;
-  if (!t.src.endsWith(FALLBACK_IMG)) t.src = FALLBACK_IMG;
-}
-
 const fetcher = async <T,>(url: string): Promise<T> => {
   const response = await fetch(url);
   if (!response.ok) throw new Error('Fetch failed');
@@ -34,14 +29,6 @@ const fetcher = async <T,>(url: string): Promise<T> => {
 
 function formatPrice(value: number) {
   return `฿${value.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function toSafeImageSrc(value?: string) {
-  const trimmed = (value ?? '').trim();
-  if (!trimmed) return '/icons/icon-192x192.png';
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
-  if (trimmed.startsWith('/')) return trimmed;
-  return '/icons/icon-192x192.png';
 }
 
 function discountPercent(base: number, final: number) {
@@ -321,9 +308,8 @@ export default function PricingPage() {
                   >
                     <div className="p-3 flex gap-3">
                       {/* Product image */}
-                      <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={toSafeImageSrc(row.imageUrl)} alt={row.name} className="max-h-full max-w-full object-contain" referrerPolicy="no-referrer" onError={handleImgError} />
+                      <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden bg-gray-100">
+                        <ProductImage src={row.imageUrl ?? ''} alt={row.name} sizes="64px" className="object-contain" />
                       </div>
 
                       {/* Info */}
@@ -420,9 +406,8 @@ export default function PricingPage() {
             <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
               {/* Product header with image */}
               <div className="flex items-center gap-3 mb-5">
-                <div className="relative h-14 w-14 shrink-0 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={toSafeImageSrc(editingRow.imageUrl)} alt={editingRow.name} className="max-h-full max-w-full object-contain" referrerPolicy="no-referrer" onError={handleImgError} />
+                <div className="relative h-14 w-14 shrink-0 rounded-xl overflow-hidden bg-gray-100">
+                  <ProductImage src={editingRow.imageUrl ?? ''} alt={editingRow.name} sizes="56px" className="object-contain" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-base font-medium text-gray-900 leading-tight">{editingRow.name}</h3>

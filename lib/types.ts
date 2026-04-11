@@ -8,9 +8,10 @@ export interface InventoryItem {
   price: number;
   quantity: number;
   expiryDate: string;
-  quantityPerBox: number;
+  quantityPerBox: string;
   notes: string;
   imageUrl: string;
+  favorite: boolean;
 }
 
 export type UserRole = 'admin' | 'sale' | 'customer';
@@ -153,6 +154,7 @@ export interface CatalogItem {
   series: string;
   imageUrl: string;
   stock: number;
+  quantityPerBox: string;
   expiryDate: string;
   basePrice: number;
   tierPrice: number;

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { Loader2 } from 'lucide-react';
+import { Camera, ImagePlus, Loader2, X } from 'lucide-react';
+import { compressImageFile } from '@/lib/compress-image';
 
 export type ProductPrefill = Partial<{
   barcode: string;
@@ -61,13 +62,17 @@ const FIELD_CONFIG: { key: keyof FormData; label: string; type: string; inputMod
   { key: 'expiryDate', label: 'วันหมดอายุ', type: 'text', placeholder: 'DD/MM/YYYY', required: false },
   { key: 'quantityPerBox', label: 'จำนวนต่อลัง', type: 'number', inputMode: 'numeric', placeholder: '0', required: false },
   { key: 'notes', label: 'หมายเหตุ', type: 'text', placeholder: 'ข้อมูลเพิ่มเติม', required: false },
-  { key: 'imageUrl', label: 'URL รูปภาพ', type: 'url', placeholder: 'https://...', required: false },
 ];
 
 import { softHaptic } from '@/lib/haptics';
 
 export function AddProductSheet({ open, onOpenChange, onSuccess, prefill }: AddProductSheetProps) {
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Apply prefill data when sheet opens with new prefill
   useEffect(() => {
@@ -83,38 +88,65 @@ export function AddProductSheet({ open, onOpenChange, onSuccess, prefill }: AddP
       }));
     }
     if (!open) {
-      // Reset when closed
       setForm(INITIAL_FORM);
       setErrors({});
       setSubmitError('');
+      setImageFile(null);
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      setImagePreview('');
     }
-  }, [open, prefill]);
+  }, [open, prefill]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, boolean>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
   const updateField = (key: keyof FormData, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
-    if (errors[key]) {
-      setErrors((prev) => ({ ...prev, [key]: false }));
-    }
+    if (errors[key]) setErrors((prev) => ({ ...prev, [key]: false }));
     if (submitError) setSubmitError('');
+  };
+
+  const handleFileSelected = (file: File) => {
+    setImageFile(file);
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview(URL.createObjectURL(file));
+    // Clear URL if user picks a file
+    setForm((prev) => ({ ...prev, imageUrl: '' }));
+  };
+
+  const clearImage = () => {
+    setImageFile(null);
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview('');
+  };
+
+  const uploadImage = async (): Promise<string | null> => {
+    if (!imageFile) return null;
+    setIsUploading(true);
+    try {
+      const compressed = await compressImageFile(imageFile);
+      const formData = new globalThis.FormData();
+      formData.append('file', compressed, 'product.webp');
+      const res = await fetch('/api/upload/image', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      return data.url as string;
+    } catch (err) {
+      console.error('Image upload failed:', err);
+      return null;
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof FormData, boolean>> = {};
     for (const field of REQUIRED_FIELDS) {
-      if (!form[field].trim()) {
-        newErrors[field] = true;
-      }
+      if (!form[field].trim()) newErrors[field] = true;
     }
-    // Validate price and quantity are valid numbers
-    if (form.price && (isNaN(Number(form.price)) || Number(form.price) < 0)) {
-      newErrors.price = true;
-    }
-    if (form.quantity && (isNaN(Number(form.quantity)) || Number(form.quantity) < 0)) {
-      newErrors.quantity = true;
-    }
+    if (form.price && (isNaN(Number(form.price)) || Number(form.price) < 0)) newErrors.price = true;
+    if (form.quantity && (isNaN(Number(form.quantity)) || Number(form.quantity) < 0)) newErrors.quantity = true;
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -127,6 +159,13 @@ export function AddProductSheet({ open, onOpenChange, onSuccess, prefill }: AddP
     setSubmitError('');
 
     try {
+      // Upload image first if file is selected
+      let finalImageUrl = form.imageUrl.trim();
+      if (imageFile) {
+        const uploadedUrl = await uploadImage();
+        if (uploadedUrl) finalImageUrl = uploadedUrl;
+      }
+
       const res = await fetch('/api/inventory/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -139,22 +178,19 @@ export function AddProductSheet({ open, onOpenChange, onSuccess, prefill }: AddP
           price: Number(form.price),
           quantity: Number(form.quantity),
           expiryDate: form.expiryDate.trim(),
-          quantityPerBox: form.quantityPerBox ? Number(form.quantityPerBox) : 0,
+          quantityPerBox: form.quantityPerBox.trim(),
           notes: form.notes.trim(),
-          imageUrl: form.imageUrl.trim(),
+          imageUrl: finalImageUrl,
         }),
       });
 
       const data = await res.json();
-
-      if (!res.ok) {
-        setSubmitError(data.error || 'เกิดข้อผิดพลาด');
-        return;
-      }
+      if (!res.ok) { setSubmitError(data.error || 'เกิดข้อผิดพลาด'); return; }
 
       softHaptic();
       setForm(INITIAL_FORM);
       setErrors({});
+      clearImage();
       onSuccess();
       onOpenChange(false);
     } catch {
@@ -163,6 +199,8 @@ export function AddProductSheet({ open, onOpenChange, onSuccess, prefill }: AddP
       setIsSubmitting(false);
     }
   };
+
+  const displayImage = imagePreview || form.imageUrl || '';
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -192,6 +230,77 @@ export function AddProductSheet({ open, onOpenChange, onSuccess, prefill }: AddP
               )}
             </div>
           ))}
+
+          {/* Image Upload Section */}
+          <div>
+            <label className="text-xs text-gray-500 mb-1.5 block">รูปภาพสินค้า</label>
+
+            {displayImage ? (
+              <div className="relative w-full h-40 rounded-xl border border-gray-200 bg-gray-50 overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={displayImage} alt="Preview" className="w-full h-full object-contain" />
+                <button
+                  type="button"
+                  onClick={() => { clearImage(); updateField('imageUrl', ''); }}
+                  className="absolute top-2 right-2 w-7 h-7 bg-black/50 rounded-full flex items-center justify-center"
+                >
+                  <X className="w-4 h-4 text-white" />
+                </button>
+                {isUploading && (
+                  <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-[var(--brand-primary)]" />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="flex-1 h-24 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-1.5 text-gray-400 active:bg-gray-100"
+                >
+                  <Camera className="w-6 h-6" />
+                  <span className="text-[11px]">ถ่ายรูป</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex-1 h-24 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-1.5 text-gray-400 active:bg-gray-100"
+                >
+                  <ImagePlus className="w-6 h-6" />
+                  <span className="text-[11px]">เลือกรูป</span>
+                </button>
+              </div>
+            )}
+
+            {/* Hidden file inputs */}
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelected(f); e.target.value = ''; }}
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelected(f); e.target.value = ''; }}
+            />
+
+            {/* Manual URL input */}
+            {!imageFile && (
+              <input
+                type="url"
+                placeholder="หรือวาง URL รูปภาพ https://..."
+                value={form.imageUrl}
+                onChange={(e) => updateField('imageUrl', e.target.value)}
+                className="w-full h-11 px-3.5 rounded-xl border border-gray-200 text-sm bg-gray-50 outline-none transition-colors focus:bg-white focus:border-[var(--brand-primary)] mt-2"
+              />
+            )}
+          </div>
         </div>
 
         {submitError && (
@@ -207,6 +316,7 @@ export function AddProductSheet({ open, onOpenChange, onSuccess, prefill }: AddP
               setForm(INITIAL_FORM);
               setErrors({});
               setSubmitError('');
+              clearImage();
               onOpenChange(false);
             }}
             disabled={isSubmitting}
@@ -216,13 +326,13 @@ export function AddProductSheet({ open, onOpenChange, onSuccess, prefill }: AddP
           </button>
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || isUploading}
             className="flex-1 min-h-11 rounded-xl bg-[var(--brand-primary)] text-white text-sm font-medium disabled:opacity-70 flex items-center justify-center gap-2"
           >
-            {isSubmitting ? (
+            {isSubmitting || isUploading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                กำลังเพิ่ม...
+                {isUploading ? 'กำลังอัปโหลดรูป...' : 'กำลังเพิ่ม...'}
               </>
             ) : (
               'เพิ่มสินค้า'

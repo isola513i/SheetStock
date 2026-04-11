@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     price: Number(price),
     quantity: Number(quantity),
     expiryDate: String(expiryDate ?? '').trim(),
-    quantityPerBox: Number(quantityPerBox ?? 0),
+    quantityPerBox: String(quantityPerBox ?? '').trim(),
     notes: String(notes ?? '').trim(),
     imageUrl: String(imageUrl ?? '').trim(),
   });

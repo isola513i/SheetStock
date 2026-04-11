@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
       series: item.series,
       imageUrl: item.imageUrl,
       stock: item.quantity,
+      quantityPerBox: item.quantityPerBox,
       expiryDate: item.expiryDate,
       basePrice: item.price,
       tierPrice: item.price,

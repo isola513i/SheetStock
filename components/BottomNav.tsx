@@ -96,16 +96,18 @@ export const BottomNav = memo(function BottomNav({ activePage, userRole, onScanC
         />
       )}
 
-      {/* Scan button */}
-      <div className="relative -top-4">
-        <button
-          type="button"
-          onClick={onScanClick}
-          className="w-13 h-13 min-w-11 min-h-11 bg-[var(--brand-primary)] rounded-full flex items-center justify-center text-white shadow-lg shadow-orange-500/30 active:scale-95 transition-transform"
-        >
-          <ScanLine className="w-6 h-6" />
-        </button>
-      </div>
+      {/* Scan button — admin/sale only */}
+      {!isCustomer && (
+        <div className="relative -top-4">
+          <button
+            type="button"
+            onClick={onScanClick}
+            className="w-13 h-13 min-w-11 min-h-11 bg-[var(--brand-primary)] rounded-full flex items-center justify-center text-white shadow-lg shadow-orange-500/30 active:scale-95 transition-transform"
+          >
+            <ScanLine className="w-6 h-6" />
+          </button>
+        </div>
+      )}
 
       {/* Admin: approvals tab */}
       {isAdmin && (

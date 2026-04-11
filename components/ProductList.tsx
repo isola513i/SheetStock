@@ -3,7 +3,7 @@
 import { memo, useCallback, useRef } from 'react';
 import { AnimatePresence, motion, useMotionValue, useTransform, PanInfo } from 'motion/react';
 import { InventoryItem, InventoryViewMode } from '@/lib/types';
-import { Eye, Tag } from 'lucide-react';
+import { Eye, Heart, Tag } from 'lucide-react';
 import { ProductImage } from '@/components/ProductImage';
 
 const STAGGER_TRANSITION = (idx: number) => ({ duration: 0.2, delay: Math.min(idx * 0.03, 0.3) });
@@ -15,6 +15,7 @@ type ProductListProps = {
   processedInventory: InventoryItem[];
   viewMode: InventoryViewMode;
   onItemClick: (item: InventoryItem) => void;
+  onToggleFavorite?: (barcode: string, favorite: boolean) => void;
 };
 
 function SwipeableListItem({
@@ -83,7 +84,8 @@ function SwipeableListItem({
           <ProductImage
             src={item.imageUrl}
             alt={item.name}
-            className={`h-full w-full object-contain rounded-lg ${isOutOfStock ? 'grayscale opacity-70' : ''}`}
+            sizes="64px"
+            className={`object-contain rounded-lg ${isOutOfStock ? 'grayscale opacity-70' : ''}`}
           />
           {isOutOfStock && (
             <div className="absolute -top-1 -right-1 flex items-center justify-center">
@@ -110,7 +112,7 @@ function SwipeableListItem({
   );
 }
 
-export const ProductList = memo(function ProductList({ processedInventory, viewMode, onItemClick }: ProductListProps) {
+export const ProductList = memo(function ProductList({ processedInventory, viewMode, onItemClick, onToggleFavorite }: ProductListProps) {
   return (
     <main className="px-5 pb-6">
       <AnimatePresence mode="wait">
@@ -132,31 +134,44 @@ export const ProductList = memo(function ProductList({ processedInventory, viewM
                   animate={{ opacity: 1, scale: 1 }}
                   transition={STAGGER_TRANSITION(idx)}
                   key={item.id}
-                  className={`bg-white rounded-[1.5rem] p-4 flex flex-col cursor-pointer border contain-card ${isOutOfStock ? 'border-red-200 bg-red-50/30' : isLowStock ? 'border-yellow-200 bg-yellow-50/30' : 'border-gray-200'}`}
+                  className={`bg-white rounded-2xl overflow-hidden flex flex-col cursor-pointer border contain-card active:scale-[0.98] transition-transform ${isOutOfStock ? 'border-red-200' : isLowStock ? 'border-yellow-200' : 'border-gray-200'}`}
                   onClick={() => onItemClick(item)}
                 >
-                  <div className="relative h-32 w-full mb-4 flex items-center justify-center">
+                  <div className="relative aspect-square w-full bg-gray-100">
                     <ProductImage
                       src={item.imageUrl}
                       alt={item.name}
-                      className={`max-h-full max-w-full object-contain ${isOutOfStock ? 'grayscale opacity-70' : ''}`}
+                      sizes="(max-width: 768px) 45vw, 200px"
+                      className={`object-cover ${isOutOfStock ? 'grayscale opacity-70' : ''}`}
                     />
                     {isOutOfStock && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="bg-red-500 text-white text-[10px] font-medium px-2 py-1 rounded-full shadow-sm">สินค้าหมด</span>
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+                        <span className="bg-red-500 text-white text-[10px] font-medium px-2.5 py-1 rounded-full shadow-sm">สินค้าหมด</span>
                       </div>
                     )}
+                    {onToggleFavorite && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onToggleFavorite(item.barcode, !item.favorite); }}
+                        className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-sm active:scale-90 transition-transform"
+                      >
+                        <Heart className={`w-4 h-4 ${item.favorite ? 'fill-red-500 text-red-500' : 'text-gray-400'}`} />
+                      </button>
+                    )}
                   </div>
-                  <div className={`w-full text-center flex flex-col items-center ${isOutOfStock ? 'opacity-70' : ''}`}>
-                    <h3 className="font-medium text-sm text-gray-900 truncate w-full">{item.name}</h3>
-                    <p className="text-[11px] text-gray-500 mt-1 truncate w-full">บาร์โค้ด: {item.barcode}</p>
-                    <div className="flex items-center justify-center gap-1.5 mt-1">
+                  <div className={`px-3 py-2.5 ${isOutOfStock ? 'opacity-60' : ''}`}>
+                    {item.brand && (
+                      <span className="inline-block px-2 py-0.5 text-[10px] font-medium text-gray-600 border border-gray-200 rounded-full mb-1.5">{item.brand}</span>
+                    )}
+                    <h3 className="font-semibold text-[13px] text-gray-900 leading-tight line-clamp-2">{[item.brand, item.category, item.series].filter(Boolean).join('') || item.name || item.barcode}</h3>
+                    {item.category && <p className="text-[11px] text-gray-400 mt-0.5 truncate">{item.category}</p>}
+                    <div className="flex items-center justify-between mt-1.5">
+                      <p className="text-[10px] text-gray-400 font-mono truncate">{item.barcode}</p>
                       {!isOutOfStock && (
-                        <p className={`text-[12px] font-medium truncate ${isLowStock ? 'text-yellow-600' : 'text-gray-700'}`}>
-                          {item.quantity} <span className="text-[10px] font-normal text-gray-400">ชิ้น</span>
+                        <p className={`text-[11px] font-medium ${isLowStock ? 'text-yellow-600' : 'text-gray-600'}`}>
+                          {item.quantity} ชิ้น
                         </p>
                       )}
-                      {isLowStock && <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-[9px] font-medium rounded-sm">ใกล้หมด</span>}
                     </div>
                   </div>
                 </motion.div>

@@ -131,7 +131,6 @@ export function FilterSheet(props: FilterSheetProps) {
 
           <FacetSection label="หมวดหมู่" options={safeFacets.categories} selected={draftCategory} onSelect={setDraftCategory} />
           <FacetSection label="แบรนด์" options={safeFacets.brands} selected={draftBrand} onSelect={setDraftBrand} />
-          <FacetSection label="ซีรีส์" options={safeFacets.series} selected={draftSeries} onSelect={setDraftSeries} />
         </div>
 
         <div className="fixed left-0 right-0 bottom-0 bg-white/95 backdrop-blur border-t border-gray-100 p-4 flex gap-2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 12px)' }}>

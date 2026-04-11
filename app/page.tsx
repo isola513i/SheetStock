@@ -9,7 +9,7 @@ import PullToRefresh from 'pulltorefreshjs';
 import { useInventoryStream } from '@/lib/hooks/use-inventory-stream';
 import { InventoryApiResponse, InventoryItem, InventorySortPreset, InventoryStockFilter, InventoryTabKey, InventoryViewMode, UserRole } from '@/lib/types';
 import type { ProductPrefill } from '@/components/sheets/AddProductSheet';
-import { Search, List, LayoutGrid, ArrowUpDown, SlidersHorizontal, ChevronLeft, ChevronRight, Plus, Loader2 } from 'lucide-react';
+import { Search, List, LayoutGrid, ArrowUpDown, SlidersHorizontal, Plus, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { BottomNav } from '@/components/BottomNav';
 import { ProductList } from '@/components/ProductList';
@@ -23,7 +23,7 @@ const BarcodeScannerSheet = dynamic(() => import('@/components/BarcodeScannerShe
 const AddProductSheet = dynamic(() => import('@/components/sheets/AddProductSheet').then(m => ({ default: m.AddProductSheet })), { ssr: false });
 const AddQuantitySheet = dynamic(() => import('@/components/sheets/AddQuantitySheet').then(m => ({ default: m.AddQuantitySheet })), { ssr: false });
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 500;
 const DEFAULT_SORT: InventorySortPreset = 'nameAsc';
 const fetcher = async (url: string): Promise<InventoryApiResponse> => {
   const response = await fetch(url);
@@ -75,10 +75,9 @@ function InventoryDashboardContent() {
   const isPullRefreshingRef = useRef(false);
 
   const sort = (searchParams.get('sort') as InventorySortPreset) || DEFAULT_SORT;
-  const stockFilter = (searchParams.get('stock') as InventoryStockFilter) || 'all';
+  const stockFilter = (searchParams.get('stock') as InventoryStockFilter) || 'inStock';
   const categoryFilter = searchParams.get('category') ?? '';
   const brandFilter = searchParams.get('brand') ?? '';
-  const seriesFilter = searchParams.get('series') ?? '';
   const page = Math.max(1, Number(searchParams.get('page') ?? '1'));
 
   const updateQuery = useCallback(
@@ -172,9 +171,8 @@ function InventoryDashboardContent() {
     if (stockFilter !== 'all') params.set('stock', stockFilter);
     if (categoryFilter) params.set('category', categoryFilter);
     if (brandFilter) params.set('brand', brandFilter);
-    if (seriesFilter) params.set('series', seriesFilter);
     return `/api/inventory?${params.toString()}`;
-  }, [debouncedSearchQuery, sort, page, stockFilter, categoryFilter, brandFilter, seriesFilter]);
+  }, [debouncedSearchQuery, sort, page, stockFilter, categoryFilter, brandFilter]);
 
   const { data, isLoading, isValidating, mutate } = useSWR(apiUrl, fetcher, {
     revalidateOnFocus: true,
@@ -200,16 +198,13 @@ function InventoryDashboardContent() {
   }, [meData, router]);
 
   const totalItems = data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (stockFilter !== 'all') count += 1;
     if (categoryFilter) count += 1;
     if (brandFilter) count += 1;
-    if (seriesFilter) count += 1;
     return count;
-  }, [stockFilter, categoryFilter, brandFilter, seriesFilter]);
-  const showFloatingPagination = scrollDir !== 'down';
+  }, [stockFilter, categoryFilter, brandFilter]);
   const isSettingsTab = activeTab === 'settings';
 
   // Hydrate client-only state from localStorage after mount
@@ -264,6 +259,17 @@ function InventoryDashboardContent() {
     setSelectedItem(item);
     setIsOpen(true);
   }, []);
+
+  const handleToggleFavorite = useCallback(async (barcode: string, favorite: boolean) => {
+    try {
+      const res = await fetch('/api/inventory/favorite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barcode, favorite }),
+      });
+      if (res.ok) mutate();
+    } catch { /* ignore */ }
+  }, [mutate]);
 
   const clearFilters = () => {
     updateQuery({
@@ -472,7 +478,7 @@ function InventoryDashboardContent() {
           <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
             <button
               onClick={() => applyQuickPreset('all')}
-              className={`shrink-0 min-h-11 px-4 py-2 rounded-full text-xs font-medium transition-colors ${stockFilter === 'all' && !categoryFilter && !brandFilter && !seriesFilter ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'bg-black/15 text-white hover:bg-black/25'}`}
+              className={`shrink-0 min-h-11 px-4 py-2 rounded-full text-xs font-medium transition-colors ${stockFilter === 'all' && !categoryFilter && !brandFilter ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'bg-black/15 text-white hover:bg-black/25'}`}
             >
               ทั้งหมด
             </button>
@@ -588,50 +594,10 @@ function InventoryDashboardContent() {
             </div>
           </main>
             ) : (
-          <ProductList processedInventory={processedInventory} viewMode={viewMode} onItemClick={handleItemClick} />
+          <ProductList processedInventory={processedInventory} viewMode={viewMode} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} />
             )}
 
-            {totalPages > 1 && (
-          <>
             <div className="h-24" />
-            <motion.div
-              className="fixed left-0 right-0 z-40 px-5 pointer-events-none"
-              style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}
-              initial={false}
-              animate={showFloatingPagination ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 18, scale: 0.98 }}
-              transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.8 }}
-            >
-              <div className="mx-auto max-w-sm rounded-full border border-gray-200/80 bg-white/90 backdrop-blur-md px-2 py-2 shadow-lg shadow-black/5 pointer-events-auto">
-              <div className="grid grid-cols-[44px_1fr_44px] items-center gap-2">
-                <button
-                  aria-label="Previous page"
-                  onClick={() => updateQuery({ page: Math.max(1, page - 1) })}
-                  disabled={page <= 1}
-                  className="h-11 w-11 rounded-full border border-gray-200 bg-white flex items-center justify-center text-gray-600 disabled:opacity-40"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-
-                <div className="text-center">
-                  <p className="text-[11px] text-gray-400">หน้าปัจจุบัน</p>
-                  <p className="text-sm text-gray-800">
-                    {page} / {totalPages}
-                  </p>
-                </div>
-
-                <button
-                  aria-label="Next page"
-                  onClick={() => updateQuery({ page: Math.min(totalPages, page + 1) })}
-                  disabled={page >= totalPages}
-                  className="h-11 w-11 rounded-full border border-gray-200 bg-white flex items-center justify-center text-gray-600 disabled:opacity-40"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            </motion.div>
-          </>
-            )}
           </>
         )}
       </div>
@@ -656,13 +622,13 @@ function InventoryDashboardContent() {
 
       {!isSettingsTab && (
         <FilterSheet
-        key={`${isFilterOpen}-${stockFilter}-${categoryFilter}-${brandFilter}-${seriesFilter}`}
+        key={`${isFilterOpen}-${stockFilter}-${categoryFilter}-${brandFilter}`}
         open={isFilterOpen}
         onOpenChange={setIsFilterOpen}
         stockFilter={stockFilter}
         category={categoryFilter}
         brand={brandFilter}
-        series={seriesFilter}
+        series=""
         applyFilters={applySheetFilters}
         clearFilters={clearFilters}
         facets={data?.availableFacets ?? { categories: [], brands: [], series: [] }}

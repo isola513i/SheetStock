@@ -133,6 +133,7 @@ export async function getCatalogForCustomer(customerId: string): Promise<Catalog
       series: item.series,
       imageUrl: item.imageUrl,
       stock: item.quantity,
+      quantityPerBox: item.quantityPerBox,
       expiryDate: item.expiryDate,
       basePrice,
       tierPrice: pricing.tierPrice,

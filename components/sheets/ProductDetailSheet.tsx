@@ -4,11 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Clipboard, Package, X } from "lucide-react";
 import { t, getLocale, type Locale } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
+import { ProductImage, FALLBACK_IMAGE_SRC } from "@/components/ProductImage";
 import { InventoryItem } from "@/lib/types";
-const FALLBACK_IMG = "/icons/icon-192x192.png";
+
+const FALLBACK_IMG = FALLBACK_IMAGE_SRC;
 function handleImgError(e: React.SyntheticEvent<HTMLImageElement>) {
-  const t = e.currentTarget;
-  if (!t.src.endsWith(FALLBACK_IMG)) t.src = FALLBACK_IMG;
+  const el = e.currentTarget;
+  if (!el.src.endsWith(FALLBACK_IMG)) el.src = FALLBACK_IMG;
 }
 
 type ProductDetailSheetProps = {
@@ -299,16 +301,14 @@ export function ProductDetailSheet({
 
               <div className="bg-[var(--brand-primary)] rounded-b-[2.2rem] px-5 pb-8 pt-1 relative">
                 <div
-                  className="relative h-40 w-full cursor-pointer flex items-center justify-center"
+                  className="relative h-40 w-full cursor-pointer"
                   onClick={() => setFullscreenImage(mainImageSrc)}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={selectedItem.imageUrl || FALLBACK_IMG}
+                  <ProductImage
+                    src={selectedItem.imageUrl}
                     alt={selectedItem.name}
-                    className="max-h-full max-w-full object-contain"
-                    referrerPolicy="no-referrer"
-                    onError={handleImgError}
+                    sizes="320px"
+                    className="object-contain"
                   />
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2">
@@ -335,7 +335,7 @@ export function ProductDetailSheet({
                 <div className="bg-white rounded-[1.6rem] p-5 border border-gray-200 shadow-sm">
                   <div className="mb-5">
                     <h2 className="text-[1.35rem] leading-tight font-medium text-gray-900 mb-2">
-                      {toDisplayText(selectedItem.name)}
+                      {toDisplayText([selectedItem.brand, selectedItem.category, selectedItem.series].filter(Boolean).join('') || selectedItem.name || selectedItem.barcode)}
                     </h2>
                     <Badge
                       className={`${stock.color} border px-2.5 py-0.5 rounded-full font-medium text-xs`}
@@ -413,8 +413,8 @@ export function ProductDetailSheet({
                       <DataRow
                         label={t("product.quantityPerBox", locale)}
                         value={
-                          selectedItem.quantityPerBox > 0
-                            ? `${selectedItem.quantityPerBox}`
+                          selectedItem.quantityPerBox
+                            ? selectedItem.quantityPerBox
                             : toDisplayText("")
                         }
                         isLast
