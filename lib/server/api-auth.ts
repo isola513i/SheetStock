@@ -7,8 +7,24 @@ import {
   findUserById,
   createAccessToken,
   ACCESS_COOKIE_OPTIONS,
+  setUsersCache,
 } from '@/lib/server/auth';
+import { loadUsersFromSheet } from '@/lib/server/users-sheet';
 import type { AppUser, UserRole } from '@/lib/types';
+
+async function findUserByIdWithWarmup(id: string): Promise<AppUser | null> {
+  let user = findUserById(id);
+  if (!user) {
+    // Cache cold — warm it from Sheet
+    const users = await loadUsersFromSheet();
+    setUsersCache(users.map((u) => ({
+      id: u.id, email: u.email, name: u.name, role: u.role,
+      customerId: u.customerId || undefined, password: u.password, status: u.status,
+    })));
+    user = findUserById(id);
+  }
+  return user;
+}
 
 export async function getRequestUser(request: NextRequest): Promise<{ user: AppUser | null; newAccessToken?: string }> {
   // 1. Try access token
@@ -23,7 +39,7 @@ export async function getRequestUser(request: NextRequest): Promise<{ user: AppU
   if (refreshToken) {
     const userId = await verifyRefreshToken(refreshToken);
     if (userId) {
-      const user = findUserById(userId);
+      const user = await findUserByIdWithWarmup(userId);
       if (user) {
         const newAccessToken = await createAccessToken(user);
         return { user, newAccessToken };

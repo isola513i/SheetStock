@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import {
-  authenticate,
   createAccessToken,
   createRefreshToken,
   ACCESS_COOKIE,
@@ -9,6 +8,7 @@ import {
   ACCESS_COOKIE_OPTIONS,
   REFRESH_COOKIE_OPTIONS,
 } from '@/lib/server/auth';
+import { authenticate } from '@/lib/server/users-sheet';
 import { findRegistrationByEmail } from '@/lib/server/registrations';
 
 export async function POST(request: Request) {
@@ -16,9 +16,9 @@ export async function POST(request: Request) {
   const email = typeof body?.email === 'string' ? body.email : '';
   const password = typeof body?.password === 'string' ? body.password : '';
 
-  const user = authenticate(email, password);
+  const user = await authenticate(email, password);
   if (!user) {
-    const reg = findRegistrationByEmail(email);
+    const reg = await findRegistrationByEmail(email);
     if (reg) {
       if (reg.status === 'pending') return NextResponse.json({ error: 'บัญชีของคุณกำลังรอการอนุมัติจาก Admin' }, { status: 403 });
       if (reg.status === 'rejected') return NextResponse.json({ error: 'การสมัครถูกปฏิเสธ กรุณาติดต่อ Admin' }, { status: 403 });

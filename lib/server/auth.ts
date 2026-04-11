@@ -18,15 +18,15 @@ function getTokenSecret(): string {
   return secret;
 }
 
-// --- Mock users ---
-type MockUserRecord = AppUser & { password: string };
+// --- Users cache (populated by users-sheet.ts, read by middleware via findUserById) ---
 
-const mockUsers: MockUserRecord[] = [
-  { id: 'u-admin', email: 'admin@sheetstock.app', name: 'System Admin', role: 'admin', password: 'admin1234' },
-  { id: 'u-sale-a', email: 'sale@sheetstock.app', name: 'Sale Team A', role: 'sale', password: 'sale1234' },
-  { id: 'u-customer-a', email: 'customer-a@sheetstock.app', name: 'ร้านเจริญพาณิชย์', role: 'customer', customerId: 'c-001', password: 'cust1234' },
-  { id: 'u-customer-b', email: 'customer-b@sheetstock.app', name: 'ร้านรุ่งเรืองเทรด', role: 'customer', customerId: 'c-002', password: 'cust1234' },
-];
+type CachedUser = AppUser & { password: string; status: string };
+
+let usersCacheMap: Map<string, CachedUser> | null = null;
+
+export function setUsersCache(users: CachedUser[]) {
+  usersCacheMap = new Map(users.map((u) => [u.id, u]));
+}
 
 // --- Web Crypto HMAC-SHA256 (Edge + Node.js compatible) ---
 
@@ -119,20 +119,21 @@ type RefreshPayload = { sub: string; exp: number };
 
 // --- Public API ---
 
-export function authenticate(email: string, password: string): AppUser | null {
-  const normalized = email.trim().toLowerCase();
-  const matched = mockUsers.find((item) => item.email.toLowerCase() === normalized && item.password === password);
-  if (!matched) return null;
-  const { password: _password, ...user } = matched;
-  return user;
-}
+// authenticate() is in users-sheet.ts to avoid bundling googleapis in Edge middleware
 
 export function findUserById(id: string): AppUser | null {
-  const matched = mockUsers.find((item) => item.id === id);
-  if (!matched) return null;
-  const { password: _password, ...user } = matched;
-  return user;
+  if (!usersCacheMap) return null;
+  const matched = usersCacheMap.get(id);
+  if (!matched || matched.status !== 'active') return null;
+  return {
+    id: matched.id,
+    email: matched.email,
+    name: matched.name,
+    role: matched.role,
+    ...(matched.customerId ? { customerId: matched.customerId } : {}),
+  };
 }
+
 
 export async function createAccessToken(user: AppUser): Promise<string> {
   const exp = Math.floor(Date.now() / 1000) + ACCESS_MAX_AGE;
@@ -176,16 +177,6 @@ export async function getSessionFromToken(token: string | undefined): Promise<Au
 }
 
 export function destroySession(_token: string | undefined) {}
-
-// --- Helpers ---
-
-export function emailExists(email: string): boolean {
-  return mockUsers.some((u) => u.email.toLowerCase() === email.trim().toLowerCase());
-}
-
-export function addMockUser(user: AppUser & { password: string }) {
-  mockUsers.push(user);
-}
 
 // --- Cookie options ---
 

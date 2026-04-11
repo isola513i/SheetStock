@@ -20,22 +20,9 @@ const priceTiers: PriceTier[] = [
   { id: 'tier-gold', name: 'Gold', discountType: 'percent', discountValue: 10 },
 ];
 
-const customers: CustomerAccount[] = [
-  { id: 'c-001', name: 'ร้านเจริญพาณิชย์', tierId: 'tier-silver', saleOwnerId: 'u-sale-a', status: 'active' },
-  { id: 'c-002', name: 'ร้านรุ่งเรืองเทรด', tierId: 'tier-gold', saleOwnerId: 'u-sale-a', status: 'active' },
-];
+const customers: CustomerAccount[] = [];
 
-const overrides: CustomerProductOverride[] = [
-  {
-    customerId: 'c-001',
-    productId: '1',
-    price: 14.2,
-    reason: 'ลูกค้าประจำ',
-    effectiveFrom: new Date().toISOString(),
-    updatedBy: 'u-sale-a',
-    status: 'approved',
-  },
-];
+const overrides: CustomerProductOverride[] = [];
 
 const approvals: PriceApprovalRequest[] = [];
 const auditLogs: PriceAuditLog[] = [];

@@ -14,7 +14,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: 'กรุณาเลือกระดับลูกค้า' }, { status: 400 });
   }
 
-  const result = approveRegistration(id, tierId, auth.user.id);
+  const result = await approveRegistration(id, tierId, auth.user.id);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }

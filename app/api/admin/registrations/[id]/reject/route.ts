@@ -10,7 +10,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const body = await request.json().catch(() => null);
   const reason = body?.reason ?? '';
 
-  const result = rejectRegistration(id, reason, auth.user.id);
+  const result = await rejectRegistration(id, reason, auth.user.id);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }

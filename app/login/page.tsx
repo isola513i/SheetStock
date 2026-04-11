@@ -141,12 +141,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-6 rounded-xl border border-dashed border-gray-300 bg-white/60 p-3 text-[12px] text-gray-600">
-          <p className="text-gray-700">{t('login.demo', locale)}</p>
-          <p>- admin@sheetstock.app / admin1234</p>
-          <p>- sale@sheetstock.app / sale1234</p>
-          <p>- customer-a@sheetstock.app / cust1234</p>
-        </div>
       </div>
     </main>
   );

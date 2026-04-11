@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   if (!storeName?.trim()) return NextResponse.json({ error: 'กรุณากรอกชื่อร้าน' }, { status: 400 });
   if (!phone?.trim()) return NextResponse.json({ error: 'กรุณากรอกเบอร์โทร' }, { status: 400 });
 
-  const result = createRegistration({ name, email, password, storeName, phone });
+  const result = await createRegistration({ name, email, password, storeName, phone });
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 409 });
   }

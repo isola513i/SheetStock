@@ -474,33 +474,6 @@ function InventoryDashboardContent() {
             />
           </div>
           
-          {/* Horizontal Scroll Chips for Categories */}
-          <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
-            <button
-              onClick={() => applyQuickPreset('all')}
-              className={`shrink-0 min-h-11 px-4 py-2 rounded-full text-xs font-medium transition-colors ${stockFilter === 'all' && !categoryFilter && !brandFilter ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'bg-black/15 text-white hover:bg-black/25'}`}
-            >
-              ทั้งหมด
-            </button>
-            <button
-              onClick={() => applyQuickPreset('inStock')}
-              className={`shrink-0 min-h-11 px-4 py-2 rounded-full text-xs font-medium transition-colors ${stockFilter === 'inStock' ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'bg-black/15 text-white hover:bg-black/25'}`}
-            >
-              มีสินค้า
-            </button>
-            <button
-              onClick={() => applyQuickPreset('lowStock')}
-              className={`shrink-0 min-h-11 px-4 py-2 rounded-full text-xs font-medium transition-colors ${stockFilter === 'lowStock' ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'bg-black/15 text-white hover:bg-black/25'}`}
-            >
-              ใกล้หมด
-            </button>
-            <button
-              onClick={() => applyQuickPreset('outOfStock')}
-              className={`shrink-0 min-h-11 px-4 py-2 rounded-full text-xs font-medium transition-colors ${stockFilter === 'outOfStock' ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'bg-black/15 text-white hover:bg-black/25'}`}
-            >
-              หมดสต็อก
-            </button>
-          </div>
           </div>
         )}
       </div>

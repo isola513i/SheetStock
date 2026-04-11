@@ -2,108 +2,136 @@ import 'server-only';
 
 import { randomUUID } from 'node:crypto';
 import type { CustomerRegistration } from '@/lib/types';
-import { emailExists, addMockUser } from '@/lib/server/auth';
+import { loadUsersFromSheet, appendUserToSheet, updateUserFieldsInSheet, emailExistsInSheet, hashPassword } from '@/lib/server/users-sheet';
 import { addCustomerAccount } from '@/lib/server/pricing';
 
-const registrations: CustomerRegistration[] = [];
-
-export function createRegistration(data: {
+export async function createRegistration(data: {
   name: string;
   email: string;
   password: string;
   storeName: string;
   phone: string;
-}): { ok: true; registration: CustomerRegistration } | { ok: false; error: string } {
+}): Promise<{ ok: true; registration: CustomerRegistration } | { ok: false; error: string }> {
   const email = data.email.trim().toLowerCase();
 
-  if (emailExists(email)) {
+  if (await emailExistsInSheet(email)) {
     return { ok: false, error: 'อีเมลนี้ถูกใช้งานแล้ว' };
   }
-  if (registrations.some((r) => r.email === email && r.status !== 'rejected')) {
-    return { ok: false, error: 'อีเมลนี้กำลังรอการอนุมัติอยู่' };
-  }
+
+  const id = `u-${randomUUID().slice(0, 8)}`;
+  const hashedPassword = await hashPassword(data.password);
+
+  await appendUserToSheet({
+    id,
+    email,
+    name: data.name.trim(),
+    role: 'customer',
+    customerId: '',
+    password: hashedPassword,
+    phone: data.phone.trim(),
+    status: 'pending',
+  });
 
   const registration: CustomerRegistration = {
-    id: `reg-${randomUUID().slice(0, 8)}`,
+    id,
     name: data.name.trim(),
     email,
-    password: data.password,
+    password: '***',
     storeName: data.storeName.trim(),
     phone: data.phone.trim(),
     status: 'pending',
     createdAt: new Date().toISOString(),
   };
 
-  registrations.push(registration);
   return { ok: true, registration };
 }
 
-export function getPendingRegistrations(): CustomerRegistration[] {
-  return registrations.filter((r) => r.status === 'pending');
+export async function getPendingRegistrations(): Promise<CustomerRegistration[]> {
+  const users = await loadUsersFromSheet();
+  return users
+    .filter((u) => u.status === 'pending')
+    .map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      password: '***',
+      storeName: u.name,
+      phone: u.phone,
+      status: u.status as 'pending',
+      createdAt: '',
+    }));
 }
 
-export function getAllRegistrations(): CustomerRegistration[] {
-  return [...registrations];
+export async function getAllRegistrations(): Promise<CustomerRegistration[]> {
+  const users = await loadUsersFromSheet();
+  return users
+    .filter((u) => u.status !== 'active')
+    .map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      password: '***',
+      storeName: u.name,
+      phone: u.phone,
+      status: u.status as CustomerRegistration['status'],
+      createdAt: '',
+    }));
 }
 
-export function findRegistrationByEmail(email: string): CustomerRegistration | undefined {
+export async function findRegistrationByEmail(email: string): Promise<CustomerRegistration | undefined> {
+  const users = await loadUsersFromSheet();
   const normalized = email.trim().toLowerCase();
-  return registrations.find((r) => r.email === normalized);
+  const user = users.find((u) => u.email.toLowerCase() === normalized && u.status !== 'active');
+  if (!user) return undefined;
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    password: '***',
+    storeName: user.name,
+    phone: user.phone,
+    status: user.status as CustomerRegistration['status'],
+    createdAt: '',
+  };
 }
 
-export function approveRegistration(
+export async function approveRegistration(
   id: string,
   tierId: string,
   adminUserId: string
-): { ok: true } | { ok: false; error: string } {
-  const reg = registrations.find((r) => r.id === id);
-  if (!reg) return { ok: false, error: 'ไม่พบคำขอสมัครนี้' };
-  if (reg.status !== 'pending') return { ok: false, error: 'คำขอนี้ถูกดำเนินการแล้ว' };
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const users = await loadUsersFromSheet();
+  const user = users.find((u) => u.id === id);
+  if (!user) return { ok: false, error: 'ไม่พบคำขอสมัครนี้' };
+  if (user.status !== 'pending') return { ok: false, error: 'คำขอนี้ถูกดำเนินการแล้ว' };
 
   const customerId = `c-${randomUUID().slice(0, 6)}`;
-  const userId = `u-${randomUUID().slice(0, 8)}`;
 
-  // Create the user account
-  addMockUser({
-    id: userId,
-    email: reg.email,
-    name: reg.name,
-    role: 'customer',
-    customerId,
-    password: reg.password,
-  });
+  // Update user status + customerId in Sheet
+  await updateUserFieldsInSheet(id, { status: 'active', customerId });
 
   // Create the customer account with selected tier
   addCustomerAccount({
     id: customerId,
-    name: reg.storeName,
+    name: user.name,
     tierId,
     saleOwnerId: adminUserId,
     status: 'active',
   });
 
-  // Update registration status
-  reg.status = 'approved';
-  reg.tierId = tierId;
-  reg.reviewedAt = new Date().toISOString();
-  reg.reviewedBy = adminUserId;
-
   return { ok: true };
 }
 
-export function rejectRegistration(
+export async function rejectRegistration(
   id: string,
-  reason: string,
-  adminUserId: string
-): { ok: true } | { ok: false; error: string } {
-  const reg = registrations.find((r) => r.id === id);
-  if (!reg) return { ok: false, error: 'ไม่พบคำขอสมัครนี้' };
-  if (reg.status !== 'pending') return { ok: false, error: 'คำขอนี้ถูกดำเนินการแล้ว' };
+  _reason: string,
+  _adminUserId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const users = await loadUsersFromSheet();
+  const user = users.find((u) => u.id === id);
+  if (!user) return { ok: false, error: 'ไม่พบคำขอสมัครนี้' };
+  if (user.status !== 'pending') return { ok: false, error: 'คำขอนี้ถูกดำเนินการแล้ว' };
 
-  reg.status = 'rejected';
-  reg.rejectionReason = reason || undefined;
-  reg.reviewedAt = new Date().toISOString();
-  reg.reviewedBy = adminUserId;
-
+  await updateUserFieldsInSheet(id, { status: 'rejected' });
   return { ok: true };
 }
