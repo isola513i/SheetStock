@@ -27,7 +27,7 @@ export default function AdminApprovalsPage() {
   const { data: regData, mutate } = useSWR<{ items: CustomerRegistration[] }>(
     me?.user?.role === 'admin' ? '/api/admin/registrations' : null,
     fetcher,
-    { refreshInterval: 10000 }
+    { refreshInterval: 60000 }
   );
 
   const [approving, setApproving] = useState<CustomerRegistration | null>(null);

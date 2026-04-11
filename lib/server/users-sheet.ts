@@ -22,7 +22,7 @@ export type UserRecord = {
 // --- Cache ---
 
 let usersCache: { data: UserRecord[]; timestamp: number } | null = null;
-const USERS_CACHE_TTL = 60_000;
+const USERS_CACHE_TTL = 5 * 60_000; // 5 minutes
 
 export function invalidateUsersCache() {
   usersCache = null;

@@ -39,7 +39,7 @@ setNotifyClients(notifyClients);
 
 // --- Change Detection via Polling ---
 
-const POLL_INTERVAL = process.env.NODE_ENV === 'production' ? 5_000 : 10_000;
+const POLL_INTERVAL = process.env.NODE_ENV === 'production' ? 30_000 : 10_000; // 30s prod, 10s dev
 
 let pollingTimer: ReturnType<typeof setTimeout> | null = null;
 let lastHash: string | null = null;

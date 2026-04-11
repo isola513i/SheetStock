@@ -171,10 +171,7 @@ export const ProductList = memo(function ProductList({ processedInventory, viewM
               const isOutOfStock = item.quantity <= 0;
               const isLowStock = item.quantity > 0 && item.quantity < 10;
               return (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={STAGGER_TRANSITION(idx)}
+                <div
                   key={item.id}
                   className={`bg-white rounded-2xl overflow-hidden flex flex-col cursor-pointer border contain-card active:scale-[0.98] transition-transform ${isOutOfStock ? 'border-red-200' : isLowStock ? 'border-yellow-200' : 'border-gray-200'}`}
                   onClick={() => onItemClick(item)}
@@ -216,7 +213,7 @@ export const ProductList = memo(function ProductList({ processedInventory, viewM
                       )}
                     </div>
                   </div>
-                </motion.div>
+                </div>
               );
             })}
           </motion.div>

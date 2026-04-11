@@ -178,7 +178,7 @@ function InventoryDashboardContent() {
     revalidateOnReconnect: true,
     refreshInterval: 60000,
     keepPreviousData: true,
-    dedupingInterval: 2000,
+    dedupingInterval: 10000,
   });
 
   useInventoryStream(() => mutate());

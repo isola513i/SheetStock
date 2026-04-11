@@ -111,7 +111,7 @@ export default function PricingPage() {
   }, [allRows, searchQuery, filterSource, sortBy]);
 
   // Reset visible count when filters change
-  useEffect(() => { setVisibleCount(PRICING_BATCH); }, [rows]);
+  useEffect(() => { setVisibleCount(PRICING_BATCH); }, [searchQuery, filterSource, sortBy]);
   // Infinite scroll
   useEffect(() => {
     const el = loadMoreRef.current;
@@ -321,11 +321,8 @@ export default function PricingPage() {
                 const source = SOURCE_CONFIG[row.priceSource] ?? SOURCE_CONFIG.base;
                 const discount = discountPercent(row.basePrice, row.finalPrice);
                 return (
-                  <motion.div
+                  <div
                     key={row.productId}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.15, delay: idx * 0.03 }}
                     className="rounded-2xl border border-gray-200 bg-white overflow-hidden active:scale-[0.98] transition-transform cursor-pointer"
                     onClick={() => openEdit(row)}
                   >
@@ -361,7 +358,7 @@ export default function PricingPage() {
                         <ChevronRight className="w-4 h-4 text-gray-300" />
                       </div>
                     </div>
-                  </motion.div>
+                  </div>
                 );
               })}
             </div>

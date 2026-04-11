@@ -102,7 +102,7 @@ export function parseInventoryQuery(searchParams: URLSearchParams): Required<Inv
 
 // In-memory cache for inventory data — avoids redundant Google Sheets calls
 let inventoryCache: { data: InventoryItem[]; timestamp: number } | null = null;
-const INVENTORY_CACHE_TTL = 60_000; // 1 minute
+const INVENTORY_CACHE_TTL = 5 * 60_000; // 5 minutes
 
 export function invalidateInventoryCache() {
   inventoryCache = null;

@@ -274,11 +274,8 @@ export default function CatalogPage() {
                     const isOut = item.stock <= 0;
                     const isLow = item.stock > 0 && item.stock < 10;
                     return (
-                      <motion.div
+                      <div
                         key={item.productId}
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.2, delay: Math.min(idx * 0.03, 0.3) }}
                         className={`bg-white rounded-2xl overflow-hidden flex flex-col cursor-pointer border active:scale-[0.98] transition-transform ${
                           isOut ? 'border-red-200' : isLow ? 'border-yellow-200' : 'border-gray-200'
                         }`}
@@ -307,7 +304,7 @@ export default function CatalogPage() {
                             )}
                           </div>
                         </div>
-                      </motion.div>
+                      </div>
                     );
                   })}
                 </div>

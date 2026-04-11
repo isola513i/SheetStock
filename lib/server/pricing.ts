@@ -30,7 +30,7 @@ const auditLogs: PriceAuditLog[] = [];
 // Cache for inventory data to avoid re-fetching on every pricing call
 let cachedProducts: InventoryItem[] | null = null;
 let cacheTimestamp = 0;
-const CACHE_TTL = 60_000; // 1 minute
+const CACHE_TTL = 5 * 60_000; // 5 minutes
 
 async function getProducts(): Promise<InventoryItem[]> {
   const now = Date.now();
