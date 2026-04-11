@@ -190,6 +190,13 @@ function InventoryDashboardContent() {
     if (!response.ok) return { user: null };
     return response.json();
   });
+  const { data: pendingData } = useSWR<{ items: unknown[] }>(
+    meData?.user?.role === 'admin' ? '/api/admin/registrations' : null,
+    async (url: string) => { const r = await fetch(url); return r.ok ? r.json() : { items: [] }; },
+    { refreshInterval: 30000 },
+  );
+  const pendingCount = pendingData?.items?.length ?? 0;
+
   // Customer role → redirect to catalog (they don't see inventory)
   useEffect(() => {
     if (meData?.user?.role === 'customer') {
@@ -584,6 +591,7 @@ function InventoryDashboardContent() {
       <BottomNav
         activePage={activeTab === 'settings' ? 'settings' : 'inventory'}
         userRole={meData?.user?.role ?? 'sale'}
+        pendingCount={pendingCount}
         onScanClick={() => setIsScannerOpen(true)}
         onSettingsClick={() => setActiveTab('settings')}
         onInventoryClick={() => setActiveTab('inventory')}

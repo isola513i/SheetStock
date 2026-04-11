@@ -138,7 +138,7 @@ export function FilterSheet(props: FilterSheetProps) {
           <h3 className="text-lg font-medium text-gray-900">ตัวกรอง</h3>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-6 hide-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-6 hide-scrollbar" style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', overscrollBehavior: 'contain' }}>
           <section>
             <p className="text-xs text-gray-500 mb-2">สถานะสต็อก</p>
             <div className="grid grid-cols-2 gap-2">

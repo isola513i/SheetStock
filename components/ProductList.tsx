@@ -6,6 +6,25 @@ import { InventoryItem, InventoryViewMode } from '@/lib/types';
 import { Eye, Heart, Tag } from 'lucide-react';
 import { ProductImage } from '@/components/ProductImage';
 
+const BRAND_COLORS = [
+  'bg-blue-50 text-blue-700 border-blue-200',
+  'bg-purple-50 text-purple-700 border-purple-200',
+  'bg-pink-50 text-pink-700 border-pink-200',
+  'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'bg-amber-50 text-amber-700 border-amber-200',
+  'bg-cyan-50 text-cyan-700 border-cyan-200',
+  'bg-rose-50 text-rose-700 border-rose-200',
+  'bg-indigo-50 text-indigo-700 border-indigo-200',
+  'bg-teal-50 text-teal-700 border-teal-200',
+  'bg-orange-50 text-orange-700 border-orange-200',
+];
+
+function brandColor(brand: string): string {
+  let hash = 0;
+  for (let i = 0; i < brand.length; i++) hash = ((hash << 5) - hash + brand.charCodeAt(i)) | 0;
+  return BRAND_COLORS[Math.abs(hash) % BRAND_COLORS.length];
+}
+
 const STAGGER_TRANSITION = (idx: number) => ({ duration: 0.2, delay: Math.min(idx * 0.03, 0.3) });
 const CONTAINER_TRANSITION = { duration: 0.15 };
 
@@ -161,7 +180,7 @@ export const ProductList = memo(function ProductList({ processedInventory, viewM
                   </div>
                   <div className={`px-3 py-2.5 ${isOutOfStock ? 'opacity-60' : ''}`}>
                     {item.brand && (
-                      <span className="inline-block px-2 py-0.5 text-[10px] font-medium text-gray-600 border border-gray-200 rounded-full mb-1.5">{item.brand}</span>
+                      <span className={`inline-block px-2 py-0.5 text-[10px] font-medium border rounded-full mb-1.5 ${brandColor(item.brand)}`}>{item.brand}</span>
                     )}
                     <h3 className="font-semibold text-[13px] text-gray-900 leading-tight line-clamp-2">{[item.brand, item.category, item.series].filter(Boolean).join('') || item.name || item.barcode}</h3>
                     {item.category && <p className="text-[11px] text-gray-400 mt-0.5 truncate">{item.category}</p>}

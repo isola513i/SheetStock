@@ -15,6 +15,7 @@ type ActivePage = 'inventory' | 'catalog' | 'pricing' | 'settings' | 'approvals'
 type BottomNavProps = {
   activePage: ActivePage;
   userRole: UserRole;
+  pendingCount?: number;
   onScanClick?: () => void;
   onSettingsClick?: () => void;
   onInventoryClick?: () => void;
@@ -24,11 +25,13 @@ function NavItem({
   icon,
   label,
   active = false,
+  badge,
   onClick,
 }: {
   icon: ReactNode;
   label: string;
   active?: boolean;
+  badge?: number;
   onClick?: () => void;
 }) {
   return (
@@ -44,15 +47,18 @@ function NavItem({
           transition={TAB_SPRING}
         />
       )}
-      <motion.div animate={{ scale: active ? 1.1 : 1 }} transition={ICON_SPRING}>
+      <motion.div animate={{ scale: active ? 1.1 : 1 }} transition={ICON_SPRING} className="relative">
         {icon}
+        {badge && badge > 0 ? (
+          <span className="absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{badge}</span>
+        ) : null}
       </motion.div>
       <span className="text-[10px] font-medium leading-tight">{label}</span>
     </button>
   );
 }
 
-export const BottomNav = memo(function BottomNav({ activePage, userRole, onScanClick, onSettingsClick, onInventoryClick }: BottomNavProps) {
+export const BottomNav = memo(function BottomNav({ activePage, userRole, pendingCount, onScanClick, onSettingsClick, onInventoryClick }: BottomNavProps) {
   const router = useRouter();
   const isCustomer = userRole === 'customer';
   const isAdmin = userRole === 'admin';
@@ -115,6 +121,7 @@ export const BottomNav = memo(function BottomNav({ activePage, userRole, onScanC
           icon={<UserCheck className="w-5.5 h-5.5" />}
           label="อนุมัติ"
           active={activePage === 'approvals'}
+          badge={pendingCount}
           onClick={() => router.push('/admin/approvals')}
         />
       )}

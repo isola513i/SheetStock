@@ -58,7 +58,7 @@ export async function getPendingRegistrations(): Promise<CustomerRegistration[]>
       storeName: u.name,
       phone: u.phone,
       status: u.status as 'pending',
-      createdAt: '',
+      createdAt: new Date().toISOString(),
     }));
 }
 
@@ -74,7 +74,7 @@ export async function getAllRegistrations(): Promise<CustomerRegistration[]> {
       storeName: u.name,
       phone: u.phone,
       status: u.status as CustomerRegistration['status'],
-      createdAt: '',
+      createdAt: new Date().toISOString(),
     }));
 }
 

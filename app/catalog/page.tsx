@@ -15,6 +15,19 @@ import { BottomNav } from '@/components/BottomNav';
 import { SettingsPage } from '@/components/SettingsPage';
 import type { CatalogItem, UserRole } from '@/lib/types';
 
+const BRAND_COLORS = [
+  'bg-blue-50 text-blue-700 border-blue-200', 'bg-purple-50 text-purple-700 border-purple-200',
+  'bg-pink-50 text-pink-700 border-pink-200', 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'bg-amber-50 text-amber-700 border-amber-200', 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  'bg-rose-50 text-rose-700 border-rose-200', 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  'bg-teal-50 text-teal-700 border-teal-200', 'bg-orange-50 text-orange-700 border-orange-200',
+];
+function brandColor(brand: string) {
+  let hash = 0;
+  for (let i = 0; i < brand.length; i++) hash = ((hash << 5) - hash + brand.charCodeAt(i)) | 0;
+  return BRAND_COLORS[Math.abs(hash) % BRAND_COLORS.length];
+}
+
 const BarcodeScannerSheet = dynamic(() => import('@/components/BarcodeScannerSheet').then(m => ({ default: m.BarcodeScannerSheet })), { ssr: false });
 const FilterSheet = dynamic(() => import('@/components/sheets/FilterSheet').then(m => ({ default: m.FilterSheet })), { ssr: false });
 
@@ -120,9 +133,8 @@ export default function CatalogPage() {
         i.category?.toLowerCase().includes(q)
       );
     }
-    if (stockFilter === 'inStock') list = list.filter((i) => i.stock > 0);
-    if (stockFilter === 'lowStock') list = list.filter((i) => i.stock > 0 && i.stock < 10);
-    if (stockFilter === 'outOfStock') list = list.filter((i) => i.stock <= 0);
+    // Customer sees only in-stock products
+    list = list.filter((i) => i.stock > 0);
     if (categoryFilter) list = list.filter((i) => i.category === categoryFilter);
     if (brandFilter) list = list.filter((i) => i.brand === brandFilter);
 
@@ -187,19 +199,6 @@ export default function CatalogPage() {
                   <X className="w-4 h-4 text-gray-400" />
                 </button>
               )}
-            </div>
-            <div className="flex gap-2 overflow-x-auto hide-scrollbar">
-              {STOCK_FILTERS.map(({ id, label }) => (
-                <button
-                  key={id}
-                  onClick={() => setStockFilter(id)}
-                  className={`shrink-0 min-h-9 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                    stockFilter === id ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'bg-black/15 text-white'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
             </div>
           </>
         )}
@@ -287,7 +286,7 @@ export default function CatalogPage() {
                         </div>
                         <div className={`px-3 py-2.5 ${isOut ? 'opacity-60' : ''}`}>
                           {item.brand && (
-                            <span className="inline-block px-2 py-0.5 text-[10px] font-medium text-gray-600 border border-gray-200 rounded-full mb-1.5">{item.brand}</span>
+                            <span className={`inline-block px-2 py-0.5 text-[10px] font-medium border rounded-full mb-1.5 ${brandColor(item.brand)}`}>{item.brand}</span>
                           )}
                           <h3 className="font-semibold text-[13px] text-gray-900 leading-tight line-clamp-2">{[item.brand, item.category, item.series].filter(Boolean).join('') || item.name || item.barcode}</h3>
                           {item.category && <p className="text-[11px] text-gray-400 mt-0.5 truncate">{item.category}</p>}

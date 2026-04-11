@@ -198,30 +198,32 @@ export function SettingsPage({
           right={<ToggleSwitch enabled={hapticsEnabled} onToggle={onToggleHaptics} />}
           onClick={onToggleHaptics}
         />
-        <SettingRow
-          icon={viewMode === 'list' ? <List className="h-4.5 w-4.5" /> : <Grid3X3 className="h-4.5 w-4.5" />}
-          label={t('settings.viewMode', locale)}
-          description={viewMode === 'list' ? t('settings.viewModeList', locale) : t('settings.viewModeGrid', locale)}
-          right={
-            <div className="flex bg-[var(--bg-secondary)] rounded-lg p-0.5">
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onChangeViewMode('list'); }}
-                className={`h-7 w-8 rounded-md flex items-center justify-center transition-colors ${viewMode === 'list' ? 'bg-[var(--bg-card)] shadow-sm' : ''}`}
-              >
-                <List className={`h-3.5 w-3.5 ${viewMode === 'list' ? 'text-[var(--brand-primary)]' : 'text-[var(--text-muted)]'}`} />
-              </button>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onChangeViewMode('grid'); }}
-                className={`h-7 w-8 rounded-md flex items-center justify-center transition-colors ${viewMode === 'grid' ? 'bg-[var(--bg-card)] shadow-sm' : ''}`}
-              >
-                <Grid3X3 className={`h-3.5 w-3.5 ${viewMode === 'grid' ? 'text-[var(--brand-primary)]' : 'text-[var(--text-muted)]'}`} />
-              </button>
-            </div>
-          }
-          onClick={() => onChangeViewMode(viewMode === 'list' ? 'grid' : 'list')}
-        />
+        {userRole !== 'customer' && (
+          <SettingRow
+            icon={viewMode === 'list' ? <List className="h-4.5 w-4.5" /> : <Grid3X3 className="h-4.5 w-4.5" />}
+            label={t('settings.viewMode', locale)}
+            description={viewMode === 'list' ? t('settings.viewModeList', locale) : t('settings.viewModeGrid', locale)}
+            right={
+              <div className="flex bg-[var(--bg-secondary)] rounded-lg p-0.5">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onChangeViewMode('list'); }}
+                  className={`h-7 w-8 rounded-md flex items-center justify-center transition-colors ${viewMode === 'list' ? 'bg-[var(--bg-card)] shadow-sm' : ''}`}
+                >
+                  <List className={`h-3.5 w-3.5 ${viewMode === 'list' ? 'text-[var(--brand-primary)]' : 'text-[var(--text-muted)]'}`} />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onChangeViewMode('grid'); }}
+                  className={`h-7 w-8 rounded-md flex items-center justify-center transition-colors ${viewMode === 'grid' ? 'bg-[var(--bg-card)] shadow-sm' : ''}`}
+                >
+                  <Grid3X3 className={`h-3.5 w-3.5 ${viewMode === 'grid' ? 'text-[var(--brand-primary)]' : 'text-[var(--text-muted)]'}`} />
+                </button>
+              </div>
+            }
+            onClick={() => onChangeViewMode(viewMode === 'list' ? 'grid' : 'list')}
+          />
+        )}
       </section>
 
       {/* Actions */}
