@@ -13,6 +13,10 @@ type Customer = { id: string; name: string; tierId: string };
 type PricingRow = {
   productId: string;
   name: string;
+  barcode?: string;
+  brand?: string;
+  category?: string;
+  series?: string;
   imageUrl?: string;
   basePrice: number;
   tierPrice: number;
@@ -314,7 +318,7 @@ export default function PricingPage() {
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-medium text-gray-900 leading-tight truncate">{row.name}</h3>
+                        <h3 className="text-sm font-medium text-gray-900 leading-tight truncate">{[row.brand, row.category, row.series].filter(Boolean).join(' ') || row.name || row.barcode}</h3>
 
                         <div className="flex items-center gap-2 mt-1.5">
                           <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${source.bg} ${source.color}`}>
@@ -410,7 +414,7 @@ export default function PricingPage() {
                   <ProductImage src={editingRow.imageUrl ?? ''} alt={editingRow.name} sizes="56px" className="object-contain" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-medium text-gray-900 leading-tight">{editingRow.name}</h3>
+                  <h3 className="text-base font-medium text-gray-900 leading-tight">{[editingRow.brand, editingRow.category, editingRow.series].filter(Boolean).join(' ') || editingRow.name || editingRow.barcode}</h3>
                   <p className="text-xs text-gray-500 mt-0.5">แก้ไขราคาสำหรับ {activeCustomer?.name}</p>
                 </div>
               </div>
