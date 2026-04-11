@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireUser } from '@/lib/server/api-auth';
 import { getInventoryData, parseInventoryQuery } from '@/lib/server/inventory';
 
 export const revalidate = 60;
 
 export async function GET(request: NextRequest) {
+  const guard = await requireUser(request, ['admin', 'sale']);
+  if (!guard.ok) return guard.response;
+
   try {
     const query = parseInventoryQuery(request.nextUrl.searchParams);
     const data = await getInventoryData(query);

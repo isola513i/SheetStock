@@ -4,6 +4,7 @@ import { google } from 'googleapis';
 import bcrypt from 'bcryptjs';
 import type { AppUser, UserRole } from '@/lib/types';
 import { setUsersCache } from './auth';
+import { getGoogleSheetsAuth } from './google-auth';
 
 // --- Types ---
 
@@ -27,27 +28,6 @@ export function invalidateUsersCache() {
   usersCache = null;
 }
 
-// --- Google Sheets Auth (reuses inventory pattern) ---
-
-function getSheetsAuth() {
-  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY
-    ?.replace(/^"/, '')
-    ?.replace(/"$/, '')
-    ?.replace(/\\n/g, '\n')
-    ?.replace(/\\"/g, '"')
-    ?.trim();
-
-  if (!clientEmail || !privateKey) {
-    throw new Error('Google service account credentials not configured');
-  }
-
-  return new google.auth.JWT({
-    email: clientEmail,
-    key: privateKey,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
-}
 
 function safe(value: string | null | undefined): string {
   return value == null || value === '' ? '' : String(value);
@@ -64,7 +44,7 @@ export async function loadUsersFromSheet(): Promise<UserRecord[]> {
   if (!spreadsheetId) return [];
 
   try {
-    const auth = getSheetsAuth();
+    const auth = getGoogleSheetsAuth();
     const sheets = google.sheets({ version: 'v4' });
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
@@ -100,7 +80,7 @@ export async function appendUserToSheet(user: UserRecord): Promise<void> {
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
   if (!spreadsheetId) throw new Error('GOOGLE_SHEET_ID not configured');
 
-  const auth = getSheetsAuth();
+  const auth = getGoogleSheetsAuth();
   const sheets = google.sheets({ version: 'v4' });
 
   await sheets.spreadsheets.values.append({
@@ -134,7 +114,7 @@ export async function updateUserFieldsInSheet(
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
   if (!spreadsheetId) return false;
 
-  const auth = getSheetsAuth();
+  const auth = getGoogleSheetsAuth();
   const sheets = google.sheets({ version: 'v4' });
 
   const response = await sheets.spreadsheets.values.get({

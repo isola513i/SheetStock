@@ -16,7 +16,7 @@ function notifyClientsIfConnected() {
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 20;
-const MAX_PAGE_SIZE = 100;
+const MAX_PAGE_SIZE = 1000;
 const DEFAULT_SORT: InventorySortPreset = 'nameAsc';
 
 function normalizeNumber(value: string | null, fallback: number) {

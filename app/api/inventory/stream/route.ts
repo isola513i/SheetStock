@@ -1,8 +1,12 @@
+import { NextRequest } from 'next/server';
+import { requireUser } from '@/lib/server/api-auth';
 import { subscribe, unsubscribe } from '@/lib/server/inventory-events';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const guard = await requireUser(request);
+  if (!guard.ok) return guard.response;
   const encoder = new TextEncoder();
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
   let controller: ReadableStreamDefaultController | undefined;
