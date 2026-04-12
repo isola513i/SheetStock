@@ -1,7 +1,7 @@
 'use client';
 
 import { memo } from 'react';
-import { ChartNoAxesCombined, LayoutGrid, PackageSearch, ScanLine, Settings, UserCheck } from 'lucide-react';
+import { LayoutGrid, PackageSearch, ScanLine, Settings, UserCheck } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -10,11 +10,12 @@ import type { UserRole } from '@/lib/types';
 const TAB_SPRING = { type: 'spring' as const, stiffness: 500, damping: 30 };
 const ICON_SPRING = { type: 'spring' as const, stiffness: 400, damping: 25 };
 
-type ActivePage = 'inventory' | 'catalog' | 'pricing' | 'settings' | 'approvals';
+type ActivePage = 'inventory' | 'catalog' | 'settings' | 'approvals';
 
 type BottomNavProps = {
   activePage: ActivePage;
   userRole: UserRole;
+  isGuest?: boolean;
   pendingCount?: number;
   onScanClick?: () => void;
   onSettingsClick?: () => void;
@@ -58,19 +59,18 @@ function NavItem({
   );
 }
 
-export const BottomNav = memo(function BottomNav({ activePage, userRole, pendingCount, onScanClick, onSettingsClick, onInventoryClick }: BottomNavProps) {
+export const BottomNav = memo(function BottomNav({ activePage, userRole, isGuest, pendingCount, onScanClick, onSettingsClick, onInventoryClick }: BottomNavProps) {
   const router = useRouter();
   const isCustomer = userRole === 'customer';
   const isAdmin = userRole === 'admin';
-  const canSeePricing = userRole === 'admin' || userRole === 'sale';
 
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 border-t border-[var(--border-color)] px-2 pt-2 flex justify-around items-center z-40"
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)', backgroundColor: 'var(--bg-card)' }}
     >
-      {/* Customer: catalog as home. Admin/Sale: inventory as home */}
-      {isCustomer ? (
+      {/* Customer/Guest: catalog as home. Admin/Sale: inventory as home */}
+      {isCustomer || isGuest ? (
         <NavItem
           icon={<PackageSearch className="w-5.5 h-5.5" />}
           label="สินค้า"
@@ -92,18 +92,8 @@ export const BottomNav = memo(function BottomNav({ activePage, userRole, pending
         />
       )}
 
-      {/* Admin/Sale: pricing tab */}
-      {canSeePricing && (
-        <NavItem
-          icon={<ChartNoAxesCombined className="w-5.5 h-5.5" />}
-          label="ราคา"
-          active={activePage === 'pricing'}
-          onClick={() => router.push('/pricing')}
-        />
-      )}
-
       {/* Scan button — admin/sale only */}
-      {!isCustomer && (
+      {!isCustomer && !isGuest && (
         <div className="relative -top-4 z-50">
           <button
             type="button"

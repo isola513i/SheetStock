@@ -10,7 +10,7 @@ import {
   ACCESS_COOKIE_OPTIONS,
 } from '@/lib/server/auth';
 
-const PROTECTED_PATHS = ['/', '/catalog', '/pricing', '/admin'];
+const PROTECTED_PATHS = ['/', '/admin'];
 
 function isProtectedPath(pathname: string) {
   return PROTECTED_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));

@@ -20,7 +20,7 @@ function getTokenSecret(): string {
 
 // --- Users cache (populated by users-sheet.ts, read by middleware via findUserById) ---
 
-type CachedUser = AppUser & { password: string; status: string };
+type CachedUser = AppUser & { password: string; status: string; phone?: string };
 
 let usersCacheMap: Map<string, CachedUser> | null = null;
 
@@ -126,13 +126,16 @@ type RefreshPayload = { sub: string; exp: number };
 
 // authenticate() is in users-sheet.ts to avoid bundling googleapis in Edge middleware
 
+const VALID_STATUSES = ['active', 'ดูสินค้า', 'ผู้เข้าถึงทั้งหมด'];
+
 export function findUserById(id: string): AppUser | null {
   if (!usersCacheMap) return null;
   const matched = usersCacheMap.get(id);
-  if (!matched || matched.status !== 'active') return null;
+  if (!matched || !VALID_STATUSES.includes(matched.status)) return null;
   return {
     id: matched.id,
-    email: matched.email,
+    email: matched.email || undefined,
+    phone: matched.phone || undefined,
     name: matched.name,
     role: matched.role,
     ...(matched.customerId ? { customerId: matched.customerId } : {}),

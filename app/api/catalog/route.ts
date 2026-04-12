@@ -1,24 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireUser } from '@/lib/server/api-auth';
-import { getCatalogForCustomer, getCustomers } from '@/lib/server/pricing';
+import { getRequestUser } from '@/lib/server/api-auth';
 import { loadInventoryFromGoogleSheets } from '@/lib/server/inventory';
+import { findUserByPhone, findUserByEmail, getUserAccessTier } from '@/lib/server/users-sheet';
+import type { AccessTier, CatalogItem } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const guard = await requireUser(request, ['customer', 'sale', 'admin']);
-  if (!guard.ok) return guard.response;
+  const { user } = await getRequestUser(request);
 
-  const requestedCustomerId = request.nextUrl.searchParams.get('customerId');
-  const customerId =
-    guard.user.role === 'customer'
-      ? guard.user.customerId
-      : requestedCustomerId;
+  let accessTier: AccessTier = 'public';
+  if (user) {
+    if (user.role === 'admin' || user.role === 'sale') {
+      accessTier = 'vvip';
+    } else {
+      const sheetUser = user.phone
+        ? await findUserByPhone(user.phone)
+        : user.email
+          ? await findUserByEmail(user.email)
+          : null;
+      accessTier = sheetUser ? getUserAccessTier(sheetUser) : 'public';
+    }
+  }
 
-  // If admin/sale without customerId, show all products at base price
-  if (!customerId) {
-    const products = await loadInventoryFromGoogleSheets();
-    const items = products.map((item) => ({
+  const products = await loadInventoryFromGoogleSheets();
+
+  const items: CatalogItem[] = products.map((item) => {
+    const base: CatalogItem = {
       productId: item.id,
       barcode: item.barcode,
       name: item.name,
@@ -29,24 +37,23 @@ export async function GET(request: NextRequest) {
       stock: item.quantity,
       quantityPerBox: item.quantityPerBox,
       expiryDate: item.expiryDate,
-      basePrice: item.price,
-      tierPrice: item.price,
-      finalPrice: item.price,
-      priceSource: 'base' as const,
-      minAllowedPrice: Math.round(item.price * 0.85 * 100) / 100,
-    }));
-    return NextResponse.json({
-      customerId: null,
-      customers: (await getCustomers()).map((c) => ({ id: c.id, name: c.name })),
-      items,
-    });
-  }
+      price: item.price,
+    };
+
+    if (accessTier === 'vip' || accessTier === 'vvip') {
+      base.vipPrice = item.vipPrice || undefined;
+    }
+    if (accessTier === 'vvip') {
+      base.vvipPrice = item.vvipPrice || undefined;
+    }
+
+    return base;
+  });
 
   return NextResponse.json({
-    customerId,
-    customers: guard.user.role !== 'customer'
-      ? (await getCustomers()).map((c) => ({ id: c.id, name: c.name }))
-      : undefined,
-    items: await getCatalogForCustomer(customerId),
+    accessTier,
+    isLoggedIn: !!user,
+    userRole: user?.role ?? null,
+    items,
   });
 }

@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import useSWR from 'swr';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'motion/react';
+import { AnimatePresence } from 'motion/react';
 import PullToRefresh from 'pulltorefreshjs';
 import { useInventoryStream } from '@/lib/hooks/use-inventory-stream';
 import { ArrowUpDown, Search, SlidersHorizontal, X } from 'lucide-react';
@@ -13,7 +13,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { BottomNav } from '@/components/BottomNav';
 import { SettingsPage } from '@/components/SettingsPage';
-import type { CatalogItem, UserRole } from '@/lib/types';
+import type { AccessTier, CatalogItem, UserRole } from '@/lib/types';
 
 const BRAND_COLORS = [
   'bg-blue-50 text-blue-700 border-blue-200', 'bg-purple-50 text-purple-700 border-purple-200',
@@ -31,21 +31,15 @@ function brandColor(brand: string) {
 const BarcodeScannerSheet = dynamic(() => import('@/components/BarcodeScannerSheet').then(m => ({ default: m.BarcodeScannerSheet })), { ssr: false });
 const FilterSheet = dynamic(() => import('@/components/sheets/FilterSheet').then(m => ({ default: m.FilterSheet })), { ssr: false });
 
-
 type CatalogResponse = {
-  customerId: string | null;
+  accessTier: AccessTier;
+  isLoggedIn: boolean;
+  userRole: UserRole | null;
   items: CatalogItem[];
 };
 
 type StockFilter = 'all' | 'inStock' | 'lowStock' | 'outOfStock';
 type SortOption = 'nameAsc' | 'nameDesc' | 'priceLow' | 'priceHigh' | 'lowStock';
-
-const STOCK_FILTERS: { id: StockFilter; label: string }[] = [
-  { id: 'all', label: 'ทั้งหมด' },
-  { id: 'inStock', label: 'มีสินค้า' },
-  { id: 'lowStock', label: 'ใกล้หมด' },
-  { id: 'outOfStock', label: 'หมดสต็อก' },
-];
 
 const SORT_OPTIONS: { id: SortOption; label: string }[] = [
   { id: 'nameAsc', label: 'ชื่อ ก-ฮ' },
@@ -54,6 +48,13 @@ const SORT_OPTIONS: { id: SortOption; label: string }[] = [
   { id: 'priceHigh', label: 'ราคาสูงสุด' },
   { id: 'lowStock', label: 'ใกล้หมดก่อน' },
 ];
+
+/** Return the display price for a given tier */
+function getDisplayPrice(item: CatalogItem, tier: AccessTier): number {
+  if (tier === 'vvip' && item.vvipPrice) return item.vvipPrice;
+  if ((tier === 'vip' || tier === 'vvip') && item.vipPrice) return item.vipPrice;
+  return item.price;
+}
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -66,12 +67,6 @@ export default function CatalogPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isValidatingRef = useRef(false);
 
-  const { data: meData } = useSWR<{ user: { role: UserRole; name: string } | null }>('/api/auth/me', async (url: string) => {
-    const res = await fetch(url);
-    if (!res.ok) return { user: null };
-    return res.json();
-  });
-
   const { data, isLoading, isValidating, mutate } = useSWR('/api/catalog', fetcher, {
     revalidateOnFocus: true,
     refreshInterval: 60000,
@@ -79,6 +74,10 @@ export default function CatalogPage() {
   });
 
   useInventoryStream(() => mutate());
+
+  const accessTier = data?.accessTier ?? 'public';
+  const isLoggedIn = data?.isLoggedIn ?? false;
+  const userRole = data?.userRole ?? null;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [stockFilter, setStockFilter] = useState<StockFilter>('inStock');
@@ -92,13 +91,11 @@ export default function CatalogPage() {
   const [activeTab, setActiveTab] = useState<'catalog' | 'settings'>('catalog');
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
 
-  // Hydrate preferences
   useEffect(() => {
     setHapticsEnabled(window.localStorage.getItem('sheetstock-haptics') !== 'off');
   }, []);
   useEffect(() => { window.localStorage.setItem('sheetstock-haptics', hapticsEnabled ? 'on' : 'off'); }, [hapticsEnabled]);
 
-  // Compute facets from catalog data
   const facets = useMemo(() => {
     const allItems = data?.items ?? [];
     const countBy = (values: string[]) => {
@@ -113,7 +110,6 @@ export default function CatalogPage() {
     };
   }, [data]);
 
-  // Filter + sort client-side
   const items = useMemo(() => {
     let list = data?.items ?? [];
     const q = searchQuery.trim().toLowerCase();
@@ -125,22 +121,20 @@ export default function CatalogPage() {
         i.category?.toLowerCase().includes(q)
       );
     }
-    // Customer sees only in-stock products
     list = list.filter((i) => i.stock > 0);
     if (categoryFilter) list = list.filter((i) => i.category === categoryFilter);
     if (brandFilter) list = list.filter((i) => i.brand === brandFilter);
 
-
     list = [...list].sort((a, b) => {
       if (sort === 'nameAsc') return a.name.localeCompare(b.name, 'th');
       if (sort === 'nameDesc') return b.name.localeCompare(a.name, 'th');
-      if (sort === 'priceLow') return a.finalPrice - b.finalPrice;
-      if (sort === 'priceHigh') return b.finalPrice - a.finalPrice;
+      if (sort === 'priceLow') return getDisplayPrice(a, accessTier) - getDisplayPrice(b, accessTier);
+      if (sort === 'priceHigh') return getDisplayPrice(b, accessTier) - getDisplayPrice(a, accessTier);
       if (sort === 'lowStock') return a.stock - b.stock;
       return 0;
     });
     return list;
-  }, [data, searchQuery, stockFilter, categoryFilter, brandFilter, sort]);
+  }, [data, searchQuery, stockFilter, categoryFilter, brandFilter, sort, accessTier]);
 
   // Infinite scroll
   const CATALOG_BATCH = 20;
@@ -156,7 +150,7 @@ export default function CatalogPage() {
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, [items.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [items.length]);
   const visibleItems = items.slice(0, visibleCount);
 
   useEffect(() => { isValidatingRef.current = isValidating; }, [isValidating]);
@@ -194,6 +188,16 @@ export default function CatalogPage() {
 
         {!isSettingsTab && (
           <>
+            {/* Banner for guests */}
+            {!isLoggedIn && (
+              <div className="bg-white/20 rounded-xl px-4 py-2.5 mb-3 flex items-center justify-between">
+                <span className="text-sm">สมัครสมาชิกเพื่อดูราคาพิเศษ</span>
+                <button onClick={() => router.push('/register')} className="bg-white text-[var(--brand-primary)] text-xs font-medium px-3 py-1.5 rounded-full">
+                  สมัครเลย
+                </button>
+              </div>
+            )}
+
             <div className="relative mb-3">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
@@ -223,7 +227,7 @@ export default function CatalogPage() {
             onRefreshData={() => mutate()}
             onResetPreferences={() => { setHapticsEnabled(true); window.localStorage.removeItem('sheetstock-haptics'); }}
             onLogout={async () => { await fetch('/api/auth/logout', { method: 'POST' }); router.push('/login'); }}
-            userRole={meData?.user?.role ?? 'customer'} userName={meData?.user?.name}
+            userRole={userRole ?? 'customer'} userName={undefined}
             recentScans={[]} onClearRecentScans={() => {}} onScanItemClick={() => {}}
           />
         </div>
@@ -270,9 +274,10 @@ export default function CatalogPage() {
             ) : (
               <><AnimatePresence>
                 <div className="grid grid-cols-2 gap-3 mt-2">
-                  {visibleItems.map((item, idx) => {
+                  {visibleItems.map((item) => {
                     const isOut = item.stock <= 0;
                     const isLow = item.stock > 0 && item.stock < 10;
+                    const displayPrice = getDisplayPrice(item, accessTier);
                     return (
                       <div
                         key={item.productId}
@@ -297,7 +302,7 @@ export default function CatalogPage() {
                           {item.category && <p className="text-[11px] text-gray-400 mt-0.5 truncate">{item.category}</p>}
                           <div className="flex items-center justify-between mt-1.5">
                             <p className="text-base font-bold text-[var(--brand-primary)]">
-                              {item.finalPrice > 0 ? `฿${Math.round(item.finalPrice)}` : '-'}
+                              {displayPrice > 0 ? `฿${Math.round(displayPrice)}` : '-'}
                             </p>
                             {item.quantityPerBox && (
                               <span className="text-[10px] text-gray-400">{item.quantityPerBox}</span>
@@ -324,49 +329,54 @@ export default function CatalogPage() {
       {/* Product Detail Sheet */}
       <Sheet open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
         <SheetContent side="bottom" className="rounded-t-[2rem] bg-white border-none" showCloseButton={false}>
-          {selectedItem && (
-            <div className="px-5 pt-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
-              <div className="flex justify-center mb-4">
-                <div className="relative h-40 w-40 rounded-2xl overflow-hidden bg-gray-100">
-                  <ProductImage src={selectedItem.imageUrl} alt={selectedItem.name} sizes="160px" className="object-contain" />
-                </div>
-              </div>
-
-              <h3 className="text-lg font-medium text-gray-900 text-center mb-1">{selectedItem.name}</h3>
-              <div className="flex justify-center gap-2 mb-4 flex-wrap">
-                {selectedItem.category && <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[11px]">{selectedItem.category}</Badge>}
-                {selectedItem.brand && <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[11px]">{selectedItem.brand}</Badge>}
-                {selectedItem.series && <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[11px]">{selectedItem.series}</Badge>}
-              </div>
-
-              <div className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-100 mb-4">
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-500">บาร์โค้ด</span>
-                  <span className="text-sm text-gray-900 font-mono">{selectedItem.barcode}</span>
-                </div>
-                <div className="flex justify-between border-t border-dashed border-gray-200 pt-3">
-                  <span className="text-sm text-gray-500">ราคา</span>
-                  <span className="text-sm font-semibold text-[var(--brand-primary)]">฿{selectedItem.finalPrice.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between border-t border-dashed border-gray-200 pt-3">
-                  <span className="text-sm text-gray-500">สต็อก</span>
-                  <span className={`text-sm font-medium ${selectedItem.stock <= 0 ? 'text-red-500' : selectedItem.stock < 10 ? 'text-yellow-600' : 'text-green-600'}`}>
-                    {selectedItem.stock <= 0 ? 'สินค้าหมด' : `${selectedItem.stock} ชิ้น`}
-                  </span>
-                </div>
-                {selectedItem.expiryDate && (
-                  <div className="flex justify-between border-t border-dashed border-gray-200 pt-3">
-                    <span className="text-sm text-gray-500">วันหมดอายุ</span>
-                    <span className="text-sm text-gray-900">{selectedItem.expiryDate}</span>
+          {selectedItem && (() => {
+            const displayPrice = getDisplayPrice(selectedItem, accessTier);
+            return (
+              <div className="px-5 pt-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
+                <div className="flex justify-center mb-4">
+                  <div className="relative h-40 w-40 rounded-2xl overflow-hidden bg-gray-100">
+                    <ProductImage src={selectedItem.imageUrl} alt={selectedItem.name} sizes="160px" className="object-contain" />
                   </div>
-                )}
-              </div>
+                </div>
 
-              <button onClick={() => setSelectedItem(null)} className="w-full h-12 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium">
-                ปิด
-              </button>
-            </div>
-          )}
+                <h3 className="text-lg font-medium text-gray-900 text-center mb-1">{selectedItem.name}</h3>
+                <div className="flex justify-center gap-2 mb-4 flex-wrap">
+                  {selectedItem.category && <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[11px]">{selectedItem.category}</Badge>}
+                  {selectedItem.brand && <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[11px]">{selectedItem.brand}</Badge>}
+                  {selectedItem.series && <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[11px]">{selectedItem.series}</Badge>}
+                </div>
+
+                <div className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-100 mb-4">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500">บาร์โค้ด</span>
+                    <span className="text-sm text-gray-900 font-mono">{selectedItem.barcode}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-dashed border-gray-200 pt-3">
+                    <span className="text-sm text-gray-500">ราคา</span>
+                    <span className="text-sm font-semibold text-[var(--brand-primary)]">
+                      {displayPrice > 0 ? `฿${displayPrice.toFixed(2)}` : '-'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between border-t border-dashed border-gray-200 pt-3">
+                    <span className="text-sm text-gray-500">สต็อก</span>
+                    <span className={`text-sm font-medium ${selectedItem.stock <= 0 ? 'text-red-500' : selectedItem.stock < 10 ? 'text-yellow-600' : 'text-green-600'}`}>
+                      {selectedItem.stock <= 0 ? 'สินค้าหมด' : `${selectedItem.stock} ชิ้น`}
+                    </span>
+                  </div>
+                  {selectedItem.expiryDate && (
+                    <div className="flex justify-between border-t border-dashed border-gray-200 pt-3">
+                      <span className="text-sm text-gray-500">วันหมดอายุ</span>
+                      <span className="text-sm text-gray-900">{selectedItem.expiryDate}</span>
+                    </div>
+                  )}
+                </div>
+
+                <button onClick={() => setSelectedItem(null)} className="w-full h-12 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium">
+                  ปิด
+                </button>
+              </div>
+            );
+          })()}
         </SheetContent>
       </Sheet>
 
@@ -413,11 +423,20 @@ export default function CatalogPage() {
         }}
       />
 
-      {/* BottomNav */}
-      {meData?.user?.role && (
+      {/* BottomNav - show for logged-in users, or simplified for guests */}
+      {isLoggedIn && userRole ? (
         <BottomNav
           activePage={isSettingsTab ? 'settings' : 'catalog'}
-          userRole={meData.user.role}
+          userRole={userRole}
+          onScanClick={() => {}}
+          onSettingsClick={() => setActiveTab('settings')}
+          onInventoryClick={() => setActiveTab('catalog')}
+        />
+      ) : (
+        <BottomNav
+          activePage={isSettingsTab ? 'settings' : 'catalog'}
+          userRole="customer"
+          isGuest={true}
           onScanClick={() => {}}
           onSettingsClick={() => setActiveTab('settings')}
           onInventoryClick={() => setActiveTab('catalog')}

@@ -129,7 +129,7 @@ export async function fetchInventoryFromGoogleSheets(): Promise<InventoryItem[]>
     ?.trim();
   const apiKey = process.env.GOOGLE_API_KEY;
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:L';
+  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:N';
 
   if (!spreadsheetId || (!apiKey && (!clientEmail || !privateKey))) {
     return mockInventory;
@@ -189,6 +189,8 @@ export async function fetchInventoryFromGoogleSheets(): Promise<InventoryItem[]>
         notes: safeString(row[9]),
         imageUrl: safeString(row[10]),
         favorite: safeString(row[11]) === '1',
+        vipPrice: safeNumber(row[12]),
+        vvipPrice: safeNumber(row[13]),
       };
     });
 
@@ -328,7 +330,7 @@ export async function appendProductToGoogleSheets(product: NewProduct): Promise<
     ?.replace(/\\"/g, '"')
     ?.trim();
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:L';
+  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:N';
 
   if (!spreadsheetId || !clientEmail || !privateKey) {
     return { ok: false, error: 'Google Sheets credentials not configured' };
@@ -342,11 +344,11 @@ export async function appendProductToGoogleSheets(product: NewProduct): Promise<
     });
 
     const sheets = google.sheets({ version: 'v4' });
-    // Use sheet name + A:L to anchor append at column A
+    // Use sheet name + A:N to anchor append at column A
     const sheetName = range.split('!')[0] || 'inventory';
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: `${sheetName}!A:L`,
+      range: `${sheetName}!A:N`,
       auth,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
@@ -363,6 +365,8 @@ export async function appendProductToGoogleSheets(product: NewProduct): Promise<
           product.notes,
           product.imageUrl,
           '0',
+          '',
+          '',
         ]],
       },
     });
@@ -393,7 +397,7 @@ export async function updateProductQuantityInSheet(barcode: string, addQuantity:
     ?.replace(/\\"/g, '"')
     ?.trim();
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:L';
+  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:N';
 
   if (!spreadsheetId || !clientEmail || !privateKey) {
     return { ok: false, newQuantity: 0, error: 'Google Sheets credentials not configured' };
@@ -458,7 +462,7 @@ export async function toggleFavoriteInSheet(barcode: string, favorite: boolean):
     ?.replace(/\\"/g, '"')
     ?.trim();
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:L';
+  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:N';
 
   if (!spreadsheetId || !clientEmail || !privateKey) {
     return { ok: false, error: 'Google Sheets credentials not configured' };

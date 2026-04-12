@@ -14,6 +14,8 @@ export const mockInventory: InventoryItem[] = [
     quantityPerBox: '24',
     notes: '',
     imageUrl: 'https://picsum.photos/seed/item1/200/200',
+    vipPrice: 0,
+    vvipPrice: 0,
     favorite: false,
   },
   {
@@ -29,6 +31,8 @@ export const mockInventory: InventoryItem[] = [
     quantityPerBox: '48',
     notes: '',
     imageUrl: 'https://picsum.photos/seed/item2/200/200',
+    vipPrice: 0,
+    vvipPrice: 0,
     favorite: false,
   },
   {
@@ -44,6 +48,8 @@ export const mockInventory: InventoryItem[] = [
     quantityPerBox: '12',
     notes: 'สินค้าขายดี',
     imageUrl: 'https://picsum.photos/seed/item3/200/200',
+    vipPrice: 0,
+    vvipPrice: 0,
     favorite: false,
   },
   {
@@ -59,6 +65,8 @@ export const mockInventory: InventoryItem[] = [
     quantityPerBox: '6',
     notes: 'สินค้าใกล้หมด',
     imageUrl: 'https://picsum.photos/seed/item4/200/200',
+    vipPrice: 0,
+    vvipPrice: 0,
     favorite: false,
   },
   {
@@ -74,6 +82,8 @@ export const mockInventory: InventoryItem[] = [
     quantityPerBox: '36',
     notes: 'รอสินค้าเข้า',
     imageUrl: 'https://picsum.photos/seed/item5/200/200',
+    vipPrice: 0,
+    vvipPrice: 0,
     favorite: false,
   },
 ];

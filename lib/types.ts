@@ -6,6 +6,8 @@ export interface InventoryItem {
   brand: string;
   series: string;
   price: number;
+  vipPrice: number;
+  vvipPrice: number;
   quantity: number;
   expiryDate: string;
   quantityPerBox: string;
@@ -14,11 +16,14 @@ export interface InventoryItem {
   favorite: boolean;
 }
 
+export type AccessTier = 'public' | 'vip' | 'vvip';
+
 export type UserRole = 'admin' | 'sale' | 'customer';
 
 export interface AppUser {
   id: string;
-  email: string;
+  email?: string;
+  phone?: string;
   name: string;
   role: UserRole;
   customerId?: string;
@@ -156,9 +161,7 @@ export interface CatalogItem {
   stock: number;
   quantityPerBox: string;
   expiryDate: string;
-  basePrice: number;
-  tierPrice: number;
-  finalPrice: number;
-  priceSource: PriceSource;
-  minAllowedPrice: number;
+  price: number;
+  vipPrice?: number;
+  vvipPrice?: number;
 }

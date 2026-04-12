@@ -2,20 +2,18 @@ import 'server-only';
 
 import { randomUUID } from 'node:crypto';
 import type { CustomerRegistration } from '@/lib/types';
-import { loadUsersFromSheet, appendUserToSheet, updateUserFieldsInSheet, emailExistsInSheet, hashPassword } from '@/lib/server/users-sheet';
-import { addCustomerAccount } from '@/lib/server/pricing';
+import { loadUsersFromSheet, appendUserToSheet, updateUserFieldsInSheet, phoneExistsInSheet, hashPassword } from '@/lib/server/users-sheet';
 
 export async function createRegistration(data: {
   name: string;
-  email: string;
   password: string;
   storeName: string;
   phone: string;
 }): Promise<{ ok: true; registration: CustomerRegistration } | { ok: false; error: string }> {
-  const email = data.email.trim().toLowerCase();
+  const phone = data.phone.trim();
 
-  if (await emailExistsInSheet(email)) {
-    return { ok: false, error: 'อีเมลนี้ถูกใช้งานแล้ว' };
+  if (await phoneExistsInSheet(phone)) {
+    return { ok: false, error: 'เบอร์โทรนี้ถูกใช้งานแล้ว' };
   }
 
   const id = `u-${randomUUID().slice(0, 8)}`;
@@ -23,22 +21,22 @@ export async function createRegistration(data: {
 
   await appendUserToSheet({
     id,
-    email,
+    email: '',
     name: data.name.trim(),
     role: 'customer',
     customerId: '',
     password: hashedPassword,
-    phone: data.phone.trim(),
+    phone,
     status: 'pending',
   });
 
   const registration: CustomerRegistration = {
     id,
     name: data.name.trim(),
-    email,
+    email: '',
     password: '***',
     storeName: data.storeName.trim(),
-    phone: data.phone.trim(),
+    phone,
     status: 'pending',
     createdAt: new Date().toISOString(),
   };
@@ -65,7 +63,7 @@ export async function getPendingRegistrations(): Promise<CustomerRegistration[]>
 export async function getAllRegistrations(): Promise<CustomerRegistration[]> {
   const users = await loadUsersFromSheet();
   return users
-    .filter((u) => u.status !== 'active')
+    .filter((u) => u.role === 'customer')
     .map((u) => ({
       id: u.id,
       name: u.name,
@@ -78,10 +76,10 @@ export async function getAllRegistrations(): Promise<CustomerRegistration[]> {
     }));
 }
 
-export async function findRegistrationByEmail(email: string): Promise<CustomerRegistration | undefined> {
+export async function findRegistrationByPhone(phone: string): Promise<CustomerRegistration | undefined> {
   const users = await loadUsersFromSheet();
-  const normalized = email.trim().toLowerCase();
-  const user = users.find((u) => u.email.toLowerCase() === normalized && u.status !== 'active');
+  const normalized = phone.trim().replace(/\D/g, '');
+  const user = users.find((u) => u.phone.replace(/\D/g, '') === normalized && !['active', 'ดูสินค้า', 'ผู้เข้าถึงทั้งหมด'].includes(u.status));
   if (!user) return undefined;
   return {
     id: user.id,
@@ -97,27 +95,17 @@ export async function findRegistrationByEmail(email: string): Promise<CustomerRe
 
 export async function approveRegistration(
   id: string,
-  tierId: string,
-  adminUserId: string
+  _tierId: string,
+  _adminUserId: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const users = await loadUsersFromSheet();
   const user = users.find((u) => u.id === id);
   if (!user) return { ok: false, error: 'ไม่พบคำขอสมัครนี้' };
   if (user.status !== 'pending') return { ok: false, error: 'คำขอนี้ถูกดำเนินการแล้ว' };
 
-  const customerId = `c-${randomUUID().slice(0, 6)}`;
-
-  // Update user status + customerId in Sheet
-  await updateUserFieldsInSheet(id, { status: 'active', customerId });
-
-  // Create the customer account with selected tier
-  addCustomerAccount({
-    id: customerId,
-    name: user.name,
-    tierId,
-    saleOwnerId: adminUserId,
-    status: 'active',
-  });
+  // Admin changes status in Google Sheet directly (ดูสินค้า / ผู้เข้าถึงทั้งหมด)
+  // For auto-approve, set to 'ดูสินค้า' (VIP)
+  await updateUserFieldsInSheet(id, { status: 'ดูสินค้า' });
 
   return { ok: true };
 }

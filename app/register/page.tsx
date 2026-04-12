@@ -10,7 +10,6 @@ export default function RegisterPage() {
   const { toast } = useToast();
 
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [storeName, setStoreName] = useState('');
   const [phone, setPhone] = useState('');
@@ -30,7 +29,6 @@ export default function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
-          email: email.trim(),
           password,
           storeName: storeName.trim(),
           phone: phone.trim(),
@@ -84,7 +82,7 @@ export default function RegisterPage() {
         </button>
 
         <h1 className="mt-6 text-[2rem] leading-tight text-gray-900">สมัครสมาชิก</h1>
-        <p className="mt-2 text-sm text-gray-500">กรอกข้อมูลเพื่อสมัครใช้งาน SheetStock</p>
+        <p className="mt-2 text-sm text-gray-500">สมัครเพื่อดูราคาพิเศษ รอ admin อนุมัติ</p>
 
         <form onSubmit={onSubmit} className="mt-7 space-y-4">
           <div>
@@ -98,8 +96,8 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm text-gray-700">อีเมล</label>
-            <input type="email" placeholder="กรอกอีเมล" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass()} />
+            <label className="mb-1.5 block text-sm text-gray-700">เบอร์โทรศัพท์</label>
+            <input type="tel" inputMode="tel" placeholder="กรอกเบอร์โทร (10 หลัก)" value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass()} />
           </div>
 
           <div>
@@ -116,11 +114,6 @@ export default function RegisterPage() {
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm text-gray-700">เบอร์โทร</label>
-            <input type="tel" placeholder="กรอกเบอร์โทร" value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass()} />
           </div>
 
           {error && <p className="text-sm text-red-500">{error}</p>}

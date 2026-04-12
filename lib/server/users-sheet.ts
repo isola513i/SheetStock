@@ -2,7 +2,7 @@ import 'server-only';
 
 import { google } from 'googleapis';
 import bcrypt from 'bcryptjs';
-import type { AppUser, UserRole } from '@/lib/types';
+import type { AccessTier, AppUser, UserRole } from '@/lib/types';
 import { setUsersCache } from './auth';
 import { getGoogleSheetsAuth } from './google-auth';
 
@@ -64,7 +64,7 @@ export async function loadUsersFromSheet(): Promise<UserRecord[]> {
       password: safe(row[5]),
       phone: safe(row[6]),
       status: safe(row[7]) || 'active',
-    })).filter((u) => u.id && u.email);
+    })).filter((u) => u.id && (u.email || u.phone));
 
     usersCache = { data: users, timestamp: Date.now() };
     return users;
@@ -147,6 +147,18 @@ export async function updateUserFieldsInSheet(
   return true;
 }
 
+// --- Access Tier ---
+
+const VALID_STATUSES = ['active', 'ดูสินค้า', 'ผู้เข้าถึงทั้งหมด'];
+
+export function getUserAccessTier(user: { role: string; status: string }): AccessTier {
+  if (user.role === 'admin' || user.role === 'sale') return 'vvip';
+  const s = user.status;
+  if (s === 'ผู้เข้าถึงทั้งหมด') return 'vvip';
+  if (s === 'ดูสินค้า' || s === 'active') return 'vip';
+  return 'public';
+}
+
 // --- Queries ---
 
 export async function findUserByEmail(email: string): Promise<UserRecord | null> {
@@ -155,17 +167,35 @@ export async function findUserByEmail(email: string): Promise<UserRecord | null>
   return users.find((u) => u.email.toLowerCase() === normalized) ?? null;
 }
 
+export async function findUserByPhone(phone: string): Promise<UserRecord | null> {
+  const users = await loadUsersFromSheet();
+  const normalized = phone.trim().replace(/\D/g, '');
+  return users.find((u) => u.phone.replace(/\D/g, '') === normalized) ?? null;
+}
+
 export async function emailExistsInSheet(email: string): Promise<boolean> {
   return (await findUserByEmail(email)) !== null;
 }
 
+export async function phoneExistsInSheet(phone: string): Promise<boolean> {
+  return (await findUserByPhone(phone)) !== null;
+}
+
 // --- Authentication ---
 
-export async function authenticate(email: string, password: string): Promise<AppUser | null> {
+export async function authenticate(identifier: string, password: string): Promise<AppUser | null> {
   const users = await loadUsersFromSheet();
 
-  const normalized = email.trim().toLowerCase();
-  const matched = users.find((u) => u.email.toLowerCase() === normalized && u.status === 'active');
+  const normalized = identifier.trim().toLowerCase();
+  const isPhone = /^\d{9,10}$/.test(normalized.replace(/\D/g, ''));
+
+  const matched = users.find((u) => {
+    const statusOk = VALID_STATUSES.includes(u.status);
+    if (isPhone) {
+      return u.phone.replace(/\D/g, '') === normalized.replace(/\D/g, '') && statusOk;
+    }
+    return u.email.toLowerCase() === normalized && statusOk;
+  });
   if (!matched) return null;
 
   const valid = await bcrypt.compare(password, matched.password);
@@ -173,13 +203,14 @@ export async function authenticate(email: string, password: string): Promise<App
 
   // Update cache for findUserById in middleware
   setUsersCache(users.map((u) => ({
-    id: u.id, email: u.email, name: u.name, role: u.role,
+    id: u.id, email: u.email, phone: u.phone, name: u.name, role: u.role,
     customerId: u.customerId || undefined, password: u.password, status: u.status,
   })));
 
   return {
     id: matched.id,
-    email: matched.email,
+    email: matched.email || undefined,
+    phone: matched.phone || undefined,
     name: matched.name,
     role: matched.role,
     ...(matched.customerId ? { customerId: matched.customerId } : {}),

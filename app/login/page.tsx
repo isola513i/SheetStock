@@ -4,35 +4,38 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
-import { t, getLocale, setLocale, type Locale } from '@/lib/i18n';
+import { t, getLocale, type Locale } from '@/lib/i18n';
 
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [emailError, setEmailError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [locale, setLocaleState] = useState<Locale>('th');
 
   useEffect(() => { setLocaleState(getLocale()); }, []);
 
-
-
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setEmailError('');
+    setPhoneError('');
     setPasswordError('');
     setLoading(true);
     setError('');
-    const normalizedEmail = email.trim();
+    const normalizedPhone = phone.trim();
     const normalizedPassword = password.trim();
 
-    if (!normalizedEmail) {
-      setEmailError(t('login.emailRequired', locale));
+    if (!normalizedPhone) {
+      setPhoneError(t('login.phoneRequired', locale));
+      setLoading(false);
+      return;
+    }
+    if (!/^\d{9,10}$/.test(normalizedPhone.replace(/\D/g, ''))) {
+      setPhoneError('เบอร์โทรไม่ถูกต้อง (ต้องเป็นตัวเลข 9-10 หลัก)');
       setLoading(false);
       return;
     }
@@ -46,7 +49,7 @@ export default function LoginPage() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: normalizedEmail, password: normalizedPassword }),
+        body: JSON.stringify({ phone: normalizedPhone, password: normalizedPassword }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -73,15 +76,16 @@ export default function LoginPage() {
 
         <form onSubmit={onSubmit} className="mt-9 space-y-4">
           <div>
-            <label className="mb-2 block text-[1.12rem] text-gray-900">{t('login.email', locale)}</label>
+            <label className="mb-2 block text-[1.12rem] text-gray-900">{t('login.phone', locale)}</label>
             <input
-              type="email"
-              placeholder={t('login.emailPlaceholder', locale)}
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className={`h-14 w-full rounded-lg border bg-[#F3F3F3] px-4 text-lg outline-none ${emailError ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-[var(--brand-primary)]'}`}
+              type="tel"
+              inputMode="tel"
+              placeholder={t('login.phonePlaceholder', locale)}
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              className={`h-14 w-full rounded-lg border bg-[#F3F3F3] px-4 text-lg outline-none ${phoneError ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-[var(--brand-primary)]'}`}
             />
-            {emailError ? <p className="mt-1 text-xs text-red-500">{emailError}</p> : null}
+            {phoneError ? <p className="mt-1 text-xs text-red-500">{phoneError}</p> : null}
           </div>
 
           <div>

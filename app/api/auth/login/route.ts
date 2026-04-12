@@ -9,21 +9,27 @@ import {
   REFRESH_COOKIE_OPTIONS,
 } from '@/lib/server/auth';
 import { authenticate } from '@/lib/server/users-sheet';
-import { findRegistrationByEmail } from '@/lib/server/registrations';
+import { findRegistrationByPhone } from '@/lib/server/registrations';
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
+  // Support both phone and email login (phone preferred)
+  const phone = typeof body?.phone === 'string' ? body.phone : '';
   const email = typeof body?.email === 'string' ? body.email : '';
+  const identifier = phone || email;
   const password = typeof body?.password === 'string' ? body.password : '';
 
-  const user = await authenticate(email, password);
+  const user = await authenticate(identifier, password);
   if (!user) {
-    const reg = await findRegistrationByEmail(email);
-    if (reg) {
-      if (reg.status === 'pending') return NextResponse.json({ error: 'บัญชีของคุณกำลังรอการอนุมัติจาก Admin' }, { status: 403 });
-      if (reg.status === 'rejected') return NextResponse.json({ error: 'การสมัครถูกปฏิเสธ กรุณาติดต่อ Admin' }, { status: 403 });
+    // Check if pending/rejected registration
+    if (phone) {
+      const reg = await findRegistrationByPhone(phone);
+      if (reg) {
+        if (reg.status === 'pending') return NextResponse.json({ error: 'บัญชีของคุณกำลังรอการอนุมัติจาก Admin' }, { status: 403 });
+        if (reg.status === 'rejected') return NextResponse.json({ error: 'การสมัครถูกปฏิเสธ กรุณาติดต่อ Admin' }, { status: 403 });
+      }
     }
-    return NextResponse.json({ error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' }, { status: 401 });
+    return NextResponse.json({ error: 'เบอร์โทรหรือรหัสผ่านไม่ถูกต้อง' }, { status: 401 });
   }
 
   const accessToken = await createAccessToken(user);

@@ -18,7 +18,7 @@ async function findUserByIdWithWarmup(id: string): Promise<AppUser | null> {
     // Cache cold — warm it from Sheet
     const users = await loadUsersFromSheet();
     setUsersCache(users.map((u) => ({
-      id: u.id, email: u.email, name: u.name, role: u.role,
+      id: u.id, email: u.email, phone: u.phone, name: u.name, role: u.role,
       customerId: u.customerId || undefined, password: u.password, status: u.status,
     })));
     user = findUserById(id);
