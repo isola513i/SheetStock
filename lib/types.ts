@@ -96,60 +96,6 @@ export interface InventoryApiResponse {
   availableFacets: InventoryFacetData;
 }
 
-export type PriceSource = 'base' | 'tier' | 'override';
-export type DiscountType = 'percent' | 'fixed';
-export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
-
-export interface PriceTier {
-  id: string;
-  name: string;
-  discountType: DiscountType;
-  discountValue: number;
-}
-
-export interface CustomerAccount {
-  id: string;
-  name: string;
-  tierId: string;
-  saleOwnerId: string;
-  status: 'active' | 'inactive';
-}
-
-export interface CustomerProductOverride {
-  customerId: string;
-  productId: string;
-  price: number;
-  reason: string;
-  effectiveFrom: string;
-  effectiveTo?: string;
-  updatedBy: string;
-  status: ApprovalStatus;
-}
-
-export interface PriceApprovalRequest {
-  id: string;
-  customerId: string;
-  productId: string;
-  proposedPrice: number;
-  minAllowedPrice: number;
-  requestedBy: string;
-  reason: string;
-  status: ApprovalStatus;
-  createdAt: string;
-}
-
-export interface PriceAuditLog {
-  id: string;
-  actorId: string;
-  customerId: string;
-  productId: string;
-  oldPrice: number;
-  newPrice: number;
-  reason: string;
-  source: PriceSource;
-  timestamp: string;
-}
-
 export interface CatalogItem {
   productId: string;
   barcode: string;

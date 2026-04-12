@@ -151,11 +151,13 @@ export async function updateUserFieldsInSheet(
 
 const VALID_STATUSES = ['active', 'ดูสินค้า', 'ผู้เข้าถึงทั้งหมด'];
 
-export function getUserAccessTier(user: { role: string; status: string }): AccessTier {
+export function getUserAccessTier(user: { role: string; status: string; customerId?: string }): AccessTier {
   if (user.role === 'admin' || user.role === 'sale') return 'vvip';
   const s = user.status;
   if (s === 'ผู้เข้าถึงทั้งหมด') return 'vvip';
-  if (s === 'ดูสินค้า' || s === 'active') return 'vip';
+  if (s === 'ดูสินค้า') return 'vip';
+  // 'active' only grants VIP if user was explicitly approved (has customerId)
+  if (s === 'active' && user.customerId) return 'vip';
   return 'public';
 }
 

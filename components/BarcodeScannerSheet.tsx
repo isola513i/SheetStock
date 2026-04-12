@@ -36,6 +36,7 @@ export function BarcodeScannerSheet({ open, onOpenChange, onDetected }: BarcodeS
 
     let scanner: any = null;
     let stopped = false;
+    let isRunning = false;
 
     const start = async () => {
       try {
@@ -61,6 +62,7 @@ export function BarcodeScannerSheet({ open, onOpenChange, onDetected }: BarcodeS
           },
           () => undefined
         );
+        isRunning = true;
       } catch {
         if (!stopped) setError('ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตการใช้กล้อง');
       }
@@ -70,12 +72,13 @@ export function BarcodeScannerSheet({ open, onOpenChange, onDetected }: BarcodeS
 
     return () => {
       stopped = true;
-      if (scanner) {
+      if (scanner && isRunning) {
         scanner.stop().catch(() => undefined).finally(() => {
           scanner?.clear();
           stopAllCameraTracks();
         });
       } else {
+        scanner?.clear?.();
         stopAllCameraTracks();
       }
     };

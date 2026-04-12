@@ -109,10 +109,10 @@ const SORT_OPTIONS: { id: SortOption; label: string }[] = [
   { id: 'lowStock', label: 'ใกล้หมดก่อน' },
 ];
 
-/** Return the display price for a given tier */
+/** Return the display price for a given tier — each tier sees only their price */
 function getDisplayPrice(item: CatalogItem, tier: AccessTier): number {
   if (tier === 'vvip' && item.vvipPrice) return item.vvipPrice;
-  if ((tier === 'vip' || tier === 'vvip') && item.vipPrice) return item.vipPrice;
+  if (tier === 'vip' && item.vipPrice) return item.vipPrice;
   return item.price;
 }
 
@@ -331,7 +331,10 @@ export default function CatalogPage() {
             viewMode="list" hapticsEnabled={hapticsEnabled}
             onChangeViewMode={() => {}}
             onToggleHaptics={() => setHapticsEnabled((p) => !p)}
-            onRefreshData={() => mutate()}
+            onRefreshData={async () => {
+              await fetch('/api/catalog?refresh=true');
+              await mutate();
+            }}
             onResetPreferences={() => { setHapticsEnabled(true); window.localStorage.removeItem('sheetstock-haptics'); }}
             onLogout={async () => { await fetch('/api/auth/logout', { method: 'POST' }); router.push('/login'); }}
             userRole={userRole ?? 'customer'} userName={userName}
@@ -406,12 +409,17 @@ export default function CatalogPage() {
                           {item.brand && (
                             <span className={`inline-block px-2 py-0.5 text-[10px] font-medium border rounded-full mb-1.5 ${brandColor(item.brand)}`}>{item.brand}</span>
                           )}
-                          <h3 className="font-semibold text-[13px] text-gray-900 leading-tight line-clamp-2">{[item.brand, item.category, item.series].filter(Boolean).join('') || item.name || item.barcode}</h3>
+                          <h3 className="font-semibold text-[13px] text-gray-900 leading-tight line-clamp-2">{[item.brand, item.category, item.series].filter(Boolean).join(' ') || item.name || item.barcode}</h3>
                           {item.category && <p className="text-[11px] text-gray-400 mt-0.5 truncate">{item.category}</p>}
                           <div className="flex items-center justify-between mt-1.5">
-                            <p className="text-base font-bold text-[var(--brand-primary)]">
-                              {displayPrice > 0 ? `฿${Math.round(displayPrice)}` : '-'}
-                            </p>
+                            <div>
+                              {displayPrice !== item.price && item.price > 0 && (
+                                <p className="text-[11px] text-gray-400 line-through">฿{Math.round(item.price)}</p>
+                              )}
+                              <p className="text-base font-bold text-[var(--brand-primary)]">
+                                {displayPrice > 0 ? `฿${Math.round(displayPrice)}` : '-'}
+                              </p>
+                            </div>
                             {item.quantityPerBox && (
                               <span className="text-[10px] text-gray-400">{item.quantityPerBox}</span>
                             )}
@@ -468,9 +476,14 @@ export default function CatalogPage() {
                   </div>
                   <div className="flex justify-between border-t border-dashed border-gray-200 pt-3">
                     <span className="text-sm text-gray-500">ราคา</span>
-                    <span className="text-sm font-semibold text-[var(--brand-primary)]">
-                      {displayPrice > 0 ? `฿${displayPrice.toFixed(2)}` : '-'}
-                    </span>
+                    <div className="text-right">
+                      {displayPrice !== selectedItem.price && selectedItem.price > 0 && (
+                        <span className="text-xs text-gray-400 line-through mr-1.5">฿{selectedItem.price.toFixed(2)}</span>
+                      )}
+                      <span className="text-sm font-semibold text-[var(--brand-primary)]">
+                        {displayPrice > 0 ? `฿${displayPrice.toFixed(2)}` : '-'}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex justify-between border-t border-dashed border-gray-200 pt-3">
                     <span className="text-sm text-gray-500">สต็อก</span>

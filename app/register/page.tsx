@@ -21,6 +21,13 @@ export default function RegisterPage() {
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
+
+    if (!name.trim()) { setError('กรุณากรอกชื่อ-นามสกุล'); return; }
+    if (!storeName.trim()) { setError('กรุณากรอกชื่อร้าน'); return; }
+    const normalizedPhone = phone.trim().replace(/\D/g, '');
+    if (!normalizedPhone || !/^\d{9,10}$/.test(normalizedPhone)) { setError('เบอร์โทรไม่ถูกต้อง (9-10 หลัก)'); return; }
+    if (!password || password.length < 6) { setError('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'); return; }
+
     setLoading(true);
 
     try {

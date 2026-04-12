@@ -75,7 +75,13 @@ export async function middleware(request: NextRequest) {
 
   // Protected page routes (admin pages)
   if (isProtectedPath(pathname)) {
+    const isAdminPath = pathname.startsWith('/admin');
+
     if (isAuthenticated) {
+      // Block non-admin users from /admin paths
+      if (isAdminPath && accessUser?.role !== 'admin') {
+        return NextResponse.redirect(new URL('/catalog', request.url));
+      }
       const response = NextResponse.next();
       if (legacyToken) response.cookies.set(LEGACY_COOKIE, '', { path: '/', maxAge: 0 });
       return response;
@@ -85,6 +91,9 @@ export async function middleware(request: NextRequest) {
       if (userId) {
         const user = findUserById(userId);
         if (user) {
+          if (isAdminPath && user.role !== 'admin') {
+            return NextResponse.redirect(new URL('/catalog', request.url));
+          }
           const newAccess = await createAccessToken(user);
           const response = NextResponse.next();
           response.cookies.set(ACCESS_COOKIE, newAccess, ACCESS_COOKIE_OPTIONS);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/server/api-auth';
-import { loadInventoryFromGoogleSheets } from '@/lib/server/inventory';
+import { loadInventoryFromGoogleSheets, invalidateInventoryCache } from '@/lib/server/inventory';
 import { findUserByPhone, findUserByEmail, getUserAccessTier } from '@/lib/server/users-sheet';
 import type { AccessTier, CatalogItem } from '@/lib/types';
 
@@ -8,6 +8,11 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const { user } = await getRequestUser(request);
+
+  // Cache-busting: only logged-in users can invalidate cache
+  if (request.nextUrl.searchParams.get('refresh') === 'true' && user) {
+    invalidateInventoryCache();
+  }
 
   let accessTier: AccessTier = 'public';
   if (user) {

@@ -106,8 +106,10 @@ export async function approveRegistration(
   if (tierId !== 'vip' && tierId !== 'vvip') {
     return { ok: false, error: 'ระดับลูกค้าไม่ถูกต้อง' };
   }
+
+  const customerId = `c-${randomUUID().slice(0, 6)}`;
   const status = tierId === 'vvip' ? 'ผู้เข้าถึงทั้งหมด' : 'ดูสินค้า';
-  await updateUserFieldsInSheet(id, { status });
+  await updateUserFieldsInSheet(id, { status, customerId });
 
   return { ok: true };
 }
