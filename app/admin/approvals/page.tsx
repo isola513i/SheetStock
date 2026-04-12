@@ -16,9 +16,8 @@ const fetcher = async <T,>(url: string): Promise<T> => {
 };
 
 const TIERS = [
-  { id: 'tier-bronze', name: 'Bronze', desc: 'ไม่มีส่วนลด (0%)', color: 'bg-orange-100 text-orange-700' },
-  { id: 'tier-silver', name: 'Silver', desc: 'ส่วนลด 5%', color: 'bg-gray-200 text-gray-700' },
-  { id: 'tier-gold', name: 'Gold', desc: 'ส่วนลด 10%', color: 'bg-yellow-100 text-yellow-700' },
+  { id: 'vip', name: 'VIP', desc: 'เห็นราคา VIP', color: 'bg-blue-100 text-blue-700' },
+  { id: 'vvip', name: 'VVIP', desc: 'เห็นราคา VVIP', color: 'bg-purple-100 text-purple-700' },
 ];
 
 export default function AdminApprovalsPage() {

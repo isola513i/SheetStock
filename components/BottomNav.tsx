@@ -92,17 +92,13 @@ export const BottomNav = memo(function BottomNav({ activePage, userRole, isGuest
         />
       )}
 
-      {/* Scan button — admin/sale only */}
+      {/* Scan tab — admin/sale only */}
       {!isCustomer && !isGuest && (
-        <div className="relative -top-4 z-50">
-          <button
-            type="button"
-            onClick={onScanClick}
-            className="w-14 h-14 bg-[var(--brand-primary)] rounded-full flex items-center justify-center text-white shadow-lg shadow-orange-500/30 active:scale-95 transition-transform"
-          >
-            <ScanLine className="w-6 h-6" />
-          </button>
-        </div>
+        <NavItem
+          icon={<ScanLine className="w-5.5 h-5.5" />}
+          label="สแกน"
+          onClick={onScanClick}
+        />
       )}
 
       {/* Admin: approvals tab */}

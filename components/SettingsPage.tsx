@@ -148,9 +148,9 @@ export function SettingsPage({
                   </span>
                   {customerTier && (
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                      customerTier === 'Gold' ? 'bg-yellow-100 text-yellow-700' :
-                      customerTier === 'Silver' ? 'bg-gray-200 text-gray-700' :
-                      'bg-orange-100 text-orange-700'
+                      customerTier === 'VVIP' ? 'bg-purple-100 text-purple-700' :
+                      customerTier === 'VIP' ? 'bg-blue-100 text-blue-700' :
+                      'bg-gray-100 text-gray-600'
                     }`}>
                       {customerTier}
                     </span>

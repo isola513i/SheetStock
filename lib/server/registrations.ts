@@ -95,7 +95,7 @@ export async function findRegistrationByPhone(phone: string): Promise<CustomerRe
 
 export async function approveRegistration(
   id: string,
-  _tierId: string,
+  tierId: string,
   _adminUserId: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const users = await loadUsersFromSheet();
@@ -103,9 +103,11 @@ export async function approveRegistration(
   if (!user) return { ok: false, error: 'ไม่พบคำขอสมัครนี้' };
   if (user.status !== 'pending') return { ok: false, error: 'คำขอนี้ถูกดำเนินการแล้ว' };
 
-  // Admin changes status in Google Sheet directly (ดูสินค้า / ผู้เข้าถึงทั้งหมด)
-  // For auto-approve, set to 'ดูสินค้า' (VIP)
-  await updateUserFieldsInSheet(id, { status: 'ดูสินค้า' });
+  if (tierId !== 'vip' && tierId !== 'vvip') {
+    return { ok: false, error: 'ระดับลูกค้าไม่ถูกต้อง' };
+  }
+  const status = tierId === 'vvip' ? 'ผู้เข้าถึงทั้งหมด' : 'ดูสินค้า';
+  await updateUserFieldsInSheet(id, { status });
 
   return { ok: true };
 }

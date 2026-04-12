@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       price: item.price,
     };
 
-    if (accessTier === 'vip' || accessTier === 'vvip') {
+    if (accessTier === 'vip') {
       base.vipPrice = item.vipPrice || undefined;
     }
     if (accessTier === 'vvip') {

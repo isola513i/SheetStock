@@ -127,6 +127,35 @@ export default function CatalogPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isValidatingRef = useRef(false);
 
+  // Collapsible header — same pattern as admin inventory
+  const [scrollDir, setScrollDir] = useState<'up' | 'down'>('up');
+  const lastScrollYRef = useRef(0);
+  const lastDirectionRef = useRef<'up' | 'down'>('up');
+  const directionAnchorRef = useRef(0);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const currentScrollY = e.currentTarget.scrollTop;
+    const delta = currentScrollY - lastScrollYRef.current;
+    if (currentScrollY <= 8) {
+      if (lastDirectionRef.current !== 'up') {
+        lastDirectionRef.current = 'up';
+        directionAnchorRef.current = currentScrollY;
+        setScrollDir('up');
+      }
+      lastScrollYRef.current = currentScrollY;
+      return;
+    }
+    if (Math.abs(delta) < 12) { lastScrollYRef.current = currentScrollY; return; }
+    const nextDir: 'up' | 'down' = delta > 0 ? 'down' : 'up';
+    if (nextDir !== lastDirectionRef.current) {
+      if (Math.abs(currentScrollY - directionAnchorRef.current) < 24) { lastScrollYRef.current = currentScrollY; return; }
+      lastDirectionRef.current = nextDir;
+      directionAnchorRef.current = currentScrollY;
+      setScrollDir(nextDir);
+    }
+    lastScrollYRef.current = currentScrollY;
+  }, []);
+
   const { data, isLoading, isValidating, mutate } = useSWR('/api/catalog', fetcher, {
     revalidateOnFocus: true,
     refreshInterval: 60000,
@@ -243,13 +272,13 @@ export default function CatalogPage() {
   return (
     <div className="fixed inset-0 w-full flex flex-col bg-[#F2F2F7] overflow-hidden">
       {/* Header */}
-      <div className="shrink-0 bg-[var(--brand-primary)] rounded-b-[1.5rem] px-5 text-white shadow-sm" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)', paddingBottom: 20 }}>
+      <div className={`shrink-0 z-30 bg-[var(--brand-primary)] rounded-b-[1.5rem] px-5 text-white shadow-sm transition-all duration-300 ${scrollDir === 'down' && !isSettingsTab ? 'pb-4' : 'pb-5'}`} style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}>
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-medium">{isSettingsTab ? 'ตั้งค่า' : 'แคตตาล็อกสินค้า'}</h1>
         </div>
 
         {!isSettingsTab && (
-          <>
+          <div className={`overflow-hidden transition-all duration-300 ${scrollDir === 'down' ? 'max-h-0 opacity-0' : 'max-h-[120px] opacity-100'}`}>
             <div className="relative mb-3">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
@@ -290,7 +319,7 @@ export default function CatalogPage() {
                 ))}
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
 
@@ -305,13 +334,14 @@ export default function CatalogPage() {
             onResetPreferences={() => { setHapticsEnabled(true); window.localStorage.removeItem('sheetstock-haptics'); }}
             onLogout={async () => { await fetch('/api/auth/logout', { method: 'POST' }); router.push('/login'); }}
             userRole={userRole ?? 'customer'} userName={userName}
+            customerTier={accessTier === 'vvip' ? 'VVIP' : accessTier === 'vip' ? 'VIP' : undefined}
             recentScans={[]} onClearRecentScans={() => {}} onScanItemClick={() => {}}
           />
         </div>
       ) : (
         <>
           {/* Count + Sort */}
-          <div className="px-5 pt-3 pb-1 flex items-center justify-between">
+          <div className="px-5 pt-3 pb-3 flex items-center justify-between">
             <p className="text-sm text-gray-500">พบ {items.length} รายการ</p>
             <div className="flex gap-2">
               <button
@@ -333,7 +363,7 @@ export default function CatalogPage() {
           </div>
 
           {/* Grid */}
-          <div id="catalog-scroll" ref={scrollRef} className="flex-1 overflow-y-auto px-4 pb-24 hide-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <div id="catalog-scroll" ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4 pb-24 hide-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
             {isLoading ? (
               <div className="grid grid-cols-2 gap-3 mt-2">
                 {Array.from({ length: 6 }).map((_, i) => (
