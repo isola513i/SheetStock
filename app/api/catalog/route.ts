@@ -9,8 +9,8 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   const { user } = await getRequestUser(request);
 
-  // Cache-busting: only logged-in users can invalidate cache
-  if (request.nextUrl.searchParams.get('refresh') === 'true' && user) {
+  // Cache-busting: only admin/sale can invalidate cache
+  if (request.nextUrl.searchParams.get('refresh') === 'true' && user && (user.role === 'admin' || user.role === 'sale')) {
     invalidateInventoryCache();
   }
 
@@ -45,11 +45,11 @@ export async function GET(request: NextRequest) {
       price: item.price,
     };
 
-    if (accessTier === 'vip') {
-      base.vipPrice = item.vipPrice || undefined;
+    if ((accessTier === 'vip' || accessTier === 'vvip') && item.vipPrice > 0) {
+      base.vipPrice = item.vipPrice;
     }
-    if (accessTier === 'vvip') {
-      base.vvipPrice = item.vvipPrice || undefined;
+    if (accessTier === 'vvip' && item.vvipPrice > 0) {
+      base.vvipPrice = item.vvipPrice;
     }
 
     return base;

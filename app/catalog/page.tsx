@@ -109,10 +109,10 @@ const SORT_OPTIONS: { id: SortOption; label: string }[] = [
   { id: 'lowStock', label: 'ใกล้หมดก่อน' },
 ];
 
-/** Return the display price for a given tier — each tier sees only their price */
+/** Return the display price for a given tier — VVIP falls back to VIP price */
 function getDisplayPrice(item: CatalogItem, tier: AccessTier): number {
-  if (tier === 'vvip' && item.vvipPrice) return item.vvipPrice;
-  if (tier === 'vip' && item.vipPrice) return item.vipPrice;
+  if (tier === 'vvip' && item.vvipPrice != null && item.vvipPrice > 0) return item.vvipPrice;
+  if ((tier === 'vip' || tier === 'vvip') && item.vipPrice != null && item.vipPrice > 0) return item.vipPrice;
   return item.price;
 }
 
@@ -213,7 +213,9 @@ export default function CatalogPage() {
         i.category?.toLowerCase().includes(q)
       );
     }
-    list = list.filter((i) => i.stock > 0);
+    if (stockFilter === 'inStock') list = list.filter((i) => i.stock > 0);
+    else if (stockFilter === 'lowStock') list = list.filter((i) => i.stock > 0 && i.stock < 10);
+    else if (stockFilter === 'outOfStock') list = list.filter((i) => i.stock <= 0);
     if (categoryFilter) list = list.filter((i) => i.category === categoryFilter);
     if (brandFilter) list = list.filter((i) => i.brand === brandFilter);
 
