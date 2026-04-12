@@ -64,7 +64,10 @@ function FullscreenImageViewer({ src, onClose }: { src: string; onClose: () => v
           <img src={src || FALLBACK_IMAGE_SRC} alt="Product image" className="max-h-full max-w-full object-contain" referrerPolicy="no-referrer" onError={(e) => { const el = e.currentTarget; if (!el.src.endsWith(FALLBACK_IMAGE_SRC)) el.src = FALLBACK_IMAGE_SRC; }} />
         </div>
       </div>
-      <div className="shrink-0 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3">
+      <div className="shrink-0 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 flex flex-col items-center gap-3">
+        <button onClick={onClose} className="w-full max-w-xs h-11 rounded-full bg-white/15 backdrop-blur-sm text-white text-sm font-medium active:scale-95 transition-transform">
+          ปิด
+        </button>
         <p className="text-center text-white/40 text-[10px]">{scale > 1 ? 'แตะ 2 ครั้งเพื่อย่อ' : 'แตะ 2 ครั้งเพื่อขยาย • ใช้ 2 นิ้วซูม'}</p>
       </div>
     </div>
@@ -247,16 +250,6 @@ export default function CatalogPage() {
 
         {!isSettingsTab && (
           <>
-            {/* Banner for guests */}
-            {!isLoggedIn && (
-              <div className="bg-white/20 rounded-xl px-4 py-2.5 mb-3 flex items-center justify-between">
-                <span className="text-sm">สมัครสมาชิกเพื่อดูราคาพิเศษ</span>
-                <button onClick={() => router.push('/register')} className="bg-white text-[var(--brand-primary)] text-xs font-medium px-3 py-1.5 rounded-full">
-                  สมัครเลย
-                </button>
-              </div>
-            )}
-
             <div className="relative mb-3">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
@@ -420,7 +413,11 @@ export default function CatalogPage() {
                 <div className="flex justify-center mb-4">
                   <div
                     className="relative h-48 w-48 rounded-2xl overflow-hidden bg-gray-100 cursor-pointer"
-                    onClick={() => setFullscreenImage(selectedItem.imageUrl || FALLBACK_IMAGE_SRC)}
+                    onClick={() => {
+                      const imgSrc = selectedItem.imageUrl || FALLBACK_IMAGE_SRC;
+                      setSelectedItem(null);
+                      setTimeout(() => setFullscreenImage(imgSrc), 150);
+                    }}
                   >
                     <ProductImage src={selectedItem.imageUrl} alt={selectedItem.name} sizes="192px" className="object-cover" />
                   </div>

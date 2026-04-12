@@ -27,7 +27,7 @@
 
   body {
     overscroll-behavior-y: none;
-    font-family: var(--font-line-seed), "Noto Sans Thai", "Segoe UI", sans-serif;
+    font-family: var(--font-sarabun), "Sarabun", sans-serif;
     min-height: 100%;
     min-height: 100dvh;
     background-color: var(--bg-primary);

@@ -1,18 +1,13 @@
 import type {Metadata, Viewport} from 'next';
-import localFont from 'next/font/local';
+import { Sarabun } from 'next/font/google';
 import './globals.css'; // Global styles
 import {PwaRegister} from './pwa-register';
 import {ToastProvider} from '@/components/ui/toast';
 
-const lineSeedSans = localFont({
-  src: [
-    {path: './fonts/LINESeedSansTH_A_Th.otf', weight: '200', style: 'normal'},
-    {path: './fonts/LINESeedSansTH_A_Rg.otf', weight: '400', style: 'normal'},
-    {path: './fonts/LINESeedSansTH_A_He.otf', weight: '600', style: 'normal'},
-    {path: './fonts/LINESeedSansTH_A_Bd.otf', weight: '700', style: 'normal'},
-    {path: './fonts/LINESeedSansTH_A_XBd.otf', weight: '800', style: 'normal'},
-  ],
-  variable: '--font-line-seed',
+const sarabun = Sarabun({
+  subsets: ['thai', 'latin'],
+  weight: ['200', '300', '400', '500', '600', '700', '800'],
+  variable: '--font-sarabun',
   display: 'swap',
 });
 
@@ -61,7 +56,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
 
   return (
     <html lang="th" suppressHydrationWarning>
-      <body suppressHydrationWarning className={lineSeedSans.variable}>
+      <body suppressHydrationWarning className={sarabun.variable}>
         {shouldEnablePwa ? <PwaRegister /> : null}
         <ToastProvider>
           {children}

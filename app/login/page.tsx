@@ -9,12 +9,12 @@ import { t, getLocale, type Locale } from '@/lib/i18n';
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [phone, setPhone] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [phoneError, setPhoneError] = useState('');
+  const [identifierError, setIdentifierError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [locale, setLocaleState] = useState<Locale>('th');
 
@@ -22,20 +22,15 @@ export default function LoginPage() {
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setPhoneError('');
+    setIdentifierError('');
     setPasswordError('');
     setLoading(true);
     setError('');
-    const normalizedPhone = phone.trim();
+    const normalizedId = identifier.trim();
     const normalizedPassword = password.trim();
 
-    if (!normalizedPhone) {
-      setPhoneError(t('login.phoneRequired', locale));
-      setLoading(false);
-      return;
-    }
-    if (!/^\d{9,10}$/.test(normalizedPhone.replace(/\D/g, ''))) {
-      setPhoneError('เบอร์โทรไม่ถูกต้อง (ต้องเป็นตัวเลข 9-10 หลัก)');
+    if (!normalizedId) {
+      setIdentifierError('กรุณากรอกเบอร์โทรหรืออีเมล');
       setLoading(false);
       return;
     }
@@ -45,11 +40,17 @@ export default function LoginPage() {
       return;
     }
 
+    // Auto-detect: if contains @ it's email, otherwise phone
+    const isEmail = normalizedId.includes('@');
+    const body = isEmail
+      ? { email: normalizedId, password: normalizedPassword }
+      : { phone: normalizedId, password: normalizedPassword };
+
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: normalizedPhone, password: normalizedPassword }),
+        body: JSON.stringify(body),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -76,16 +77,15 @@ export default function LoginPage() {
 
         <form onSubmit={onSubmit} className="mt-9 space-y-4">
           <div>
-            <label className="mb-2 block text-[1.12rem] text-gray-900">{t('login.phone', locale)}</label>
+            <label className="mb-2 block text-[1.12rem] text-gray-900">เบอร์โทร หรือ อีเมล</label>
             <input
-              type="tel"
-              inputMode="tel"
-              placeholder={t('login.phonePlaceholder', locale)}
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              className={`h-14 w-full rounded-lg border bg-[#F3F3F3] px-4 text-lg outline-none ${phoneError ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-[var(--brand-primary)]'}`}
+              type="text"
+              placeholder="กรอกเบอร์โทร หรือ อีเมล"
+              value={identifier}
+              onChange={(event) => setIdentifier(event.target.value)}
+              className={`h-14 w-full rounded-lg border bg-[#F3F3F3] px-4 text-lg outline-none ${identifierError ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-[var(--brand-primary)]'}`}
             />
-            {phoneError ? <p className="mt-1 text-xs text-red-500">{phoneError}</p> : null}
+            {identifierError ? <p className="mt-1 text-xs text-red-500">{identifierError}</p> : null}
           </div>
 
           <div>
