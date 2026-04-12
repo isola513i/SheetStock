@@ -1,10 +1,13 @@
 import { useEffect, useRef } from 'react';
 
-export function useInventoryStream(onUpdate: () => void) {
+export function useInventoryStream(onUpdate: () => void, options?: { enabled?: boolean }) {
   const onUpdateRef = useRef(onUpdate);
   onUpdateRef.current = onUpdate;
+  const enabled = options?.enabled ?? true;
 
   useEffect(() => {
+    if (!enabled) return;
+
     let es: EventSource | null = null;
     let retryDelay = 1000;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
@@ -45,5 +48,5 @@ export function useInventoryStream(onUpdate: () => void) {
       if (retryTimer) clearTimeout(retryTimer);
       es?.close();
     };
-  }, []);
+  }, [enabled]);
 }

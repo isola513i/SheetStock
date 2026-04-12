@@ -162,7 +162,8 @@ export default function CatalogPage() {
     keepPreviousData: true,
   });
 
-  useInventoryStream(() => mutate());
+  // Only connect to stream when logged in (stream API requires auth)
+  useInventoryStream(() => mutate(), { enabled: data?.isLoggedIn ?? false });
 
   const accessTier = data?.accessTier ?? 'public';
   const isLoggedIn = data?.isLoggedIn ?? false;
