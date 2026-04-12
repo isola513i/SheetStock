@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
     accessTier,
     isLoggedIn: !!user,
     userRole: user?.role ?? null,
+    userName: user?.name ?? null,
     items,
   });
 }

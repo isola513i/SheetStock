@@ -8,12 +8,68 @@ import { AnimatePresence } from 'motion/react';
 import PullToRefresh from 'pulltorefreshjs';
 import { useInventoryStream } from '@/lib/hooks/use-inventory-stream';
 import { ArrowUpDown, Search, SlidersHorizontal, X } from 'lucide-react';
-import { ProductImage } from '@/components/ProductImage';
+import { ProductImage, FALLBACK_IMAGE_SRC } from '@/components/ProductImage';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { BottomNav } from '@/components/BottomNav';
 import { SettingsPage } from '@/components/SettingsPage';
 import type { AccessTier, CatalogItem, UserRole } from '@/lib/types';
+
+function FullscreenImageViewer({ src, onClose }: { src: string; onClose: () => void }) {
+  const [scale, setScale] = useState(1);
+  const lastDistRef = useRef(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const lastTapRef = useRef(0);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    let rafId = 0;
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        if (rafId) return;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        rafId = requestAnimationFrame(() => {
+          rafId = 0;
+          const distSq = dx * dx + dy * dy;
+          if (lastDistRef.current > 0) {
+            setScale((prev) => Math.min(4, Math.max(1, prev * Math.sqrt(distSq / lastDistRef.current))));
+          }
+          lastDistRef.current = distSq;
+        });
+      }
+    };
+    const onTouchEnd = () => { lastDistRef.current = 0; if (rafId) { cancelAnimationFrame(rafId); rafId = 0; } };
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd);
+    return () => { el.removeEventListener('touchmove', onTouchMove); el.removeEventListener('touchend', onTouchEnd); if (rafId) cancelAnimationFrame(rafId); };
+  }, []);
+
+  const handleDoubleTap = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) setScale((prev) => (prev > 1 ? 1 : 2.5));
+    lastTapRef.current = now;
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col animate-in fade-in duration-200" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <button onClick={onClose} className="absolute right-4 z-10 w-11 h-11 bg-white/15 backdrop-blur-sm rounded-full flex items-center justify-center text-white active:scale-90 transition-all" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
+        <X className="w-5 h-5" />
+      </button>
+      <div ref={containerRef} className="flex-1 relative w-full overflow-hidden" onClick={handleDoubleTap}>
+        <div className="absolute inset-0 flex items-center justify-center transition-transform duration-200" style={{ transform: `scale(${scale})` }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={src || FALLBACK_IMAGE_SRC} alt="Product image" className="max-h-full max-w-full object-contain" referrerPolicy="no-referrer" onError={(e) => { const el = e.currentTarget; if (!el.src.endsWith(FALLBACK_IMAGE_SRC)) el.src = FALLBACK_IMAGE_SRC; }} />
+        </div>
+      </div>
+      <div className="shrink-0 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3">
+        <p className="text-center text-white/40 text-[10px]">{scale > 1 ? 'แตะ 2 ครั้งเพื่อย่อ' : 'แตะ 2 ครั้งเพื่อขยาย • ใช้ 2 นิ้วซูม'}</p>
+      </div>
+    </div>
+  );
+}
 
 const BRAND_COLORS = [
   'bg-blue-50 text-blue-700 border-blue-200', 'bg-purple-50 text-purple-700 border-purple-200',
@@ -35,6 +91,7 @@ type CatalogResponse = {
   accessTier: AccessTier;
   isLoggedIn: boolean;
   userRole: UserRole | null;
+  userName: string | null;
   items: CatalogItem[];
 };
 
@@ -78,6 +135,7 @@ export default function CatalogPage() {
   const accessTier = data?.accessTier ?? 'public';
   const isLoggedIn = data?.isLoggedIn ?? false;
   const userRole = data?.userRole ?? null;
+  const userName = data?.userName ?? undefined;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [stockFilter, setStockFilter] = useState<StockFilter>('inStock');
@@ -85,6 +143,7 @@ export default function CatalogPage() {
   const [brandFilter, setBrandFilter] = useState('');
   const [sort, setSort] = useState<SortOption>('nameAsc');
   const [selectedItem, setSelectedItem] = useState<CatalogItem | null>(null);
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -213,6 +272,31 @@ export default function CatalogPage() {
                 </button>
               )}
             </div>
+
+            {/* Category chips */}
+            {facets.categories.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+                <button
+                  onClick={() => setCategoryFilter('')}
+                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    !categoryFilter ? 'bg-white text-[var(--brand-primary)]' : 'bg-white/20 text-white'
+                  }`}
+                >
+                  ทั้งหมด
+                </button>
+                {facets.categories.slice(0, 10).map((cat) => (
+                  <button
+                    key={cat.value}
+                    onClick={() => setCategoryFilter(categoryFilter === cat.value ? '' : cat.value)}
+                    className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      categoryFilter === cat.value ? 'bg-white text-[var(--brand-primary)]' : 'bg-white/20 text-white'
+                    }`}
+                  >
+                    {cat.value}
+                  </button>
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>
@@ -227,7 +311,7 @@ export default function CatalogPage() {
             onRefreshData={() => mutate()}
             onResetPreferences={() => { setHapticsEnabled(true); window.localStorage.removeItem('sheetstock-haptics'); }}
             onLogout={async () => { await fetch('/api/auth/logout', { method: 'POST' }); router.push('/login'); }}
-            userRole={userRole ?? 'customer'} userName={undefined}
+            userRole={userRole ?? 'customer'} userName={userName}
             recentScans={[]} onClearRecentScans={() => {}} onScanItemClick={() => {}}
           />
         </div>
@@ -334,7 +418,10 @@ export default function CatalogPage() {
             return (
               <div className="px-5 pt-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
                 <div className="flex justify-center mb-4">
-                  <div className="relative h-40 w-40 rounded-2xl overflow-hidden bg-gray-100">
+                  <div
+                    className="relative h-40 w-40 rounded-2xl overflow-hidden bg-gray-100 cursor-pointer"
+                    onClick={() => setFullscreenImage(selectedItem.imageUrl || FALLBACK_IMAGE_SRC)}
+                  >
                     <ProductImage src={selectedItem.imageUrl} alt={selectedItem.name} sizes="160px" className="object-contain" />
                   </div>
                 </div>
@@ -444,6 +531,8 @@ export default function CatalogPage() {
       )}
 
       <BarcodeScannerSheet open={isScannerOpen} onOpenChange={setIsScannerOpen} onDetected={handleScanDetected} />
+
+      {fullscreenImage && <FullscreenImageViewer src={fullscreenImage} onClose={() => setFullscreenImage(null)} />}
 
       <style jsx global>{`
         .hide-scrollbar::-webkit-scrollbar { display: none; }
