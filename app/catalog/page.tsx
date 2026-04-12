@@ -419,10 +419,10 @@ export default function CatalogPage() {
               <div className="px-5 pt-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
                 <div className="flex justify-center mb-4">
                   <div
-                    className="relative h-40 w-40 rounded-2xl overflow-hidden bg-gray-100 cursor-pointer"
+                    className="relative h-48 w-48 rounded-2xl overflow-hidden bg-gray-100 cursor-pointer"
                     onClick={() => setFullscreenImage(selectedItem.imageUrl || FALLBACK_IMAGE_SRC)}
                   >
-                    <ProductImage src={selectedItem.imageUrl} alt={selectedItem.name} sizes="160px" className="object-contain" />
+                    <ProductImage src={selectedItem.imageUrl} alt={selectedItem.name} sizes="192px" className="object-cover" />
                   </div>
                 </div>
 

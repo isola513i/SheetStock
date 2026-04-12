@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Clock, Globe, Grid3X3, List, LogOut, RefreshCcw, ShieldCheck, Smartphone, Trash2, Vibrate } from 'lucide-react';
+import { Clock, Globe, Grid3X3, List, LogIn, LogOut, RefreshCcw, ShieldCheck, Smartphone, Trash2, UserPlus, Vibrate } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import type { InventoryViewMode, UserRole } from '@/lib/types';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { t, getLocale, setLocale, type Locale } from '@/lib/i18n';
@@ -69,6 +70,37 @@ function SettingRow({ icon, label, description, right, onClick }: {
   );
 }
 
+function GuestAccountSection() {
+  const router = useRouter();
+  return (
+    <div className="text-center">
+      <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-lg font-medium mx-auto mb-3">
+        ?
+      </div>
+      <p className="text-sm text-[var(--text-primary)] font-medium mb-1">ยังไม่ได้เข้าสู่ระบบ</p>
+      <p className="text-xs text-[var(--text-muted)] mb-4">เข้าสู่ระบบเพื่อดูราคาพิเศษ</p>
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={() => router.push('/login')}
+          className="flex-1 min-h-11 rounded-xl bg-[var(--brand-primary)] text-white text-sm inline-flex items-center justify-center gap-2 font-medium"
+        >
+          <LogIn className="h-4 w-4" />
+          เข้าสู่ระบบ
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push('/register')}
+          className="flex-1 min-h-11 rounded-xl border-2 border-[var(--brand-primary)] text-[var(--brand-primary)] text-sm inline-flex items-center justify-center gap-2 font-medium"
+        >
+          <UserPlus className="h-4 w-4" />
+          สมัครสมาชิก
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function SettingsPage({
   viewMode,
   hapticsEnabled,
@@ -101,38 +133,42 @@ export function SettingsPage({
     <main className="px-5 pb-28 pt-4 space-y-4">
       {/* Account */}
       <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl p-4">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="h-12 w-12 rounded-full bg-[var(--brand-primary)] flex items-center justify-center text-white text-lg font-medium">
-            {(userName ?? '?')[0].toUpperCase()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-[var(--text-primary)] truncate">{userName ?? t('settings.unknown', locale)}</p>
-            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${roleBg}`}>
-                <ShieldCheck className="h-3 w-3" />
-                {roleLabel}
-              </span>
-              {customerTier && (
-                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                  customerTier === 'Gold' ? 'bg-yellow-100 text-yellow-700' :
-                  customerTier === 'Silver' ? 'bg-gray-200 text-gray-700' :
-                  'bg-orange-100 text-orange-700'
-                }`}>
-                  {customerTier}
-                </span>
-              )}
+        {userName ? (
+          <>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-12 w-12 rounded-full bg-[var(--brand-primary)] flex items-center justify-center text-white text-lg font-medium">
+                {userName[0].toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-[var(--text-primary)] truncate">{userName}</p>
+                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${roleBg}`}>
+                    <ShieldCheck className="h-3 w-3" />
+                    {roleLabel}
+                  </span>
+                  {customerTier && (
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                      customerTier === 'Gold' ? 'bg-yellow-100 text-yellow-700' :
+                      customerTier === 'Silver' ? 'bg-gray-200 text-gray-700' :
+                      'bg-orange-100 text-orange-700'
+                    }`}>
+                      {customerTier}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-        {userName && (
-          <button
-            type="button"
-            onClick={onLogout}
-            className="w-full min-h-11 rounded-xl border border-red-200 text-red-500 text-sm inline-flex items-center justify-center gap-2 hover:bg-red-50 transition-colors"
-          >
-            <LogOut className="h-4 w-4" />
-            {t('settings.logout', locale)}
-          </button>
+            <button
+              type="button"
+              onClick={onLogout}
+              className="w-full min-h-11 rounded-xl border border-red-200 text-red-500 text-sm inline-flex items-center justify-center gap-2 hover:bg-red-50 transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              {t('settings.logout', locale)}
+            </button>
+          </>
+        ) : (
+          <GuestAccountSection />
         )}
       </section>
 

@@ -30,18 +30,40 @@ export async function middleware(request: NextRequest) {
   const accessUser = accessToken ? await verifyAccessToken(accessToken) : null;
   const isAuthenticated = Boolean(accessUser);
 
+  // Guest visiting root → redirect to catalog
+  if (pathname === '/' && !isAuthenticated) {
+    if (refreshToken) {
+      const userId = await verifyRefreshToken(refreshToken);
+      if (userId) {
+        const user = findUserById(userId);
+        if (user) {
+          // Logged-in customer → catalog, admin/sale → stay on /
+          const dest = user.role === 'customer' ? '/catalog' : '/';
+          const newAccess = await createAccessToken(user);
+          const response = dest === '/' ? NextResponse.next() : NextResponse.redirect(new URL(dest, request.url));
+          response.cookies.set(ACCESS_COOKIE, newAccess, ACCESS_COOKIE_OPTIONS);
+          if (legacyToken) response.cookies.set(LEGACY_COOKIE, '', { path: '/', maxAge: 0 });
+          return response;
+        }
+      }
+    }
+    return NextResponse.redirect(new URL('/catalog', request.url));
+  }
+
   // Login/register pages
   if (pathname === '/login' || pathname === '/register') {
     if (isAuthenticated) {
-      return NextResponse.redirect(new URL('/', request.url));
+      const dest = accessUser?.role === 'customer' ? '/catalog' : '/';
+      return NextResponse.redirect(new URL(dest, request.url));
     }
     if (!isAuthenticated && refreshToken) {
       const userId = await verifyRefreshToken(refreshToken);
       if (userId) {
         const user = findUserById(userId);
         if (user) {
+          const dest = user.role === 'customer' ? '/catalog' : '/';
           const newAccess = await createAccessToken(user);
-          const response = NextResponse.redirect(new URL('/', request.url));
+          const response = NextResponse.redirect(new URL(dest, request.url));
           response.cookies.set(ACCESS_COOKIE, newAccess, ACCESS_COOKIE_OPTIONS);
           if (legacyToken) response.cookies.set(LEGACY_COOKIE, '', { path: '/', maxAge: 0 });
           return response;
@@ -51,7 +73,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Protected page routes
+  // Protected page routes (admin pages)
   if (isProtectedPath(pathname)) {
     if (isAuthenticated) {
       const response = NextResponse.next();
