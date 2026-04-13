@@ -9,12 +9,12 @@ import { t, getLocale, type Locale } from '@/lib/i18n';
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [identifier, setIdentifier] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [identifierError, setIdentifierError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [locale, setLocaleState] = useState<Locale>('th');
 
@@ -22,15 +22,15 @@ export default function LoginPage() {
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setIdentifierError('');
+    setPhoneError('');
     setPasswordError('');
     setLoading(true);
     setError('');
-    const normalizedId = identifier.trim();
+    const normalizedPhone = phone.trim();
     const normalizedPassword = password.trim();
 
-    if (!normalizedId) {
-      setIdentifierError('กรุณากรอกเบอร์โทรหรืออีเมล');
+    if (!normalizedPhone) {
+      setPhoneError('กรุณากรอกเบอร์โทร');
       setLoading(false);
       return;
     }
@@ -40,11 +40,7 @@ export default function LoginPage() {
       return;
     }
 
-    // Auto-detect: if contains @ it's email, otherwise phone
-    const isEmail = normalizedId.includes('@');
-    const body = isEmail
-      ? { email: normalizedId, password: normalizedPassword }
-      : { phone: normalizedId, password: normalizedPassword };
+    const body = { phone: normalizedPhone, password: normalizedPassword };
 
     try {
       const response = await fetch('/api/auth/login', {
@@ -77,15 +73,16 @@ export default function LoginPage() {
 
         <form onSubmit={onSubmit} className="mt-9 space-y-4">
           <div>
-            <label className="mb-2 block text-[1.12rem] text-gray-900">เบอร์โทร หรือ อีเมล</label>
+            <label className="mb-2 block text-[1.12rem] text-gray-900">เบอร์โทร</label>
             <input
-              type="text"
-              placeholder="กรอกเบอร์โทร หรือ อีเมล"
-              value={identifier}
-              onChange={(event) => setIdentifier(event.target.value)}
-              className={`h-14 w-full rounded-lg border bg-[#F3F3F3] px-4 text-lg outline-none ${identifierError ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-[var(--brand-primary)]'}`}
+              type="tel"
+              inputMode="tel"
+              placeholder="กรอกเบอร์โทร"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value.replace(/\D/g, '').slice(0, 10))}
+              className={`h-14 w-full rounded-lg border bg-[#F3F3F3] px-4 text-lg outline-none ${phoneError ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-[var(--brand-primary)]'}`}
             />
-            {identifierError ? <p className="mt-1 text-xs text-red-500">{identifierError}</p> : null}
+            {phoneError ? <p className="mt-1 text-xs text-red-500">{phoneError}</p> : null}
           </div>
 
           <div>

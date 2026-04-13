@@ -22,11 +22,9 @@ export type UserRole = 'admin' | 'sale' | 'customer';
 
 export interface AppUser {
   id: string;
-  email?: string;
   phone?: string;
   name: string;
   role: UserRole;
-  customerId?: string;
 }
 
 export interface AuthSession {
@@ -40,7 +38,6 @@ export type RegistrationStatus = 'pending' | 'approved' | 'rejected';
 export interface CustomerRegistration {
   id: string;
   name: string;
-  email: string;
   password: string;
   storeName: string;
   phone: string;

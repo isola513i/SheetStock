@@ -180,7 +180,6 @@ export default function AdminApprovalsPage() {
                       </span>
                     </div>
                     <div className="text-xs text-gray-400 space-y-0.5">
-                      <p>{reg.email}</p>
                       <p>{reg.phone}</p>
                       <p>สมัครเมื่อ {new Date(reg.createdAt).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                     </div>

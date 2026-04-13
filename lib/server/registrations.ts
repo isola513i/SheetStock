@@ -2,7 +2,7 @@ import 'server-only';
 
 import { randomUUID } from 'node:crypto';
 import type { CustomerRegistration } from '@/lib/types';
-import { loadUsersFromSheet, appendUserToSheet, updateUserFieldsInSheet, phoneExistsInSheet, hashPassword } from '@/lib/server/users-sheet';
+import { loadUsersFromSheet, appendUserToSheet, updateUserFieldsInSheet, phoneExistsInSheet } from '@/lib/server/users-sheet';
 
 export async function createRegistration(data: {
   name: string;
@@ -17,23 +17,19 @@ export async function createRegistration(data: {
   }
 
   const id = `u-${randomUUID().slice(0, 8)}`;
-  const hashedPassword = await hashPassword(data.password);
 
   await appendUserToSheet({
     id,
-    email: '',
+    phone,
     name: data.name.trim(),
     role: 'customer',
-    customerId: '',
-    password: hashedPassword,
-    phone,
+    password: data.password,
     status: 'pending',
   });
 
   const registration: CustomerRegistration = {
     id,
     name: data.name.trim(),
-    email: '',
     password: '***',
     storeName: data.storeName.trim(),
     phone,
@@ -51,7 +47,6 @@ export async function getPendingRegistrations(): Promise<CustomerRegistration[]>
     .map((u) => ({
       id: u.id,
       name: u.name,
-      email: u.email,
       password: '***',
       storeName: u.name,
       phone: u.phone,
@@ -67,7 +62,6 @@ export async function getAllRegistrations(): Promise<CustomerRegistration[]> {
     .map((u) => ({
       id: u.id,
       name: u.name,
-      email: u.email,
       password: '***',
       storeName: u.name,
       phone: u.phone,
@@ -84,7 +78,6 @@ export async function findRegistrationByPhone(phone: string): Promise<CustomerRe
   return {
     id: user.id,
     name: user.name,
-    email: user.email,
     password: '***',
     storeName: user.name,
     phone: user.phone,
@@ -107,9 +100,8 @@ export async function approveRegistration(
     return { ok: false, error: 'ระดับลูกค้าไม่ถูกต้อง' };
   }
 
-  const customerId = `c-${randomUUID().slice(0, 6)}`;
   const status = tierId === 'vvip' ? 'ผู้เข้าถึงทั้งหมด' : 'ดูสินค้า';
-  await updateUserFieldsInSheet(id, { status, customerId });
+  await updateUserFieldsInSheet(id, { status });
 
   return { ok: true };
 }

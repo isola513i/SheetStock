@@ -20,7 +20,7 @@ function getTokenSecret(): string {
 
 // --- Users cache (populated by users-sheet.ts, read by middleware via findUserById) ---
 
-type CachedUser = AppUser & { password: string; status: string; phone?: string };
+type CachedUser = AppUser & { password: string; status: string };
 
 let usersCacheMap: Map<string, CachedUser> | null = null;
 
@@ -134,11 +134,9 @@ export function findUserById(id: string): AppUser | null {
   if (!matched || !VALID_STATUSES.includes(matched.status)) return null;
   return {
     id: matched.id,
-    email: matched.email || undefined,
     phone: matched.phone || undefined,
     name: matched.name,
     role: matched.role,
-    ...(matched.customerId ? { customerId: matched.customerId } : {}),
   };
 }
 

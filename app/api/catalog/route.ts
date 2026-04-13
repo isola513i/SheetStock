@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequestUser } from '@/lib/server/api-auth';
 import { loadInventoryFromGoogleSheets, invalidateInventoryCache } from '@/lib/server/inventory';
-import { findUserByPhone, findUserByEmail, getUserAccessTier } from '@/lib/server/users-sheet';
+import { findUserByPhone, getUserAccessTier } from '@/lib/server/users-sheet';
 import type { AccessTier, CatalogItem } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
@@ -19,11 +19,7 @@ export async function GET(request: NextRequest) {
     if (user.role === 'admin' || user.role === 'sale') {
       accessTier = 'vvip';
     } else {
-      const sheetUser = user.phone
-        ? await findUserByPhone(user.phone)
-        : user.email
-          ? await findUserByEmail(user.email)
-          : null;
+      const sheetUser = user.phone ? await findUserByPhone(user.phone) : null;
       accessTier = sheetUser ? getUserAccessTier(sheetUser) : 'public';
     }
   }

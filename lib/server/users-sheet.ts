@@ -1,7 +1,6 @@
 import 'server-only';
 
 import { google } from 'googleapis';
-import bcrypt from 'bcryptjs';
 import type { AccessTier, AppUser, UserRole } from '@/lib/types';
 import { setUsersCache } from './auth';
 import { getGoogleSheetsAuth } from './google-auth';
@@ -10,12 +9,10 @@ import { getGoogleSheetsAuth } from './google-auth';
 
 export type UserRecord = {
   id: string;
-  email: string;
+  phone: string;
   name: string;
   role: UserRole;
-  customerId: string;
   password: string;
-  phone: string;
   status: string;
 };
 
@@ -48,7 +45,7 @@ export async function loadUsersFromSheet(): Promise<UserRecord[]> {
     const sheets = google.sheets({ version: 'v4' });
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: 'Users!A:H',
+      range: 'Users!A:F',
       auth,
     });
 
@@ -57,14 +54,12 @@ export async function loadUsersFromSheet(): Promise<UserRecord[]> {
 
     const users = rows.slice(1).map((row) => ({
       id: safe(row[0]),
-      email: safe(row[1]),
+      phone: safe(row[1]),
       name: safe(row[2]),
       role: (safe(row[3]) || 'customer') as UserRole,
-      customerId: safe(row[4]),
-      password: safe(row[5]),
-      phone: safe(row[6]),
-      status: safe(row[7]) || 'active',
-    })).filter((u) => u.id && (u.email || u.phone));
+      password: safe(row[4]),
+      status: safe(row[5]) || 'active',
+    })).filter((u) => u.id && u.phone);
 
     usersCache = { data: users, timestamp: Date.now() };
     return users;
@@ -85,18 +80,16 @@ export async function appendUserToSheet(user: UserRecord): Promise<void> {
 
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: 'Users!A:H',
+    range: 'Users!A:F',
     auth,
     valueInputOption: 'RAW',
     requestBody: {
       values: [[
         user.id,
-        user.email,
+        user.phone,
         user.name,
         user.role,
-        user.customerId,
         user.password,
-        user.phone,
         user.status,
       ]],
     },
@@ -109,7 +102,7 @@ export async function appendUserToSheet(user: UserRecord): Promise<void> {
 
 export async function updateUserFieldsInSheet(
   userId: string,
-  updates: Partial<Pick<UserRecord, 'status' | 'customerId' | 'role'>>,
+  updates: Partial<Pick<UserRecord, 'status' | 'role'>>,
 ): Promise<boolean> {
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
   if (!spreadsheetId) return false;
@@ -119,7 +112,7 @@ export async function updateUserFieldsInSheet(
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: 'Users!A:H',
+    range: 'Users!A:F',
     auth,
   });
 
@@ -127,8 +120,8 @@ export async function updateUserFieldsInSheet(
   const rowIndex = rows.findIndex((row, idx) => idx > 0 && safe(row[0]) === userId);
   if (rowIndex === -1) return false;
 
-  // Column mapping: D=role(3), E=customerId(4), H=status(7)
-  const columnMap: Record<string, number> = { role: 3, customerId: 4, status: 7 };
+  // Column mapping: D=role(3), F=status(5)
+  const columnMap: Record<string, number> = { role: 3, status: 5 };
 
   for (const [field, value] of Object.entries(updates)) {
     const colIndex = columnMap[field];
@@ -151,32 +144,21 @@ export async function updateUserFieldsInSheet(
 
 const VALID_STATUSES = ['active', 'ดูสินค้า', 'ผู้เข้าถึงทั้งหมด'];
 
-export function getUserAccessTier(user: { role: string; status: string; customerId?: string }): AccessTier {
+export function getUserAccessTier(user: { role: string; status: string }): AccessTier {
   if (user.role === 'admin' || user.role === 'sale') return 'vvip';
   const s = user.status;
   if (s === 'ผู้เข้าถึงทั้งหมด') return 'vvip';
   if (s === 'ดูสินค้า') return 'vip';
-  // 'active' only grants VIP if user was explicitly approved (has customerId)
-  if (s === 'active' && user.customerId) return 'vip';
+  if (s === 'active') return 'vip';
   return 'public';
 }
 
 // --- Queries ---
 
-export async function findUserByEmail(email: string): Promise<UserRecord | null> {
-  const users = await loadUsersFromSheet();
-  const normalized = email.trim().toLowerCase();
-  return users.find((u) => u.email.toLowerCase() === normalized) ?? null;
-}
-
 export async function findUserByPhone(phone: string): Promise<UserRecord | null> {
   const users = await loadUsersFromSheet();
   const normalized = phone.trim().replace(/\D/g, '');
   return users.find((u) => u.phone.replace(/\D/g, '') === normalized) ?? null;
-}
-
-export async function emailExistsInSheet(email: string): Promise<boolean> {
-  return (await findUserByEmail(email)) !== null;
 }
 
 export async function phoneExistsInSheet(phone: string): Promise<boolean> {
@@ -185,42 +167,29 @@ export async function phoneExistsInSheet(phone: string): Promise<boolean> {
 
 // --- Authentication ---
 
-export async function authenticate(identifier: string, password: string): Promise<AppUser | null> {
+export async function authenticate(phone: string, password: string): Promise<AppUser | null> {
   const users = await loadUsersFromSheet();
 
-  const normalized = identifier.trim().toLowerCase();
-  const isPhone = /^\d{9,10}$/.test(normalized.replace(/\D/g, ''));
+  const normalized = phone.trim().replace(/\D/g, '');
 
   const matched = users.find((u) => {
     const statusOk = VALID_STATUSES.includes(u.status);
-    if (isPhone) {
-      return u.phone.replace(/\D/g, '') === normalized.replace(/\D/g, '') && statusOk;
-    }
-    return u.email.toLowerCase() === normalized && statusOk;
+    return u.phone.replace(/\D/g, '') === normalized && statusOk;
   });
   if (!matched) return null;
 
-  const valid = await bcrypt.compare(password, matched.password);
-  if (!valid) return null;
+  if (password !== matched.password) return null;
 
   // Update cache for findUserById in middleware
   setUsersCache(users.map((u) => ({
-    id: u.id, email: u.email, phone: u.phone, name: u.name, role: u.role,
-    customerId: u.customerId || undefined, password: u.password, status: u.status,
+    id: u.id, phone: u.phone, name: u.name, role: u.role,
+    password: u.password, status: u.status,
   })));
 
   return {
     id: matched.id,
-    email: matched.email || undefined,
     phone: matched.phone || undefined,
     name: matched.name,
     role: matched.role,
-    ...(matched.customerId ? { customerId: matched.customerId } : {}),
   };
-}
-
-// --- Password hashing ---
-
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 10);
 }
