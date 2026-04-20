@@ -413,17 +413,12 @@ export default function CatalogPage() {
                           )}
                           <h3 className="font-semibold text-[13px] text-gray-900 leading-tight line-clamp-2">{[item.brand, item.category, item.series].filter(Boolean).join(' ') || item.name || item.barcode}</h3>
                           {item.category && <p className="text-[11px] text-gray-400 mt-0.5 truncate">{item.category}</p>}
-                          <div className="flex items-center justify-between mt-1.5">
-                            <div>
-                              {displayPrice !== item.price && item.price > 0 && (
-                                <p className="text-[11px] text-gray-400 line-through">฿{Math.round(item.price)}</p>
-                              )}
-                              <p className="text-base font-bold text-[var(--brand-primary)]">
-                                {displayPrice > 0 ? `฿${Math.round(displayPrice)}` : '-'}
-                              </p>
-                            </div>
-                            {item.quantityPerBox && (
-                              <span className="text-[10px] text-gray-400">{item.quantityPerBox}</span>
+                          <div className="flex items-end justify-between mt-1.5">
+                            <p className="text-base font-bold text-[var(--brand-primary)] leading-none">
+                              {displayPrice > 0 ? `฿${Math.round(displayPrice)}` : '-'}
+                            </p>
+                            {item.stock > 0 && (
+                              <p className="text-[12px] text-gray-400 leading-none">เหลือ {item.stock} ชิ้น</p>
                             )}
                           </div>
                         </div>

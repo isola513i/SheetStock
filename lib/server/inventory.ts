@@ -102,7 +102,7 @@ export function parseInventoryQuery(searchParams: URLSearchParams): Required<Inv
 
 // In-memory cache for inventory data — avoids redundant Google Sheets calls
 let inventoryCache: { data: InventoryItem[]; timestamp: number } | null = null;
-const INVENTORY_CACHE_TTL = 5 * 60_000; // 5 minutes
+const INVENTORY_CACHE_TTL = process.env.NODE_ENV === 'production' ? 5 * 60_000 : 30_000; // 5min prod, 30s dev
 
 export function invalidateInventoryCache() {
   inventoryCache = null;
@@ -192,7 +192,7 @@ export async function fetchInventoryFromGoogleSheets(): Promise<InventoryItem[]>
         vipPrice: safeNumber(row[12]),
         vvipPrice: safeNumber(row[13]),
       };
-    });
+    }).filter((item) => item.barcode); // Skip empty rows
 
     // Merge rows with the same barcode — sum quantities, keep first row's metadata
     const merged = new Map<string, InventoryItem>();
