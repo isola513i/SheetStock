@@ -73,7 +73,7 @@ export async function getAllRegistrations(): Promise<CustomerRegistration[]> {
 export async function findRegistrationByPhone(phone: string): Promise<CustomerRegistration | undefined> {
   const users = await loadUsersFromSheet();
   const normalized = phone.trim().replace(/\D/g, '');
-  const user = users.find((u) => u.phone.replace(/\D/g, '') === normalized && !['active', 'ดูสินค้า', 'ผู้เข้าถึงทั้งหมด'].includes(u.status));
+  const user = users.find((u) => u.phone.replace(/\D/g, '') === normalized && !['active', 'ดูสินค้า', 'ผู้เข้าถึงทั้งหมด', 'ผู้ดูแล'].includes(u.status));
   if (!user) return undefined;
   return {
     id: user.id,

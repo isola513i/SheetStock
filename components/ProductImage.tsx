@@ -1,7 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-
 export const FALLBACK_IMAGE_SRC = '/icons/icon-192x192.png';
 
 type ProductImageProps = {
@@ -16,7 +14,7 @@ type ProductImageProps = {
 export function toSafeImageSrc(value: string) {
   const trimmed = (value ?? '').trim();
   if (!trimmed) return '';
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return `/api/image-proxy?url=${encodeURIComponent(trimmed)}`;
   if (trimmed.startsWith('/')) return trimmed;
   return `/${trimmed.replace(/^\.?\/*/, '')}`;
 }
@@ -30,24 +28,21 @@ export function ProductImage({
   priority: _priority = false,
 }: ProductImageProps) {
   const safeSrc = toSafeImageSrc(src) || fallbackSrc;
-  const [imgSrc, setImgSrc] = useState(safeSrc);
-
-  useEffect(() => {
-    setImgSrc(safeSrc);
-  }, [safeSrc]);
 
   return (
     // Product image URLs come from company sheet data and may use arbitrary hosts.
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={imgSrc}
+      key={safeSrc}
+      src={safeSrc}
       alt={alt}
       className={`absolute inset-0 h-full w-full ${className}`}
       referrerPolicy="no-referrer"
       loading={_priority ? 'eager' : 'lazy'}
       decoding="async"
-      onError={() => {
-        if (imgSrc !== fallbackSrc) setImgSrc(fallbackSrc);
+      onError={(event) => {
+        const img = event.currentTarget;
+        if (!img.src.endsWith(fallbackSrc)) img.src = fallbackSrc;
       }}
     />
   );

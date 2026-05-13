@@ -7,12 +7,15 @@ import { useRouter } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 import PullToRefresh from 'pulltorefreshjs';
 import { useInventoryStream } from '@/lib/hooks/use-inventory-stream';
-import { ArrowUpDown, Search, SlidersHorizontal, X } from 'lucide-react';
-import { ProductImage, FALLBACK_IMAGE_SRC } from '@/components/ProductImage';
+import { ArrowUpDown, Plus, Search, ShoppingCart, SlidersHorizontal, X } from 'lucide-react';
+import { ProductImage, FALLBACK_IMAGE_SRC, toSafeImageSrc } from '@/components/ProductImage';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { BottomNav } from '@/components/BottomNav';
 import { SettingsPage } from '@/components/SettingsPage';
+import { useToast } from '@/components/ui/toast';
+import { CartSheet } from '@/components/catalog/CartSheet';
+import type { CartLine } from '@/components/catalog/quote-types';
 import type { AccessTier, CatalogItem, UserRole } from '@/lib/types';
 
 function FullscreenImageViewer({ src, onClose }: { src: string; onClose: () => void }) {
@@ -79,7 +82,7 @@ function FullscreenImageViewer({ src, onClose }: { src: string; onClose: () => v
       <div ref={containerRef} className="flex-1 relative w-full overflow-hidden" onClick={handleDoubleTap}>
         <div className="absolute inset-0 flex items-center justify-center transition-transform duration-200" style={{ transform: `scale(${scale})` }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src || FALLBACK_IMAGE_SRC} alt="Product image" className="max-h-full max-w-full object-contain" referrerPolicy="no-referrer" onError={(e) => { const el = e.currentTarget; if (!el.src.endsWith(FALLBACK_IMAGE_SRC)) el.src = FALLBACK_IMAGE_SRC; }} />
+          <img src={toSafeImageSrc(src) || FALLBACK_IMAGE_SRC} alt="Product image" className="max-h-full max-w-full object-contain" referrerPolicy="no-referrer" onError={(e) => { const el = e.currentTarget; if (!el.src.endsWith(FALLBACK_IMAGE_SRC)) el.src = FALLBACK_IMAGE_SRC; }} />
         </div>
       </div>
       <div className="shrink-0 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 flex flex-col items-center gap-3">
@@ -119,6 +122,7 @@ type CatalogResponse = {
   isLoggedIn: boolean;
   userRole: UserRole | null;
   userName: string | null;
+  customerPhone: string | null;
   items: CatalogItem[];
 };
 
@@ -146,8 +150,31 @@ const fetcher = async (url: string) => {
   return (await res.json()) as CatalogResponse;
 };
 
+const CART_STORAGE_KEY = 'sheetstock-cart-v1';
+
+function clampQuantity(quantity: number, stock: number) {
+  return Math.max(1, Math.min(Math.floor(quantity), Math.max(1, stock)));
+}
+
+function toCartLine(item: CatalogItem, accessTier: AccessTier, quantity: number): CartLine {
+  return {
+    productId: item.productId,
+    barcode: item.barcode,
+    name: item.name,
+    brand: item.brand,
+    category: item.category,
+    series: item.series,
+    imageUrl: item.imageUrl,
+    unitPrice: getDisplayPrice(item, accessTier),
+    quantity: clampQuantity(quantity, item.stock),
+    stock: item.stock,
+    quantityPerBox: item.quantityPerBox,
+  };
+}
+
 export default function CatalogPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
   const isValidatingRef = useRef(false);
   const CATALOG_BATCH = 20;
@@ -210,12 +237,37 @@ export default function CatalogPage() {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [cartLines, setCartLines] = useState<CartLine[]>([]);
   const [activeTab, setActiveTab] = useState<'catalog' | 'settings'>('catalog');
   const [hapticsEnabled, setHapticsEnabled] = useState(() => {
     if (typeof window === 'undefined') return true;
     return window.localStorage.getItem('sheetstock-haptics') !== 'off';
   });
   useEffect(() => { window.localStorage.setItem('sheetstock-haptics', hapticsEnabled ? 'on' : 'off'); }, [hapticsEnabled]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const raw = window.localStorage.getItem(CART_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as CartLine[];
+      if (Array.isArray(parsed)) {
+        timer = setTimeout(() => setCartLines(parsed), 0);
+      }
+    } catch {
+      window.localStorage.removeItem(CART_STORAGE_KEY);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartLines));
+  }, [cartLines]);
 
   const facets = useMemo(() => {
     const allItems = data?.items ?? [];
@@ -259,6 +311,45 @@ export default function CatalogPage() {
     return list;
   }, [data, searchQuery, stockFilter, categoryFilter, brandFilter, sort, accessTier]);
 
+  const catalogById = useMemo(() => {
+    return new Map((data?.items ?? []).map((item) => [item.productId, item]));
+  }, [data]);
+
+  useEffect(() => {
+    if (!data) return;
+    let changed = false;
+    let clamped = false;
+    const next = cartLines.flatMap((line) => {
+      const item = catalogById.get(line.productId);
+      if (!item || item.stock <= 0) {
+        changed = true;
+        return [];
+      }
+      const updated = toCartLine(item, accessTier, line.quantity);
+      if (updated.quantity !== line.quantity) clamped = true;
+      if (
+        updated.unitPrice !== line.unitPrice ||
+        updated.stock !== line.stock ||
+        updated.quantity !== line.quantity ||
+        updated.name !== line.name ||
+        updated.imageUrl !== line.imageUrl
+      ) {
+        changed = true;
+      }
+      return [updated];
+    });
+    if (changed) {
+      const timer = setTimeout(() => {
+        setCartLines(next);
+        if (clamped) toast('จำนวนสินค้าในตะกร้าถูกปรับตามสต็อกล่าสุด', 'warning');
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [data, catalogById, accessTier, cartLines, toast]);
+
+  const cartItemCount = cartLines.reduce((sum, line) => sum + line.quantity, 0);
+  const cartTotal = cartLines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
+
   // Infinite scroll
   useEffect(() => {
     const el = loadMoreRef.current;
@@ -277,6 +368,7 @@ export default function CatalogPage() {
   useEffect(() => {
     const target = scrollRef.current;
     if (!target || activeTab === 'settings') return;
+    PullToRefresh.setPointerEventsMode?.(true);
     PullToRefresh.init({
       mainElement: '#catalog-scroll', triggerElement: '#catalog-scroll',
       distThreshold: 72, distMax: 96, distReload: 64,
@@ -294,6 +386,41 @@ export default function CatalogPage() {
     resetCatalogPagination();
     setSearchQuery(barcode);
   }, [resetCatalogPagination]);
+
+  const addToCart = useCallback((item: CatalogItem, quantity = 1) => {
+    if (item.stock <= 0) {
+      toast('สินค้านี้หมดสต็อก', 'warning');
+      return;
+    }
+    setCartLines((current) => {
+      const existing = current.find((line) => line.productId === item.productId);
+      if (existing) {
+        return current.map((line) => (
+          line.productId === item.productId
+            ? toCartLine(item, accessTier, line.quantity + quantity)
+            : line
+        ));
+      }
+      return [...current, toCartLine(item, accessTier, quantity)];
+    });
+    toast('เพิ่มสินค้าเข้าตะกร้าแล้ว', 'success');
+  }, [accessTier, toast]);
+
+  const updateCartQuantity = useCallback((productId: string, quantity: number) => {
+    setCartLines((current) => current.flatMap((line) => {
+      if (line.productId !== productId) return [line];
+      if (quantity <= 0) return [];
+      return [{ ...line, quantity: clampQuantity(quantity, line.stock) }];
+    }));
+  }, []);
+
+  const removeCartLine = useCallback((productId: string) => {
+    setCartLines((current) => current.filter((line) => line.productId !== productId));
+  }, []);
+
+  const clearCart = useCallback(() => {
+    setCartLines([]);
+  }, []);
 
   const isSettingsTab = activeTab === 'settings';
   const activeFilterCount = (categoryFilter ? 1 : 0) + (brandFilter ? 1 : 0);
@@ -567,9 +694,22 @@ export default function CatalogPage() {
                   )}
                 </div>
 
-                <button onClick={() => setSelectedItem(null)} className="w-full h-12 rounded-xl bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-sm font-medium">
-                  ปิด
-                </button>
+                <div className="grid grid-cols-[0.8fr_1.2fr] gap-2">
+                  <button onClick={() => setSelectedItem(null)} className="h-12 rounded-xl bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-sm font-medium">
+                    ปิด
+                  </button>
+                  <button
+                    onClick={() => {
+                      addToCart(selectedItem);
+                      setSelectedItem(null);
+                    }}
+                    disabled={selectedItem.stock <= 0}
+                    className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[var(--brand-primary)] text-white text-sm font-medium disabled:opacity-50"
+                  >
+                    <Plus className="h-4 w-4" />
+                    เพิ่มลงตะกร้า
+                  </button>
+                </div>
               </div>
             );
           })()}
@@ -624,6 +764,40 @@ export default function CatalogPage() {
           setBrandFilter('');
         }}
       />
+
+      {!isSettingsTab && cartLines.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setIsCartOpen(true)}
+          className="fixed left-3.5 right-3.5 z-50 flex h-[52px] items-center justify-between rounded-[18px] bg-[var(--brand-primary)] px-3.5 text-white shadow-lg shadow-orange-900/18 active:scale-[0.99] transition-transform"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 64px)' }}
+          aria-label="เปิดตะกร้าสินค้า"
+        >
+          <span className="flex min-w-0 items-center gap-2.5">
+            <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/18">
+              <ShoppingCart className="h-4 w-4" />
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold text-[var(--brand-primary)]">{cartItemCount}</span>
+            </span>
+            <span className="min-w-0 text-left">
+              <span className="block text-sm font-semibold leading-tight">ดูตะกร้า</span>
+              <span className="block truncate text-[11px] leading-tight text-white/78">{cartItemCount} ชิ้นสำหรับใบสั่งซื้อ</span>
+            </span>
+          </span>
+          <span className="shrink-0 pl-3 text-sm font-bold">฿{cartTotal.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+        </button>
+      )}
+
+      {isCartOpen && (
+        <CartSheet
+          open={isCartOpen}
+          onOpenChange={setIsCartOpen}
+          lines={cartLines}
+          customer={{ name: userName ?? 'ลูกค้า', phone: data?.customerPhone ?? null }}
+          onUpdateQuantity={updateCartQuantity}
+          onRemoveLine={removeCartLine}
+          onClearCart={clearCart}
+        />
+      )}
 
       {/* BottomNav - show for logged-in users, or simplified for guests */}
       {isLoggedIn && userRole ? (

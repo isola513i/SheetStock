@@ -346,6 +346,7 @@ function InventoryDashboardContent() {
     const target = scrollContainerRef.current;
     if (!target || isSettingsTab) return;
 
+    PullToRefresh.setPointerEventsMode?.(true);
     PullToRefresh.init({
       mainElement: '#inventory-scroll-container',
       triggerElement: '#inventory-scroll-container',

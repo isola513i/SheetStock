@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Clipboard, Package, X } from "lucide-react";
 import { t, getLocale, type Locale } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
-import { ProductImage, FALLBACK_IMAGE_SRC } from "@/components/ProductImage";
+import { ProductImage, FALLBACK_IMAGE_SRC, toSafeImageSrc } from "@/components/ProductImage";
 import { InventoryItem } from "@/lib/types";
 
 const FALLBACK_IMG = FALLBACK_IMAGE_SRC;
@@ -110,7 +110,7 @@ function FullscreenImageViewer({
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={src || FALLBACK_IMG}
+            src={toSafeImageSrc(src) || FALLBACK_IMG}
             alt="Product image"
             className="max-h-full max-w-full object-contain"
             referrerPolicy="no-referrer"

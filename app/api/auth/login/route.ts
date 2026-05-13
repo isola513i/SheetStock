@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   const phone = typeof body?.phone === 'string' ? body.phone : '';
   const password = typeof body?.password === 'string' ? body.password : '';
 
-  if (!phone) return NextResponse.json({ error: 'กรุณากรอกเบอร์โทร' }, { status: 400 });
+  if (!phone) return NextResponse.json({ error: 'กรุณากรอก ID หรือเบอร์โทร' }, { status: 400 });
 
   const user = await authenticate(phone, password);
   if (!user) {
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       if (reg.status === 'pending') return NextResponse.json({ error: 'บัญชีของคุณกำลังรอการอนุมัติจาก Admin' }, { status: 403 });
       if (reg.status === 'rejected') return NextResponse.json({ error: 'การสมัครถูกปฏิเสธ กรุณาติดต่อ Admin' }, { status: 403 });
     }
-    return NextResponse.json({ error: 'เบอร์โทรหรือรหัสผ่านไม่ถูกต้อง' }, { status: 401 });
+    return NextResponse.json({ error: 'ID/เบอร์โทรหรือรหัสผ่านไม่ถูกต้อง' }, { status: 401 });
   }
 
   const accessToken = await createAccessToken(user);

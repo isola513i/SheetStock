@@ -30,6 +30,32 @@ function safe(value: string | null | undefined): string {
   return value == null || value === '' ? '' : String(value);
 }
 
+function getUsersRange() {
+  return process.env.GOOGLE_USERS_RANGE ?? 'รหัสลูกค้า!A:E';
+}
+
+function getUsersSheetName() {
+  return getUsersRange().split('!')[0] || 'รหัสลูกค้า';
+}
+
+function roleFromStatus(status: string): UserRole {
+  if (status === 'ผู้ดูแล' || status.toLowerCase() === 'admin') return 'admin';
+  if (status === 'sale' || status === 'ฝ่ายขาย') return 'sale';
+  return 'customer';
+}
+
+function statusAllowsLogin(status: string) {
+  return VALID_STATUSES.includes(status);
+}
+
+function normalizePhone(phone: string) {
+  return phone.trim().replace(/\D/g, '');
+}
+
+function normalizeId(id: string) {
+  return id.trim().toLowerCase();
+}
+
 // --- Read ---
 
 export async function loadUsersFromSheet(): Promise<UserRecord[]> {
@@ -45,21 +71,27 @@ export async function loadUsersFromSheet(): Promise<UserRecord[]> {
     const sheets = google.sheets({ version: 'v4' });
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: 'Users!A:F',
+      range: getUsersRange(),
       auth,
     });
 
     const rows = (response.data.values ?? []) as (string | undefined | null)[][];
     if (rows.length <= 1) { usersCache = { data: [], timestamp: Date.now() }; return []; }
 
-    const users = rows.slice(1).map((row) => ({
-      id: safe(row[0]),
-      phone: safe(row[1]),
-      name: safe(row[2]),
-      role: (safe(row[3]) || 'customer') as UserRole,
-      password: safe(row[4]),
-      status: safe(row[5]) || 'active',
-    })).filter((u) => u.id && u.phone);
+    const users = rows.slice(1).map((row) => {
+      // Company auth sheet schema:
+      // A=ลำดับ, B=ID, C=PASSWORD, D=Phone Number, E=Status
+      const id = safe(row[1]);
+      const status = safe(row[4]) || 'ดูสินค้า';
+      return {
+        id,
+        phone: safe(row[3]),
+        name: id,
+        role: roleFromStatus(status),
+        password: safe(row[2]),
+        status,
+      };
+    }).filter((u) => u.id && u.password);
 
     usersCache = { data: users, timestamp: Date.now() };
     return users;
@@ -80,16 +112,15 @@ export async function appendUserToSheet(user: UserRecord): Promise<void> {
 
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: 'Users!A:F',
+    range: `${getUsersSheetName()}!A:E`,
     auth,
     valueInputOption: 'RAW',
     requestBody: {
       values: [[
+        '',
         user.id,
-        user.phone,
-        user.name,
-        user.role,
         user.password,
+        user.phone,
         user.status,
       ]],
     },
@@ -112,16 +143,16 @@ export async function updateUserFieldsInSheet(
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: 'Users!A:F',
+    range: getUsersRange(),
     auth,
   });
 
   const rows = (response.data.values ?? []) as string[][];
-  const rowIndex = rows.findIndex((row, idx) => idx > 0 && safe(row[0]) === userId);
+  const rowIndex = rows.findIndex((row, idx) => idx > 0 && safe(row[1]) === userId);
   if (rowIndex === -1) return false;
 
-  // Column mapping: D=role(3), F=status(5)
-  const columnMap: Record<string, number> = { role: 3, status: 5 };
+  // Company auth sheet has no role column. Role is derived from Status.
+  const columnMap: Record<string, number> = { status: 4 };
 
   for (const [field, value] of Object.entries(updates)) {
     const colIndex = columnMap[field];
@@ -129,7 +160,7 @@ export async function updateUserFieldsInSheet(
     const colLetter = String.fromCharCode(65 + colIndex); // A=65
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `Users!${colLetter}${rowIndex + 1}`,
+      range: `${getUsersSheetName()}!${colLetter}${rowIndex + 1}`,
       auth,
       valueInputOption: 'RAW',
       requestBody: { values: [[value]] },
@@ -142,7 +173,7 @@ export async function updateUserFieldsInSheet(
 
 // --- Access Tier ---
 
-const VALID_STATUSES = ['active', 'ดูสินค้า', 'ผู้เข้าถึงทั้งหมด'];
+const VALID_STATUSES = ['active', 'ดูสินค้า', 'ผู้เข้าถึงทั้งหมด', 'ผู้ดูแล'];
 
 export function getUserAccessTier(user: { role: string; status: string }): AccessTier {
   if (user.role === 'admin' || user.role === 'sale') return 'vvip';
@@ -157,8 +188,9 @@ export function getUserAccessTier(user: { role: string; status: string }): Acces
 
 export async function findUserByPhone(phone: string): Promise<UserRecord | null> {
   const users = await loadUsersFromSheet();
-  const normalized = phone.trim().replace(/\D/g, '');
-  return users.find((u) => u.phone.replace(/\D/g, '') === normalized) ?? null;
+  const normalized = normalizePhone(phone);
+  if (!normalized) return null;
+  return users.find((u) => normalizePhone(u.phone) === normalized) ?? null;
 }
 
 export async function phoneExistsInSheet(phone: string): Promise<boolean> {
@@ -170,11 +202,14 @@ export async function phoneExistsInSheet(phone: string): Promise<boolean> {
 export async function authenticate(phone: string, password: string): Promise<AppUser | null> {
   const users = await loadUsersFromSheet();
 
-  const normalized = phone.trim().replace(/\D/g, '');
+  const normalizedPhone = normalizePhone(phone);
+  const normalizedId = normalizeId(phone);
 
   const matched = users.find((u) => {
-    const statusOk = VALID_STATUSES.includes(u.status);
-    return u.phone.replace(/\D/g, '') === normalized && statusOk;
+    const statusOk = statusAllowsLogin(u.status);
+    const phoneMatches = normalizedPhone.length > 0 && normalizePhone(u.phone) === normalizedPhone;
+    const idMatches = normalizedId.length > 0 && normalizeId(u.id) === normalizedId;
+    return (phoneMatches || idMatches) && statusOk;
   });
   if (!matched) return null;
 
