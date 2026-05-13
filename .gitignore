@@ -20,5 +20,7 @@ coverage/
 .vscode/
 .idea/
 
+.agents/
 .npm-cache
 .serena/
+skills-lock.json
