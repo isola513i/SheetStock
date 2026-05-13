@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import Image from 'next/image';
+import { useEffect, useState } from 'react';
 
 export const FALLBACK_IMAGE_SRC = '/icons/icon-192x192.png';
 
@@ -27,21 +26,26 @@ export function ProductImage({
   alt,
   className = '',
   fallbackSrc = FALLBACK_IMAGE_SRC,
-  sizes = '(max-width: 768px) 50vw, 200px',
-  priority = false,
+  sizes: _sizes = '(max-width: 768px) 50vw, 200px',
+  priority: _priority = false,
 }: ProductImageProps) {
   const safeSrc = toSafeImageSrc(src) || fallbackSrc;
   const [imgSrc, setImgSrc] = useState(safeSrc);
 
+  useEffect(() => {
+    setImgSrc(safeSrc);
+  }, [safeSrc]);
+
   return (
-    <Image
+    // Product image URLs come from company sheet data and may use arbitrary hosts.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
       src={imgSrc}
       alt={alt}
-      fill
-      sizes={sizes}
-      className={className}
+      className={`absolute inset-0 h-full w-full ${className}`}
       referrerPolicy="no-referrer"
-      priority={priority}
+      loading={_priority ? 'eager' : 'lazy'}
+      decoding="async"
       onError={() => {
         if (imgSrc !== fallbackSrc) setImgSrc(fallbackSrc);
       }}

@@ -251,17 +251,6 @@ function InventoryDashboardContent() {
     setIsOpen(true);
   }, []);
 
-  const handleToggleFavorite = useCallback(async (barcode: string, favorite: boolean) => {
-    try {
-      const res = await fetch('/api/inventory/favorite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ barcode, favorite }),
-      });
-      if (res.ok) mutate();
-    } catch { /* ignore */ }
-  }, [mutate]);
-
   const clearFilters = () => {
     updateQuery({
       q: '',
@@ -581,7 +570,7 @@ function InventoryDashboardContent() {
             </div>
           </main>
             ) : (
-          <ProductList processedInventory={processedInventory} viewMode={viewMode} onItemClick={handleItemClick} onToggleFavorite={handleToggleFavorite} />
+          <ProductList processedInventory={processedInventory} viewMode={viewMode} onItemClick={handleItemClick} />
             )}
 
             <div className="h-24" />

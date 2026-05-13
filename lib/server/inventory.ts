@@ -109,6 +109,30 @@ export function invalidateInventoryCache() {
   facetCache = null;
 }
 
+const INVENTORY_COLUMNS = {
+  barcode: 0,       // A: บาร์โค้ด
+  boxBarcode: 1,    // B: บาร์โค้ดกล่อง
+  brand: 2,         // C: Brand
+  category: 3,      // D: หมวด
+  series: 4,        // E: Serie รุ่น
+  shortName: 5,     // F: ชื่อเรียก
+  name: 6,          // G: รวม
+  imagePath: 7,     // H: รูป
+  imageUrl: 8,      // I: URL ของรูป
+  expiryDate: 9,    // J: วันหมดอายุ
+  quantityPerBox: 10, // K: จำนวนลัง
+  image: 11,        // L: Image
+  quantity: 12,     // M: จำนวน
+  price: 13,        // N: ราคา
+  vvipPrice: 14,    // O: ราคาVVIP
+  status: 15,       // P: เปิด
+} as const;
+
+function isOpenProduct(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return !normalized || normalized === 'เปิด' || normalized === 'open' || normalized === 'active' || normalized === '1' || normalized === 'true';
+}
+
 export async function loadInventoryFromGoogleSheets(): Promise<InventoryItem[]> {
   if (inventoryCache && Date.now() - inventoryCache.timestamp < INVENTORY_CACHE_TTL) {
     return inventoryCache.data;
@@ -129,7 +153,7 @@ export async function fetchInventoryFromGoogleSheets(): Promise<InventoryItem[]>
     ?.trim();
   const apiKey = process.env.GOOGLE_API_KEY;
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:N';
+  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:P';
 
   if (!spreadsheetId || (!apiKey && (!clientEmail || !privateKey))) {
     return mockInventory;
@@ -173,26 +197,30 @@ export async function fetchInventoryFromGoogleSheets(): Promise<InventoryItem[]>
     if (rows.length <= 1) return [];
 
     const items = rows.slice(1).map((row, idx) => {
-      const barcode = safeString(row[0]);
+      const barcode = safeString(row[INVENTORY_COLUMNS.barcode]);
+      const shortName = safeString(row[INVENTORY_COLUMNS.shortName]);
+      const name = safeString(row[INVENTORY_COLUMNS.name]) || shortName;
+      const status = safeString(row[INVENTORY_COLUMNS.status]);
 
       return {
         id: barcode || String(idx + 1),
         barcode,
-        name: safeString(row[1]),
-        category: safeString(row[2]),
-        brand: safeString(row[3]),
-        series: safeString(row[4]),
-        price: safeNumber(row[5]),
-        quantity: safeNumber(row[6]),
-        expiryDate: safeString(row[7]),
-        quantityPerBox: safeString(row[8]),
-        notes: safeString(row[9]),
-        imageUrl: safeString(row[10]),
-        favorite: safeString(row[11]) === '1',
-        vipPrice: safeNumber(row[12]),
-        vvipPrice: safeNumber(row[13]),
+        name,
+        category: safeString(row[INVENTORY_COLUMNS.category]),
+        brand: safeString(row[INVENTORY_COLUMNS.brand]),
+        series: safeString(row[INVENTORY_COLUMNS.series]),
+        price: safeNumber(row[INVENTORY_COLUMNS.price]),
+        quantity: safeNumber(row[INVENTORY_COLUMNS.quantity]),
+        expiryDate: safeString(row[INVENTORY_COLUMNS.expiryDate]),
+        quantityPerBox: safeString(row[INVENTORY_COLUMNS.quantityPerBox]),
+        notes: shortName,
+        imageUrl: safeString(row[INVENTORY_COLUMNS.imageUrl]),
+        favorite: false,
+        vipPrice: safeNumber(row[INVENTORY_COLUMNS.price]),
+        vvipPrice: safeNumber(row[INVENTORY_COLUMNS.vvipPrice]),
+        status,
       };
-    }).filter((item) => item.barcode); // Skip empty rows
+    }).filter((item) => item.barcode && isOpenProduct(item.status)); // Skip empty/closed rows
 
     // Merge rows with the same barcode — sum quantities, keep first row's metadata
     const merged = new Map<string, InventoryItem>();
@@ -330,7 +358,7 @@ export async function appendProductToGoogleSheets(product: NewProduct): Promise<
     ?.replace(/\\"/g, '"')
     ?.trim();
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:N';
+  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:P';
 
   if (!spreadsheetId || !clientEmail || !privateKey) {
     return { ok: false, error: 'Google Sheets credentials not configured' };
@@ -344,29 +372,31 @@ export async function appendProductToGoogleSheets(product: NewProduct): Promise<
     });
 
     const sheets = google.sheets({ version: 'v4' });
-    // Use sheet name + A:N to anchor append at column A
+    // Use sheet name + A:P to anchor append at column A with the company sheet schema.
     const sheetName = range.split('!')[0] || 'inventory';
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: `${sheetName}!A:N`,
+      range: `${sheetName}!A:P`,
       auth,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [[
-          product.barcode,
-          product.name,
-          product.category,
-          product.brand,
-          product.series,
-          product.price,
-          product.quantity,
-          product.expiryDate,
-          product.quantityPerBox,
-          product.notes,
-          product.imageUrl,
-          '0',
-          '',
-          '',
+          product.barcode, // A: บาร์โค้ด
+          '', // B: บาร์โค้ดกล่อง
+          product.brand, // C: Brand
+          product.category, // D: หมวด
+          product.series, // E: Serie รุ่น
+          product.notes || product.name, // F: ชื่อเรียก
+          product.name, // G: รวม
+          '', // H: รูป
+          product.imageUrl, // I: URL ของรูป
+          product.expiryDate, // J: วันหมดอายุ
+          product.quantityPerBox, // K: จำนวนลัง
+          '', // L: Image
+          product.quantity, // M: จำนวน
+          product.price, // N: ราคา
+          '', // O: ราคาVVIP
+          'เปิด', // P: เปิด
         ]],
       },
     });
@@ -397,7 +427,7 @@ export async function updateProductQuantityInSheet(barcode: string, addQuantity:
     ?.replace(/\\"/g, '"')
     ?.trim();
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:N';
+  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:P';
 
   if (!spreadsheetId || !clientEmail || !privateKey) {
     return { ok: false, newQuantity: 0, error: 'Google Sheets credentials not configured' };
@@ -415,17 +445,17 @@ export async function updateProductQuantityInSheet(barcode: string, addQuantity:
     const rows = (response.data.values ?? []) as string[][];
 
     // Find row index (skip header at index 0)
-    const rowIndex = rows.findIndex((row, idx) => idx > 0 && safeString(row[0]) === barcode);
+    const rowIndex = rows.findIndex((row, idx) => idx > 0 && safeString(row[INVENTORY_COLUMNS.barcode]) === barcode);
     if (rowIndex === -1) {
       return { ok: false, newQuantity: 0, error: 'Product not found in sheet' };
     }
 
-    const currentQty = safeNumber(rows[rowIndex][6]);
+    const currentQty = safeNumber(rows[rowIndex][INVENTORY_COLUMNS.quantity]);
     const updatedRowQty = currentQty + addQuantity;
 
-    // Update column G (quantity) — sheet rows are 1-indexed, so rowIndex+1
+    // Update column M (จำนวน) — sheet rows are 1-indexed, so rowIndex+1
     const sheetName = range.split('!')[0] || 'inventory';
-    const cellRange = `${sheetName}!G${rowIndex + 1}`;
+    const cellRange = `${sheetName}!M${rowIndex + 1}`;
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: cellRange,
@@ -437,8 +467,8 @@ export async function updateProductQuantityInSheet(barcode: string, addQuantity:
     // Compute merged total across all rows with same barcode
     let mergedTotal = 0;
     for (let i = 1; i < rows.length; i++) {
-      if (safeString(rows[i][0]) === barcode) {
-        mergedTotal += i === rowIndex ? updatedRowQty : safeNumber(rows[i][6]);
+      if (safeString(rows[i][INVENTORY_COLUMNS.barcode]) === barcode) {
+        mergedTotal += i === rowIndex ? updatedRowQty : safeNumber(rows[i][INVENTORY_COLUMNS.quantity]);
       }
     }
 
@@ -454,59 +484,7 @@ export async function updateProductQuantityInSheet(barcode: string, addQuantity:
 }
 
 export async function toggleFavoriteInSheet(barcode: string, favorite: boolean): Promise<{ ok: boolean; error?: string }> {
-  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY
-    ?.replace(/^"/, '')
-    ?.replace(/"$/, '')
-    ?.replace(/\\n/g, '\n')
-    ?.replace(/\\"/g, '"')
-    ?.trim();
-  const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:N';
-
-  if (!spreadsheetId || !clientEmail || !privateKey) {
-    return { ok: false, error: 'Google Sheets credentials not configured' };
-  }
-
-  try {
-    const auth = new google.auth.JWT({
-      email: clientEmail,
-      key: privateKey,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
-
-    const sheets = google.sheets({ version: 'v4' });
-    const response = await sheets.spreadsheets.values.get({ spreadsheetId, range, auth });
-    const rows = (response.data.values ?? []) as string[][];
-
-    // Update all rows with matching barcode
-    const sheetName = range.split('!')[0] || 'inventory';
-    const value = favorite ? '1' : '0';
-    let found = false;
-
-    for (let i = 1; i < rows.length; i++) {
-      if (safeString(rows[i][0]) === barcode) {
-        found = true;
-        const cellRange = `${sheetName}!L${i + 1}`;
-        await sheets.spreadsheets.values.update({
-          spreadsheetId,
-          range: cellRange,
-          auth,
-          valueInputOption: 'USER_ENTERED',
-          requestBody: { values: [[value]] },
-        });
-      }
-    }
-
-    if (!found) return { ok: false, error: 'Product not found' };
-
-    inventoryCache = null;
-    facetCache = null;
-    notifyClientsIfConnected();
-
-    return { ok: true };
-  } catch (error) {
-    console.error('Failed to toggle favorite', error);
-    return { ok: false, error: 'Failed to update favorite' };
-  }
+  void barcode;
+  void favorite;
+  return { ok: true };
 }

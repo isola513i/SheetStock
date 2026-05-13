@@ -3,7 +3,10 @@ import './globals.css'; // Global styles
 import {PwaRegister} from './pwa-register';
 import {ToastProvider} from '@/components/ui/toast';
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: 'SheetStock',
   description: 'Mobile inventory dashboard powered by Google Sheets',
   manifest: '/manifest.webmanifest',

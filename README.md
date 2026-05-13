@@ -53,7 +53,7 @@ npm run dev
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Service account email |
 | `GOOGLE_PRIVATE_KEY` | Service account private key |
 | `GOOGLE_SHEET_ID` | Google Sheets spreadsheet ID |
-| `GOOGLE_SHEETS_RANGE` | Sheet range (default: `inventory!A:U`) |
+| `GOOGLE_SHEETS_RANGE` | Product sheet range (default: `inventory!A:P`; company sheet example: `สินค้า!A:P`) |
 
 ## Project Structure
 

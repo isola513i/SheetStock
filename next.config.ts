@@ -92,6 +92,18 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'euadmin.eurasiasupplies.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'rokbucket.rokomari.io',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
   allowedDevOrigins: ['ais-dev-mn33coyyccwqvarzdzrq55-820762866280.asia-southeast1.run.app'],
