@@ -194,10 +194,7 @@ export function ProductDetailSheet({
   setFullscreenImage,
 }: ProductDetailSheetProps) {
   const [copiedBarcode, setCopiedBarcode] = useState<string | null>(null);
-  const [locale, setLocaleState] = useState<Locale>("th");
-  useEffect(() => {
-    setLocaleState(getLocale());
-  }, []);
+  const [locale] = useState<Locale>(() => getLocale());
   const stock = getStockStatus(selectedItem?.quantity ?? 0, locale);
 
   const copyBarcode = useCallback((barcode: string) => {
@@ -243,18 +240,14 @@ export function ProductDetailSheet({
 
   const handleDragEnd = useCallback(() => {
     if (dragY > DISMISS_THRESHOLD) {
+      setDragY(0);
+      setIsDragging(false);
       onOpenChange(false);
+      return;
     }
     setDragY(0);
     setIsDragging(false);
   }, [dragY, onOpenChange]);
-
-  useEffect(() => {
-    if (!open) {
-      setDragY(0);
-      setIsDragging(false);
-    }
-  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -271,7 +264,11 @@ export function ProductDetailSheet({
         <div className="fixed inset-0 z-50">
           <button
             aria-label="Close detail"
-            onClick={() => onOpenChange(false)}
+            onClick={() => {
+              setDragY(0);
+              setIsDragging(false);
+              onOpenChange(false);
+            }}
             className="absolute inset-0 bg-black/35"
           />
           <div

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Clock, Globe, Grid3X3, List, LogIn, LogOut, RefreshCcw, ShieldCheck, Smartphone, Trash2, UserPlus, Vibrate } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { InventoryViewMode, UserRole } from '@/lib/types';
@@ -116,8 +116,7 @@ export function SettingsPage({
   onClearRecentScans,
   onScanItemClick,
 }: SettingsPageProps) {
-  const [locale, setLocaleState] = useState<Locale>('th');
-  useEffect(() => { setLocaleState(getLocale()); }, []);
+  const [locale, setLocaleState] = useState<Locale>(() => getLocale());
   const toggleLocale = () => {
     const next = locale === 'th' ? 'en' : 'th';
     setLocale(next);

@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import useSWR from 'swr';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { AnimatePresence } from 'motion/react';
+import { AnimatePresence } from 'framer-motion';
 import PullToRefresh from 'pulltorefreshjs';
 import { useInventoryStream } from '@/lib/hooks/use-inventory-stream';
 import { ArrowUpDown, Search, SlidersHorizontal, X } from 'lucide-react';
@@ -18,8 +18,18 @@ import type { AccessTier, CatalogItem, UserRole } from '@/lib/types';
 function FullscreenImageViewer({ src, onClose }: { src: string; onClose: () => void }) {
   const [scale, setScale] = useState(1);
   const lastDistRef = useRef(0);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastTapRef = useRef(0);
+
+  useEffect(() => {
+    overlayRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -54,8 +64,16 @@ function FullscreenImageViewer({ src, onClose }: { src: string; onClose: () => v
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col animate-in fade-in duration-200" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <button onClick={onClose} className="absolute right-4 z-10 w-11 h-11 bg-white/15 backdrop-blur-sm rounded-full flex items-center justify-center text-white active:scale-90 transition-all" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
+    <div
+      ref={overlayRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="ดูรูปภาพสินค้าแบบเต็มหน้าจอ"
+      tabIndex={-1}
+      className="fixed inset-0 z-[100] bg-black/95 flex flex-col animate-in fade-in duration-200 focus:outline-none"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <button onClick={onClose} aria-label="ปิดรูปภาพเต็มหน้าจอ" className="absolute right-4 z-10 w-11 h-11 bg-white/15 backdrop-blur-sm rounded-full flex items-center justify-center text-white active:scale-90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}>
         <X className="w-5 h-5" />
       </button>
       <div ref={containerRef} className="flex-1 relative w-full overflow-hidden" onClick={handleDoubleTap}>
@@ -65,7 +83,7 @@ function FullscreenImageViewer({ src, onClose }: { src: string; onClose: () => v
         </div>
       </div>
       <div className="shrink-0 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] pt-3 flex flex-col items-center gap-3">
-        <button onClick={onClose} className="w-full max-w-xs h-11 rounded-full bg-white/15 backdrop-blur-sm text-white text-sm font-medium active:scale-95 transition-transform">
+        <button onClick={onClose} className="w-full max-w-xs h-11 rounded-full bg-white/15 backdrop-blur-sm text-white text-sm font-medium active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
           ปิด
         </button>
         <p className="text-center text-white/40 text-[10px]">{scale > 1 ? 'แตะ 2 ครั้งเพื่อย่อ' : 'แตะ 2 ครั้งเพื่อขยาย • ใช้ 2 นิ้วซูม'}</p>
@@ -85,6 +103,12 @@ function brandColor(brand: string) {
   let hash = 0;
   for (let i = 0; i < brand.length; i++) hash = ((hash << 5) - hash + brand.charCodeAt(i)) | 0;
   return BRAND_COLORS[Math.abs(hash) % BRAND_COLORS.length];
+}
+
+function stockTone(stock: number) {
+  if (stock <= 0) return 'bg-[color:color-mix(in_oklab,var(--status-danger)_12%,white)] text-[var(--status-danger)]';
+  if (stock < 10) return 'bg-[color:color-mix(in_oklab,var(--status-warning)_14%,white)] text-[var(--status-warning)]';
+  return 'bg-[color:color-mix(in_oklab,var(--status-success)_14%,white)] text-[var(--status-success)]';
 }
 
 const BarcodeScannerSheet = dynamic(() => import('@/components/BarcodeScannerSheet').then(m => ({ default: m.BarcodeScannerSheet })), { ssr: false });
@@ -126,6 +150,12 @@ export default function CatalogPage() {
   const router = useRouter();
   const scrollRef = useRef<HTMLDivElement>(null);
   const isValidatingRef = useRef(false);
+  const CATALOG_BATCH = 20;
+  const [visibleCount, setVisibleCount] = useState(CATALOG_BATCH);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const resetCatalogPagination = useCallback(() => {
+    setVisibleCount(CATALOG_BATCH);
+  }, [CATALOG_BATCH]);
 
   // Collapsible header — same pattern as admin inventory
   const [scrollDir, setScrollDir] = useState<'up' | 'down'>('up');
@@ -181,11 +211,10 @@ export default function CatalogPage() {
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'catalog' | 'settings'>('catalog');
-  const [hapticsEnabled, setHapticsEnabled] = useState(true);
-
-  useEffect(() => {
-    setHapticsEnabled(window.localStorage.getItem('sheetstock-haptics') !== 'off');
-  }, []);
+  const [hapticsEnabled, setHapticsEnabled] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.localStorage.getItem('sheetstock-haptics') !== 'off';
+  });
   useEffect(() => { window.localStorage.setItem('sheetstock-haptics', hapticsEnabled ? 'on' : 'off'); }, [hapticsEnabled]);
 
   const facets = useMemo(() => {
@@ -231,10 +260,6 @@ export default function CatalogPage() {
   }, [data, searchQuery, stockFilter, categoryFilter, brandFilter, sort, accessTier]);
 
   // Infinite scroll
-  const CATALOG_BATCH = 20;
-  const [visibleCount, setVisibleCount] = useState(CATALOG_BATCH);
-  const loadMoreRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { setVisibleCount(CATALOG_BATCH); }, [items]);
   useEffect(() => {
     const el = loadMoreRef.current;
     if (!el) return;
@@ -266,14 +291,15 @@ export default function CatalogPage() {
 
   const handleScanDetected = useCallback((barcode: string) => {
     setIsScannerOpen(false);
+    resetCatalogPagination();
     setSearchQuery(barcode);
-  }, []);
+  }, [resetCatalogPagination]);
 
   const isSettingsTab = activeTab === 'settings';
   const activeFilterCount = (categoryFilter ? 1 : 0) + (brandFilter ? 1 : 0);
 
   return (
-    <div className="fixed inset-0 w-full flex flex-col bg-[#F2F2F7] overflow-hidden">
+    <div className="fixed inset-0 w-full flex flex-col bg-[var(--bg-primary)] text-[var(--text-primary)] overflow-hidden">
       {/* Header */}
       <div className={`shrink-0 z-30 bg-[var(--brand-primary)] rounded-b-[1.5rem] px-5 text-white shadow-sm transition-all duration-300 ${scrollDir === 'down' && !isSettingsTab ? 'pb-4' : 'pb-5'}`} style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}>
         <div className="flex items-center justify-between mb-4">
@@ -283,17 +309,21 @@ export default function CatalogPage() {
         {!isSettingsTab && (
           <div className={`overflow-hidden transition-all duration-300 ${scrollDir === 'down' ? 'max-h-0 opacity-0' : 'max-h-[120px] opacity-100'}`}>
             <div className="relative mb-3">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
               <input
                 type="text"
                 placeholder="ค้นหาสินค้า..."
+                aria-label="ค้นหาสินค้า"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white text-gray-900 rounded-xl pl-10 pr-9 h-11 border-none text-sm shadow-sm outline-none"
+                onChange={(e) => {
+                  resetCatalogPagination();
+                  setSearchQuery(e.target.value);
+                }}
+                className="w-full bg-[var(--bg-card)] text-[var(--text-primary)] rounded-xl pl-10 pr-9 h-11 border border-transparent text-sm shadow-sm outline-none transition-[border-color,box-shadow,transform] duration-200 ease-out focus:border-[color:color-mix(in_oklab,var(--brand-primary)_38%,white)] focus:shadow-[0_0_0_3px_color-mix(in_oklab,var(--brand-primary)_18%,transparent)]"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <X className="w-4 h-4 text-gray-400" />
+                <button onClick={() => { resetCatalogPagination(); setSearchQuery(''); }} aria-label="ล้างคำค้นหา" className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:ring-inset">
+                  <X className="w-4 h-4 text-[var(--text-muted)]" />
                 </button>
               )}
             </div>
@@ -302,8 +332,12 @@ export default function CatalogPage() {
             {facets.categories.length > 0 && (
               <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
                 <button
-                  onClick={() => setCategoryFilter('')}
-                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  type="button"
+                  onClick={() => {
+                    resetCatalogPagination();
+                    setCategoryFilter('');
+                  }}
+                  className={`shrink-0 min-h-11 px-3.5 py-1.5 rounded-full text-xs font-medium transition-[background-color,color,transform,box-shadow] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--brand-primary)] ${
                     !categoryFilter ? 'bg-white text-[var(--brand-primary)]' : 'bg-white/20 text-white'
                   }`}
                 >
@@ -311,9 +345,13 @@ export default function CatalogPage() {
                 </button>
                 {facets.categories.slice(0, 10).map((cat) => (
                   <button
+                    type="button"
                     key={cat.value}
-                    onClick={() => setCategoryFilter(categoryFilter === cat.value ? '' : cat.value)}
-                    className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    onClick={() => {
+                      resetCatalogPagination();
+                      setCategoryFilter(categoryFilter === cat.value ? '' : cat.value);
+                    }}
+                    className={`shrink-0 min-h-11 px-3.5 py-1.5 rounded-full text-xs font-medium transition-[background-color,color,transform,box-shadow] duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--brand-primary)] ${
                       categoryFilter === cat.value ? 'bg-white text-[var(--brand-primary)]' : 'bg-white/20 text-white'
                     }`}
                   >
@@ -348,11 +386,12 @@ export default function CatalogPage() {
         <>
           {/* Count + Sort */}
           <div className="px-5 pt-3 pb-3 flex items-center justify-between">
-            <p className="text-sm text-gray-500">พบ {items.length} รายการ</p>
+            <p className="text-sm text-[var(--text-secondary)]">พบ {items.length} รายการ</p>
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={() => setIsFilterOpen(true)}
-                className="px-3 min-h-8 bg-white border border-gray-200 rounded-full flex items-center gap-1.5 text-xs text-gray-600 shadow-sm relative"
+                className="px-3 min-h-11 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-full flex items-center gap-1.5 text-xs text-[var(--text-secondary)] shadow-sm relative transition-[transform,box-shadow,border-color] duration-200 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:color-mix(in_oklab,var(--brand-primary)_28%,transparent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)]"
               >
                 <SlidersHorizontal className="w-3.5 h-3.5" /> ตัวกรอง
                 {activeFilterCount > 0 && (
@@ -360,8 +399,9 @@ export default function CatalogPage() {
                 )}
               </button>
               <button
+                type="button"
                 onClick={() => setIsSortOpen(true)}
-                className="px-3 min-h-8 bg-white border border-gray-200 rounded-full flex items-center gap-1.5 text-xs text-gray-600 shadow-sm"
+                className="px-3 min-h-11 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-full flex items-center gap-1.5 text-xs text-[var(--text-secondary)] shadow-sm transition-[transform,box-shadow,border-color] duration-200 ease-out active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:color-mix(in_oklab,var(--brand-primary)_28%,transparent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)]"
               >
                 <ArrowUpDown className="w-3.5 h-3.5" /> เรียงลำดับ
               </button>
@@ -373,33 +413,39 @@ export default function CatalogPage() {
             {isLoading ? (
               <div className="grid grid-cols-2 gap-3 mt-2">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="h-52 rounded-2xl bg-white border border-gray-100 animate-pulse" />
+                  <div key={i} className="h-52 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-subtle)] animate-pulse" />
                 ))}
               </div>
             ) : items.length === 0 ? (
-              <div className="bg-white rounded-2xl border border-gray-200 px-5 py-8 text-center mt-2">
-                <p className="text-gray-800 font-medium mb-1">ไม่พบสินค้า</p>
-                <p className="text-sm text-gray-500 mb-4">ลองเปลี่ยนคำค้นหาหรือตัวกรอง</p>
-                <button onClick={() => { setSearchQuery(''); setStockFilter('all'); setCategoryFilter(''); setBrandFilter(''); }} className="px-4 py-2 rounded-xl bg-[var(--brand-primary)] text-white text-sm font-medium">
+              <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] px-5 py-8 text-center mt-2">
+                <p className="text-[var(--text-primary)] font-medium mb-1">ไม่พบสินค้า</p>
+                <p className="text-sm text-[var(--text-secondary)] mb-4">ลองเปลี่ยนคำค้นหาหรือตัวกรอง</p>
+                <button onClick={() => { resetCatalogPagination(); setSearchQuery(''); setStockFilter('all'); setCategoryFilter(''); setBrandFilter(''); }} className="px-4 py-2 rounded-xl bg-[var(--brand-primary)] text-white text-sm font-medium">
                   ล้างตัวกรอง
                 </button>
               </div>
             ) : (
               <><AnimatePresence>
                 <div className="grid grid-cols-2 gap-3 mt-2">
-                  {visibleItems.map((item) => {
+                  {visibleItems.map((item, index) => {
                     const isOut = item.stock <= 0;
                     const isLow = item.stock > 0 && item.stock < 10;
                     const displayPrice = getDisplayPrice(item, accessTier);
+                    const isFeatured = index === 0 && visibleItems.length > 2;
+                    const metaLine = [item.brand, item.category, item.series].filter(Boolean).join(' • ');
                     return (
-                      <div
+                      <button
+                        type="button"
                         key={item.productId}
-                        className={`bg-white rounded-2xl overflow-hidden flex flex-col cursor-pointer border active:scale-[0.98] transition-transform ${
+                        aria-label={`ดูรายละเอียดสินค้า ${item.name}`}
+                        className={`bg-[var(--bg-card)] rounded-[1.6rem] overflow-hidden flex cursor-pointer border text-left transition-[transform,box-shadow,border-color] duration-200 ease-out active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:color-mix(in_oklab,var(--brand-primary)_26%,transparent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)] ${
+                          isFeatured ? 'col-span-2 min-h-[13rem] items-stretch shadow-[0_18px_36px_-26px_rgba(17,24,39,0.28)]' : 'flex-col shadow-[0_12px_24px_-20px_rgba(17,24,39,0.22)]'
+                        } ${
                           isOut ? 'border-red-200' : isLow ? 'border-yellow-200' : 'border-gray-200'
                         }`}
                         onClick={() => setSelectedItem(item)}
                       >
-                        <div className="relative aspect-square w-full bg-gray-100">
+                        <div className={`relative bg-[var(--bg-secondary)] ${isFeatured ? 'w-[46%] shrink-0' : 'aspect-square w-full'}`}>
                           <ProductImage src={item.imageUrl} alt={item.name} sizes="(max-width: 768px) 45vw, 200px" className={`object-cover ${isOut ? 'grayscale opacity-70' : ''}`} />
                           {isOut && (
                             <div className="absolute inset-0 flex items-center justify-center bg-black/10">
@@ -407,22 +453,45 @@ export default function CatalogPage() {
                             </div>
                           )}
                         </div>
-                        <div className={`px-3 py-2.5 ${isOut ? 'opacity-60' : ''}`}>
-                          {item.brand && (
-                            <span className={`inline-block px-2 py-0.5 text-[10px] font-medium border rounded-full mb-1.5 ${brandColor(item.brand)}`}>{item.brand}</span>
-                          )}
-                          <h3 className="font-semibold text-[13px] text-gray-900 leading-tight line-clamp-2">{[item.brand, item.category, item.series].filter(Boolean).join(' ') || item.name || item.barcode}</h3>
-                          {item.category && <p className="text-[11px] text-gray-400 mt-0.5 truncate">{item.category}</p>}
-                          <div className="flex items-end justify-between mt-1.5">
-                            <p className="text-base font-bold text-[var(--brand-primary)] leading-none">
-                              {displayPrice > 0 ? `฿${Math.round(displayPrice)}` : '-'}
-                            </p>
-                            {item.stock > 0 && (
-                              <p className="text-[12px] text-gray-400 leading-none">เหลือ {item.stock} ชิ้น</p>
+                        <div className={`flex flex-1 flex-col ${isFeatured ? 'justify-between px-4 py-4' : `px-3 py-2.5 ${isOut ? 'opacity-60' : ''}`}`}>
+                          <div>
+                            <div className={`flex ${isFeatured ? 'items-start justify-between gap-3 mb-3' : 'items-center justify-between gap-2 mb-1.5'}`}>
+                              {item.brand ? (
+                                <span className={`inline-flex max-w-full items-center rounded-full border px-2.5 py-1 text-[10px] font-medium ${brandColor(item.brand)}`}>
+                                  <span className="truncate">{item.brand}</span>
+                                </span>
+                              ) : <span />}
+                              <span className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[10px] font-medium ${stockTone(item.stock)}`}>
+                                {item.stock <= 0 ? 'หมดสต็อก' : item.stock < 10 ? `ใกล้หมด ${item.stock}` : `พร้อมส่ง ${item.stock}`}
+                              </span>
+                            </div>
+                            <h3 className={`${isFeatured ? 'text-[1.05rem]' : 'text-[13px]'} font-semibold text-[var(--text-primary)] leading-tight line-clamp-2`}>
+                              {item.name || item.barcode}
+                            </h3>
+                            {metaLine && (
+                              <p className={`${isFeatured ? 'mt-1.5 text-[12px]' : 'mt-1 text-[11px]'} text-[var(--text-muted)] ${isFeatured ? 'line-clamp-2' : 'truncate'}`}>
+                                {metaLine}
+                              </p>
+                            )}
+                          </div>
+                          <div className={`${isFeatured ? 'mt-4 flex items-end justify-between gap-3 border-t border-[var(--border-subtle)] pt-3' : 'mt-1.5 flex items-end justify-between'}`}>
+                            <div>
+                              <p className={`${isFeatured ? 'text-[11px]' : 'text-[10px]'} text-[var(--text-muted)]`}>ราคาขาย</p>
+                              <p className={`${isFeatured ? 'text-[1.35rem]' : 'text-base'} font-bold text-[var(--brand-primary)] leading-none`}>
+                                {displayPrice > 0 ? `฿${Math.round(displayPrice)}` : '-'}
+                              </p>
+                            </div>
+                            {!isFeatured && item.stock > 0 && (
+                              <p className="text-[12px] text-[var(--text-muted)] leading-none">เหลือ {item.stock} ชิ้น</p>
+                            )}
+                            {isFeatured && (
+                              <p className="max-w-[8rem] text-right text-[11px] leading-snug text-[var(--text-secondary)]">
+                                แตะเพื่อดูบาร์โค้ด ราคา และรายละเอียดสินค้า
+                              </p>
                             )}
                           </div>
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -430,7 +499,7 @@ export default function CatalogPage() {
 
               {visibleCount < items.length && (
                 <div ref={loadMoreRef} className="py-4 grid grid-cols-2 gap-3">
-                  {[0, 1].map((i) => <div key={i} className="h-48 rounded-2xl bg-white animate-pulse border border-gray-100" />)}
+                  {[0, 1].map((i) => <div key={i} className="h-48 rounded-2xl bg-[var(--bg-card)] animate-pulse border border-[var(--border-subtle)]" />)}
                 </div>
               )}
               </>
@@ -441,14 +510,16 @@ export default function CatalogPage() {
 
       {/* Product Detail Sheet */}
       <Sheet open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
-        <SheetContent side="bottom" className="rounded-t-[2rem] bg-white border-none" showCloseButton={false}>
+        <SheetContent side="bottom" className="rounded-t-[2rem] bg-[var(--bg-card)] border-none" showCloseButton={false}>
           {selectedItem && (() => {
             const displayPrice = getDisplayPrice(selectedItem, accessTier);
             return (
               <div className="px-5 pt-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
                 <div className="flex justify-center mb-4">
-                  <div
-                    className="relative h-48 w-48 rounded-2xl overflow-hidden bg-gray-100 cursor-pointer"
+                  <button
+                    type="button"
+                    aria-label={`ดูรูปภาพสินค้า ${selectedItem.name} แบบเต็มหน้าจอ`}
+                    className="relative h-48 w-48 rounded-2xl overflow-hidden bg-[var(--bg-secondary)] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:ring-offset-2"
                     onClick={() => {
                       const imgSrc = selectedItem.imageUrl || FALLBACK_IMAGE_SRC;
                       setSelectedItem(null);
@@ -456,47 +527,47 @@ export default function CatalogPage() {
                     }}
                   >
                     <ProductImage src={selectedItem.imageUrl} alt={selectedItem.name} sizes="192px" className="object-cover" />
-                  </div>
+                  </button>
                 </div>
 
-                <h3 className="text-lg font-medium text-gray-900 text-center mb-1">{selectedItem.name}</h3>
+                <h3 className="text-lg font-medium text-[var(--text-primary)] text-center mb-1">{selectedItem.name}</h3>
                 <div className="flex justify-center gap-2 mb-4 flex-wrap">
-                  {selectedItem.category && <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[11px]">{selectedItem.category}</Badge>}
-                  {selectedItem.brand && <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[11px]">{selectedItem.brand}</Badge>}
-                  {selectedItem.series && <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[11px]">{selectedItem.series}</Badge>}
+                  {selectedItem.category && <Badge className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border-color)] text-[11px]">{selectedItem.category}</Badge>}
+                  {selectedItem.brand && <Badge className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border-color)] text-[11px]">{selectedItem.brand}</Badge>}
+                  {selectedItem.series && <Badge className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border-color)] text-[11px]">{selectedItem.series}</Badge>}
                 </div>
 
-                <div className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-100 mb-4">
+                <div className="bg-[var(--bg-secondary)] rounded-xl p-4 space-y-3 border border-[var(--border-subtle)] mb-4">
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-500">บาร์โค้ด</span>
-                    <span className="text-sm text-gray-900 font-mono">{selectedItem.barcode}</span>
+                    <span className="text-sm text-[var(--text-secondary)]">บาร์โค้ด</span>
+                    <span className="text-sm text-[var(--text-primary)] font-mono">{selectedItem.barcode}</span>
                   </div>
-                  <div className="flex justify-between border-t border-dashed border-gray-200 pt-3">
-                    <span className="text-sm text-gray-500">ราคา</span>
+                  <div className="flex justify-between border-t border-dashed border-[var(--border-color)] pt-3">
+                    <span className="text-sm text-[var(--text-secondary)]">ราคา</span>
                     <div className="text-right">
                       {displayPrice !== selectedItem.price && selectedItem.price > 0 && (
-                        <span className="text-xs text-gray-400 line-through mr-1.5">฿{selectedItem.price.toFixed(2)}</span>
+                        <span className="text-xs text-[var(--text-muted)] line-through mr-1.5">฿{selectedItem.price.toFixed(2)}</span>
                       )}
                       <span className="text-sm font-semibold text-[var(--brand-primary)]">
                         {displayPrice > 0 ? `฿${displayPrice.toFixed(2)}` : '-'}
                       </span>
                     </div>
                   </div>
-                  <div className="flex justify-between border-t border-dashed border-gray-200 pt-3">
-                    <span className="text-sm text-gray-500">สต็อก</span>
-                    <span className={`text-sm font-medium ${selectedItem.stock <= 0 ? 'text-red-500' : selectedItem.stock < 10 ? 'text-yellow-600' : 'text-green-600'}`}>
+                  <div className="flex justify-between border-t border-dashed border-[var(--border-color)] pt-3">
+                    <span className="text-sm text-[var(--text-secondary)]">สต็อก</span>
+                    <span className={`text-sm font-medium ${selectedItem.stock <= 0 ? 'text-[var(--status-danger)]' : selectedItem.stock < 10 ? 'text-[var(--status-warning)]' : 'text-[var(--status-success)]'}`}>
                       {selectedItem.stock <= 0 ? 'สินค้าหมด' : `${selectedItem.stock} ชิ้น`}
                     </span>
                   </div>
                   {selectedItem.expiryDate && (
-                    <div className="flex justify-between border-t border-dashed border-gray-200 pt-3">
-                      <span className="text-sm text-gray-500">วันหมดอายุ</span>
-                      <span className="text-sm text-gray-900">{selectedItem.expiryDate}</span>
+                    <div className="flex justify-between border-t border-dashed border-[var(--border-color)] pt-3">
+                      <span className="text-sm text-[var(--text-secondary)]">วันหมดอายุ</span>
+                      <span className="text-sm text-[var(--text-primary)]">{selectedItem.expiryDate}</span>
                     </div>
                   )}
                 </div>
 
-                <button onClick={() => setSelectedItem(null)} className="w-full h-12 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium">
+                <button onClick={() => setSelectedItem(null)} className="w-full h-12 rounded-xl bg-[var(--bg-secondary)] text-[var(--text-secondary)] text-sm font-medium">
                   ปิด
                 </button>
               </div>
@@ -507,15 +578,19 @@ export default function CatalogPage() {
 
       {/* Sort Sheet */}
       <Sheet open={isSortOpen} onOpenChange={setIsSortOpen}>
-        <SheetContent side="bottom" className="rounded-t-[2.5rem] px-5 pt-8 bg-white border-none focus:outline-none" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
-          <h3 className="text-lg font-medium text-gray-900 mb-6">เรียงลำดับ</h3>
+        <SheetContent side="bottom" className="rounded-t-[2.5rem] px-5 pt-8 bg-[var(--bg-card)] border-none focus:outline-none" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 16px)' }}>
+          <h3 className="text-lg font-medium text-[var(--text-primary)] mb-6">เรียงลำดับ</h3>
           <div className="flex flex-col gap-3">
             {SORT_OPTIONS.map((opt) => (
               <button
                 key={opt.id}
-                onClick={() => { setSort(opt.id); setIsSortOpen(false); }}
-                className={`w-full min-h-11 py-3 px-4 rounded-xl text-left font-medium text-sm transition-colors ${
-                  sort === opt.id ? 'bg-[var(--brand-primary)] text-white' : 'bg-gray-100 text-gray-700'
+                onClick={() => {
+                  resetCatalogPagination();
+                  setSort(opt.id);
+                  setIsSortOpen(false);
+                }}
+                className={`w-full min-h-11 py-3 px-4 rounded-xl text-left font-medium text-sm transition-[background-color,color,transform,box-shadow] duration-200 ease-out active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:ring-offset-2 ${
+                  sort === opt.id ? 'bg-[var(--brand-primary)] text-white' : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)]'
                 }`}
               >
                 {opt.label}
@@ -537,11 +612,13 @@ export default function CatalogPage() {
         facets={facets}
         allItems={data?.items}
         applyFilters={(f) => {
+          resetCatalogPagination();
           setStockFilter(f.stock as StockFilter);
           setCategoryFilter(f.category);
           setBrandFilter(f.brand);
         }}
         clearFilters={() => {
+          resetCatalogPagination();
           setStockFilter('all');
           setCategoryFilter('');
           setBrandFilter('');
@@ -575,8 +652,6 @@ export default function CatalogPage() {
       <style jsx global>{`
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .ptr--content { color: #f99109 !important; font-size: 12px; }
-        .ptr--icon { color: #f99109 !important; }
         .ptr--ptr { box-shadow: none !important; }
       `}</style>
     </div>

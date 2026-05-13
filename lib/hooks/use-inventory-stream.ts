@@ -1,8 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useEffectEvent } from 'react';
 
 export function useInventoryStream(onUpdate: () => void, options?: { enabled?: boolean }) {
-  const onUpdateRef = useRef(onUpdate);
-  onUpdateRef.current = onUpdate;
+  const handleUpdate = useEffectEvent(onUpdate);
   const enabled = options?.enabled ?? true;
 
   useEffect(() => {
@@ -25,7 +24,7 @@ export function useInventoryStream(onUpdate: () => void, options?: { enabled?: b
         try {
           const data = JSON.parse(event.data);
           if (data.type === 'inventory-updated') {
-            onUpdateRef.current();
+            handleUpdate();
           }
         } catch { /* ignore malformed events */ }
       };

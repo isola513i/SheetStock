@@ -67,39 +67,27 @@ const FIELD_CONFIG: { key: keyof FormData; label: string; type: string; inputMod
 import { softHaptic } from '@/lib/haptics';
 
 export function AddProductSheet({ open, onOpenChange, onSuccess, prefill }: AddProductSheetProps) {
-  const [form, setForm] = useState<FormData>(INITIAL_FORM);
+  const [form, setForm] = useState<FormData>(() => ({
+    ...INITIAL_FORM,
+    barcode: prefill?.barcode ?? '',
+    name: prefill?.name ?? '',
+    category: prefill?.category ?? '',
+    brand: prefill?.brand ?? '',
+    series: prefill?.series ?? '',
+    imageUrl: prefill?.imageUrl ?? '',
+  }));
+  const [errors, setErrors] = useState<Partial<Record<keyof FormData, boolean>>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [barcodeError, setBarcodeError] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-
-  // Apply prefill data when sheet opens with new prefill
-  useEffect(() => {
-    if (open && prefill) {
-      setForm((prev) => ({
-        ...prev,
-        barcode: prefill.barcode ?? prev.barcode,
-        name: prefill.name ?? prev.name,
-        category: prefill.category ?? prev.category,
-        brand: prefill.brand ?? prev.brand,
-        series: prefill.series ?? prev.series,
-        imageUrl: prefill.imageUrl ?? prev.imageUrl,
-      }));
-    }
-    if (!open) {
-      setForm(INITIAL_FORM);
-      setErrors({});
-      setSubmitError('');
-      setImageFile(null);
-      if (imagePreview) URL.revokeObjectURL(imagePreview);
-      setImagePreview('');
-    }
-  }, [open, prefill]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const [errors, setErrors] = useState<Partial<Record<keyof FormData, boolean>>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState('');
+  useEffect(() => () => {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+  }, [imagePreview]);
 
   const updateField = (key: keyof FormData, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -139,8 +127,6 @@ export function AddProductSheet({ open, onOpenChange, onSuccess, prefill }: AddP
       setIsUploading(false);
     }
   };
-
-  const [barcodeError, setBarcodeError] = useState('');
 
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof FormData, boolean>> = {};

@@ -2,7 +2,7 @@
 
 import { memo } from 'react';
 import { LayoutGrid, PackageSearch, ScanLine, Settings, UserCheck } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import type { UserRole } from '@/lib/types';

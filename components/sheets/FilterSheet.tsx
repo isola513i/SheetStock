@@ -47,7 +47,7 @@ function FacetChip({ label, count, active, onClick }: { label: string; count?: n
     <button
       type="button"
       onClick={() => { softHaptic(); onClick(); }}
-      className={`shrink-0 min-h-[44px] py-2 px-3.5 rounded-xl text-sm transition-colors ${active ? 'bg-[var(--brand-primary)] text-white shadow-sm' : 'bg-gray-100 text-gray-700'}`}
+      className={`shrink-0 min-h-[44px] py-2 px-3.5 rounded-xl text-sm transition-colors ${active ? 'bg-[var(--brand-primary)] text-white shadow-sm' : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)]'}`}
     >
       {label}{count !== undefined ? <span className="opacity-60 ml-0.5">({count})</span> : null}
     </button>
@@ -97,7 +97,7 @@ function ExpandableFacetSection({
   return (
     <section className="py-4 border-b border-gray-100 last:border-b-0">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-sm font-medium text-gray-900">{label} <span className="text-gray-400 font-normal">({options.length})</span></p>
+        <p className="text-sm font-medium text-[var(--text-primary)]">{label} <span className="text-[var(--text-muted)] font-normal">({options.length})</span></p>
         {expanded && (
           <button type="button" onClick={handleCollapse} className="text-xs text-[var(--brand-primary)] font-medium min-h-[44px] px-2 flex items-center">
             ย่อ
@@ -107,18 +107,19 @@ function ExpandableFacetSection({
 
       {expanded && hasMore && (
         <div className="relative mb-3">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
           <input
             ref={searchRef}
             type="text"
             placeholder={`ค้นหา${label}...`}
+            aria-label={`ค้นหา${label}`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full h-11 pl-10 pr-9 rounded-xl bg-gray-100 text-sm outline-none"
+            className="w-full h-11 pl-10 pr-9 rounded-xl bg-[var(--bg-secondary)] text-sm outline-none"
           />
           {search && (
-            <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
-              <X className="w-4 h-4 text-gray-400" />
+            <button type="button" aria-label={`ล้างการค้นหา${label}`} onClick={() => setSearch('')} className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center">
+              <X className="w-4 h-4 text-[var(--text-muted)]" />
             </button>
           )}
         </div>
@@ -145,7 +146,7 @@ function ExpandableFacetSection({
       )}
 
       {expanded && search && filtered.length === 0 && (
-        <p className="mt-2 text-xs text-gray-400">ไม่พบ &quot;{search}&quot;</p>
+        <p className="mt-2 text-xs text-[var(--text-muted)]">ไม่พบ &quot;{search}&quot;</p>
       )}
     </section>
   );
@@ -188,15 +189,6 @@ export function FilterSheet(props: FilterSheetProps) {
     }).length;
   }, [allItems, draftStock, draftCategory, draftBrand]);
 
-  useEffect(() => {
-    if (open) {
-      setDraftStock(stockFilter);
-      setDraftCategory(category);
-      setDraftBrand(brand);
-      setDraftSeries(series);
-    }
-  }, [open, stockFilter, category, brand, series]);
-
   // Lock body scroll
   useEffect(() => {
     if (!open) return;
@@ -210,17 +202,18 @@ export function FilterSheet(props: FilterSheetProps) {
   const hasActiveFilters = draftStock !== 'all' || draftCategory || draftBrand;
 
   return (
-    <div className="fixed inset-0 z-[60] bg-white flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+    <div className="fixed inset-0 z-[60] bg-[var(--bg-card)] flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
       {/* Sticky Header */}
-      <div className="shrink-0 px-4 pt-3 pb-3 flex items-center justify-between border-b border-gray-100">
+      <div className="shrink-0 px-4 pt-3 pb-3 flex items-center justify-between border-b border-[var(--border-subtle)]">
         <button
           type="button"
           onClick={() => onOpenChange(false)}
-          className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center"
+          aria-label="ปิดตัวกรอง"
+          className="w-11 h-11 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center"
         >
-          <X className="w-5 h-5 text-gray-600" />
+          <X className="w-5 h-5 text-[var(--text-secondary)]" />
         </button>
-        <h3 className="text-base font-semibold text-gray-900">ตัวกรอง</h3>
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">ตัวกรอง</h3>
         <button
           type="button"
           onClick={() => {
@@ -230,7 +223,7 @@ export function FilterSheet(props: FilterSheetProps) {
             setDraftBrand('');
             setDraftSeries('');
           }}
-          className={`text-sm font-medium min-h-10 px-2 ${hasActiveFilters ? 'text-[var(--brand-primary)]' : 'text-gray-300'}`}
+          className={`text-sm font-medium min-h-10 px-2 ${hasActiveFilters ? 'text-[var(--brand-primary)]' : 'text-[var(--text-muted)]'}`}
           disabled={!hasActiveFilters}
         >
           ล้างค่า
@@ -243,8 +236,8 @@ export function FilterSheet(props: FilterSheetProps) {
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {/* Stock */}
-        <section className="py-4 border-b border-gray-100">
-          <p className="text-sm font-medium text-gray-900 mb-3">สถานะสินค้า</p>
+        <section className="py-4 border-b border-[var(--border-subtle)]">
+          <p className="text-sm font-medium text-[var(--text-primary)] mb-3">สถานะสินค้า</p>
           <div className="flex flex-wrap gap-2">
             {STOCK_OPTIONS.map((opt) => (
               <FacetChip key={opt.id} label={opt.label} active={draftStock === opt.id} onClick={() => setDraftStock(opt.id)} />
@@ -272,7 +265,7 @@ export function FilterSheet(props: FilterSheetProps) {
       </div>
 
       {/* Sticky Footer */}
-      <div className="shrink-0 border-t border-gray-100 px-5 py-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 12px)' }}>
+      <div className="shrink-0 border-t border-[var(--border-subtle)] px-5 py-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 12px)' }}>
         <button
           type="button"
           onClick={() => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
@@ -16,9 +16,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [phoneError, setPhoneError] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  const [locale, setLocaleState] = useState<Locale>('th');
-
-  useEffect(() => { setLocaleState(getLocale()); }, []);
+  const [locale] = useState<Locale>(() => getLocale());
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

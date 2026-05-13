@@ -1,15 +1,7 @@
 import type {Metadata, Viewport} from 'next';
-import { Sarabun } from 'next/font/google';
 import './globals.css'; // Global styles
 import {PwaRegister} from './pwa-register';
 import {ToastProvider} from '@/components/ui/toast';
-
-const sarabun = Sarabun({
-  subsets: ['thai', 'latin'],
-  weight: ['200', '300', '400', '500', '600', '700', '800'],
-  variable: '--font-sarabun',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: 'SheetStock',
@@ -56,7 +48,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
 
   return (
     <html lang="th" suppressHydrationWarning>
-      <body suppressHydrationWarning className={sarabun.variable}>
+      <body suppressHydrationWarning>
         {shouldEnablePwa ? <PwaRegister /> : null}
         <ToastProvider>
           {children}

@@ -96,8 +96,14 @@ const nextConfig: NextConfig = {
   },
   allowedDevOrigins: ['ais-dev-mn33coyyccwqvarzdzrq55-820762866280.asia-southeast1.run.app'],
   output: 'standalone',
-  transpilePackages: ['motion'],
+  transpilePackages: ['framer-motion', 'motion-dom', 'motion-utils'],
   webpack: (config, {dev}) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'motion-dom': require.resolve('motion-dom'),
+      'motion-utils': require.resolve('motion-utils'),
+    };
+
     // HMR is disabled in AI Studio via DISABLE_HMR env var.
     // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
     if (dev && process.env.DISABLE_HMR === 'true') {

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import useSWR from 'swr';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, Clock, ShieldCheck, Store, UserPlus, XCircle } from 'lucide-react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { BottomNav } from '@/components/BottomNav';

@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion, useMotionValue, useTransform, PanInfo } from 'motion/react';
+import { AnimatePresence, motion, useMotionValue, useTransform, type PanInfo } from 'framer-motion';
 import { InventoryItem, InventoryViewMode } from '@/lib/types';
 import { Eye, Heart, Tag } from 'lucide-react';
 import { ProductImage } from '@/components/ProductImage';
@@ -137,9 +137,6 @@ export const ProductList = memo(function ProductList({ processedInventory, viewM
   const [visibleCount, setVisibleCount] = useState(BATCH_SIZE);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  // Reset visible count when data changes
-  useEffect(() => { setVisibleCount(BATCH_SIZE); }, [processedInventory]);
-
   // Infinite scroll via IntersectionObserver
   useEffect(() => {
     const el = loadMoreRef.current;
@@ -150,7 +147,7 @@ export const ProductList = memo(function ProductList({ processedInventory, viewM
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, [processedInventory.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [processedInventory.length]);
 
   const visibleItems = processedInventory.slice(0, visibleCount);
   const hasMore = visibleCount < processedInventory.length;

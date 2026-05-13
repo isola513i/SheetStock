@@ -19,3 +19,6 @@ coverage/
 # ide
 .vscode/
 .idea/
+
+.npm-cache
+.serena/

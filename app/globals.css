@@ -11,6 +11,9 @@
   --border-color: #e5e7eb;
   --bg-secondary: #f3f4f6;
   --border-subtle: #f3f4f6;
+  --status-danger: #dc2626;
+  --status-warning: #d97706;
+  --status-success: #16a34a;
 }
 
 
@@ -27,7 +30,7 @@
 
   body {
     overscroll-behavior-y: none;
-    font-family: var(--font-sarabun), "Sarabun", sans-serif;
+    font-family: "Sarabun", "Noto Sans Thai", "Segoe UI", sans-serif;
     min-height: 100%;
     min-height: 100dvh;
     background-color: var(--bg-primary);
@@ -79,8 +82,8 @@ input, select, textarea {
 /* Pull-to-refresh styling */
 .ptr--ptr { box-shadow: none !important; }
 .ptr--box { display: flex; align-items: center; justify-content: center; min-height: 52px; }
-.ptr--content { color: #f99109 !important; font-size: 12px; letter-spacing: 0.01em; }
-.ptr--icon { color: #f99109 !important; }
+.ptr--content { color: var(--brand-primary) !important; font-size: 12px; letter-spacing: 0.01em; }
+.ptr--icon { color: var(--brand-primary) !important; }
 
 /* Safe area bottom padding utility */
 .pb-safe { padding-bottom: env(safe-area-inset-bottom, 1rem); }

@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect, useMemo, useRef, useCallback } from 'rea
 import dynamic from 'next/dynamic';
 import useSWR from 'swr';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import PullToRefresh from 'pulltorefreshjs';
 import { useInventoryStream } from '@/lib/hooks/use-inventory-stream';
 import { InventoryApiResponse, InventoryItem, InventorySortPreset, InventoryStockFilter, InventoryTabKey, InventoryViewMode, UserRole } from '@/lib/types';
@@ -44,15 +44,29 @@ function InventoryDashboardContent() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<InventoryViewMode>('list');
+  const [viewMode, setViewMode] = useState<InventoryViewMode>(() => {
+    if (typeof window === 'undefined') return 'list';
+    const savedViewMode = window.localStorage.getItem('sheetstock-view-mode');
+    return savedViewMode === 'grid' || savedViewMode === 'list' ? savedViewMode : 'list';
+  });
   const [activeTab, setActiveTab] = useState<InventoryTabKey>(() => {
     const tab = searchParams.get('tab');
     return tab === 'settings' ? 'settings' : 'inventory';
   });
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [hapticsEnabled, setHapticsEnabled] = useState(true);
-  const [recentScans, setRecentScans] = useState<string[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  const [hapticsEnabled, setHapticsEnabled] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.localStorage.getItem('sheetstock-haptics') !== 'off';
+  });
+  const [recentScans, setRecentScans] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const savedScans = JSON.parse(window.localStorage.getItem('sheetstock-recent-scans') ?? '[]');
+      return Array.isArray(savedScans) ? savedScans : [];
+    } catch {
+      return [];
+    }
+  });
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -213,18 +227,6 @@ function InventoryDashboardContent() {
   }, [stockFilter, categoryFilter, brandFilter]);
   const isSettingsTab = activeTab === 'settings';
 
-  // Hydrate client-only state from localStorage after mount
-  useEffect(() => {
-    const savedViewMode = window.localStorage.getItem('sheetstock-view-mode');
-    if (savedViewMode === 'grid' || savedViewMode === 'list') setViewMode(savedViewMode);
-    setHapticsEnabled(window.localStorage.getItem('sheetstock-haptics') !== 'off');
-    try {
-      const savedScans = JSON.parse(window.localStorage.getItem('sheetstock-recent-scans') ?? '[]');
-      if (Array.isArray(savedScans) && savedScans.length > 0) setRecentScans(savedScans);
-    } catch { /* ignore */ }
-    setHydrated(true);
-  }, []);
-
   useEffect(() => {
     isValidatingRef.current = isValidating;
   }, [isValidating]);
@@ -240,9 +242,9 @@ function InventoryDashboardContent() {
   }, [hapticsEnabled]);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (typeof window === 'undefined') return;
     window.localStorage.setItem('sheetstock-recent-scans', JSON.stringify(recentScans));
-  }, [recentScans, hydrated]);
+  }, [recentScans]);
 
   const handleItemClick = useCallback((item: InventoryItem) => {
     setSelectedItem(item);
@@ -649,6 +651,7 @@ function InventoryDashboardContent() {
 
       {!isSettingsTab && (
         <AddProductSheet
+          key={`${isAddProductOpen}-${addProductPrefill?.barcode ?? ''}-${addProductPrefill?.name ?? ''}`}
           open={isAddProductOpen}
           onOpenChange={(v) => { setIsAddProductOpen(v); if (!v) setAddProductPrefill(null); }}
           onSuccess={() => mutate()}
