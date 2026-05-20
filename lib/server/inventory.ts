@@ -103,6 +103,11 @@ export function parseInventoryQuery(searchParams: URLSearchParams): Required<Inv
 // In-memory cache for inventory data — avoids redundant Google Sheets calls
 let inventoryCache: { data: InventoryItem[]; timestamp: number } | null = null;
 const INVENTORY_CACHE_TTL = process.env.NODE_ENV === 'production' ? 5 * 60_000 : 30_000; // 5min prod, 30s dev
+const GOOGLE_SHEETS_READ_TIMEOUT_MS = 15_000;
+const GOOGLE_SHEETS_READ_OPTIONS = {
+  timeout: GOOGLE_SHEETS_READ_TIMEOUT_MS,
+  retry: false,
+};
 
 export function invalidateInventoryCache() {
   inventoryCache = null;
@@ -174,21 +179,21 @@ export async function fetchInventoryFromGoogleSheets(): Promise<InventoryItem[]>
           spreadsheetId,
           range,
           auth,
-        });
+        }, GOOGLE_SHEETS_READ_OPTIONS);
       } catch (serviceAccountError) {
         if (!apiKey) throw serviceAccountError;
         response = await sheets.spreadsheets.values.get({
           spreadsheetId,
           range,
           key: apiKey,
-        });
+        }, GOOGLE_SHEETS_READ_OPTIONS);
       }
     } else if (apiKey) {
       response = await sheets.spreadsheets.values.get({
         spreadsheetId,
         range,
         key: apiKey,
-      });
+      }, GOOGLE_SHEETS_READ_OPTIONS);
     } else {
       return mockInventory;
     }

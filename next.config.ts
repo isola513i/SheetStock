@@ -1,3 +1,4 @@
+import path from 'node:path';
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -112,6 +113,7 @@ const nextConfig: NextConfig = {
   webpack: (config, {dev}) => {
     config.resolve.alias = {
       ...config.resolve.alias,
+      '@base-ui/utils/addEventListener': path.resolve(__dirname, 'lib/base-ui/add-event-listener.ts'),
       'motion-dom': require.resolve('motion-dom'),
       'motion-utils': require.resolve('motion-utils'),
     };

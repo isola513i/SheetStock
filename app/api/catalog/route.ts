@@ -56,6 +56,7 @@ export async function GET(request: NextRequest) {
     isLoggedIn: !!user,
     userRole: user?.role ?? null,
     userName: user?.name ?? null,
+    customerId: user?.id ?? null,
     customerPhone: user?.phone ?? null,
     items,
   });

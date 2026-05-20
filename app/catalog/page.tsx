@@ -122,6 +122,7 @@ type CatalogResponse = {
   isLoggedIn: boolean;
   userRole: UserRole | null;
   userName: string | null;
+  customerId: string | null;
   customerPhone: string | null;
   items: CatalogItem[];
 };
@@ -150,7 +151,11 @@ const fetcher = async (url: string) => {
   return (await res.json()) as CatalogResponse;
 };
 
-const CART_STORAGE_KEY = 'sheetstock-cart-v1';
+const CART_STORAGE_PREFIX = 'sheetstock-cart-v1';
+
+function getCartStorageKey(ownerKey: string) {
+  return `${CART_STORAGE_PREFIX}:${encodeURIComponent(ownerKey)}`;
+}
 
 function clampQuantity(quantity: number, stock: number) {
   return Math.max(1, Math.min(Math.floor(quantity), Math.max(1, stock)));
@@ -239,6 +244,7 @@ export default function CatalogPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [cartLines, setCartLines] = useState<CartLine[]>([]);
+  const loadedCartKeyRef = useRef<string | null>(null);
   const [activeTab, setActiveTab] = useState<'catalog' | 'settings'>('catalog');
   const [hapticsEnabled, setHapticsEnabled] = useState(() => {
     if (typeof window === 'undefined') return true;
@@ -246,28 +252,40 @@ export default function CatalogPage() {
   });
   useEffect(() => { window.localStorage.setItem('sheetstock-haptics', hapticsEnabled ? 'on' : 'off'); }, [hapticsEnabled]);
 
+  const cartStorageKey = useMemo(() => {
+    if (!data) return null;
+    if (!data.isLoggedIn) return getCartStorageKey('guest');
+    return getCartStorageKey(`user:${data.customerId ?? data.customerPhone ?? 'unknown'}`);
+  }, [data]);
+
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !cartStorageKey) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      const raw = window.localStorage.getItem(CART_STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as CartLine[];
-      if (Array.isArray(parsed)) {
-        timer = setTimeout(() => setCartLines(parsed), 0);
-      }
+      const raw = window.localStorage.getItem(cartStorageKey);
+      const parsed = raw ? JSON.parse(raw) as CartLine[] : [];
+      const nextCartLines = Array.isArray(parsed) ? parsed : [];
+      timer = setTimeout(() => {
+        loadedCartKeyRef.current = cartStorageKey;
+        setCartLines(nextCartLines);
+      }, 0);
     } catch {
-      window.localStorage.removeItem(CART_STORAGE_KEY);
+      window.localStorage.removeItem(cartStorageKey);
+      timer = setTimeout(() => {
+        loadedCartKeyRef.current = cartStorageKey;
+        setCartLines([]);
+      }, 0);
     }
     return () => {
       if (timer) clearTimeout(timer);
     };
-  }, []);
+  }, [cartStorageKey]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cartLines));
-  }, [cartLines]);
+    if (typeof window === 'undefined' || !cartStorageKey) return;
+    if (loadedCartKeyRef.current !== cartStorageKey) return;
+    window.localStorage.setItem(cartStorageKey, JSON.stringify(cartLines));
+  }, [cartLines, cartStorageKey]);
 
   const facets = useMemo(() => {
     const allItems = data?.items ?? [];
