@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "clean": "next clean"
+    "clean": "next clean",
+    "deploy:check": "npm run lint && npm run build"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",

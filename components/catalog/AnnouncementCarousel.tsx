@@ -6,11 +6,12 @@ import type { AnnouncementItem } from '@/lib/types';
 
 type AnnouncementCarouselProps = {
   items: AnnouncementItem[];
+  hidden?: boolean;
 };
 
 const AUTO_SLIDE_MS = 5000;
 
-export function AnnouncementCarousel({ items }: AnnouncementCarouselProps) {
+export function AnnouncementCarousel({ items, hidden = false }: AnnouncementCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
@@ -27,33 +28,38 @@ export function AnnouncementCarousel({ items }: AnnouncementCarouselProps) {
   const activeItem = items[normalizedIndex] ?? items[0];
 
   return (
-    <section className="px-4 pb-2 pt-3">
-      <div className="overflow-hidden rounded-[1.75rem] border border-[var(--border-subtle)] bg-[linear-gradient(180deg,#f6f4f1_0%,#efede8_100%)] px-5 py-4 shadow-[0_18px_38px_-30px_rgba(29,41,57,0.35)]">
+    <section
+      aria-label="ประกาศร้านค้า"
+      className={`overflow-hidden border-y border-[color:color-mix(in_oklab,var(--border-subtle)_92%,transparent)] bg-[color:color-mix(in_oklab,var(--bg-card)_55%,var(--bg-secondary))] transition-[max-height,opacity,transform,padding] duration-200 ease-out ${
+        hidden ? 'max-h-0 translate-y-[-8px] py-0 opacity-0' : 'max-h-28 py-3 opacity-100'
+      }`}
+    >
+      <div className="px-6">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={activeItem.id}
-            initial={{ opacity: 0, x: 24 }}
+            initial={{ opacity: 0, x: 18 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -24 }}
-            transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
-            className="min-h-[86px] content-center"
+            exit={{ opacity: 0, x: -18 }}
+            transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+            className="min-h-[44px] content-center"
           >
-            <p className="text-center text-[1.05rem] font-semibold leading-[1.45] text-[#1f2737] sm:text-[1.15rem]">
+            <p className="mx-auto max-w-[34rem] text-center text-[0.97rem] font-medium leading-[1.4] tracking-[-0.01em] text-[var(--text-primary)]">
               {activeItem.text}
             </p>
           </motion.div>
         </AnimatePresence>
 
         {items.length > 1 && (
-          <div className="mt-3 flex justify-center gap-1.5">
+          <div className="mt-2.5 flex justify-center gap-1.5">
             {items.map((item, index) => (
-              <button
+              <span
                 key={item.id}
-                type="button"
-                aria-label={`ไปที่ประกาศ ${index + 1}`}
-                onClick={() => setActiveIndex(index)}
-                className={`h-1.5 rounded-full transition-[width,background-color] duration-200 ${
-                  index === normalizedIndex ? 'w-6 bg-[#29335C]' : 'w-2.5 bg-[#29335C]/20'
+                aria-hidden="true"
+                className={`block h-1.5 transition-[width,background-color,opacity] duration-200 ${
+                  index === normalizedIndex
+                    ? 'w-8 bg-[color:color-mix(in_oklab,var(--text-primary)_92%,transparent)] opacity-100'
+                    : 'w-3 bg-[color:color-mix(in_oklab,var(--text-primary)_18%,transparent)] opacity-80'
                 }`}
               />
             ))}

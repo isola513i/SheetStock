@@ -1,0 +1,14 @@
+.git
+.gitignore
+.next
+.env
+.env.local
+.env.development
+.env.production
+node_modules
+npm-debug.log
+coverage
+.DS_Store
+.vscode
+.idea
+tsconfig.tsbuildinfo

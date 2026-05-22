@@ -16,7 +16,7 @@ export function toSafeImageSrc(value: string) {
   if (!trimmed) return '';
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return `/api/image-proxy?url=${encodeURIComponent(trimmed)}`;
   if (trimmed.startsWith('/')) return trimmed;
-  return `/${trimmed.replace(/^\.?\/*/, '')}`;
+  return '';
 }
 
 export function ProductImage({

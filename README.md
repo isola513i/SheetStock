@@ -82,16 +82,36 @@ public/
 
 Deployed on **Google Cloud Run** (asia-southeast1).
 
+Production URL: `https://sheetstock-bj7dtu5hkq-as.a.run.app`
+
 ```bash
-# First-time deploy
+# Preflight
+npm run deploy:check
+
+# First-time deploy using the checked-in Dockerfile
+cp deploy/env.production.yaml.example deploy/env.production.yaml
+# Fill in production values before deploying.
+
 gcloud run deploy sheetstock \
   --source=. \
   --region=asia-southeast1 \
   --allow-unauthenticated \
-  --port=8080 --memory=512Mi
+  --port=8080 \
+  --memory=1024Mi \
+  --cpu=1 \
+  --max-instances=3 \
+  --env-vars-file=deploy/env.production.yaml
 
 # CI/CD via Cloud Build is configured in cloudbuild.yaml
+# Required runtime env vars still need to be set on the Cloud Run service.
 ```
+
+### Required production config
+
+- `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY`, `GOOGLE_SHEET_ID`, `TOKEN_SECRET`, and `NEXT_PUBLIC_SITE_URL` are required for the app to boot correctly in production.
+- `GOOGLE_USERS_RANGE` and `GOOGLE_ANNOUNCEMENTS_RANGE` should be set if you use the registration approval flow and announcements feed.
+- `GCS_BUCKET_NAME` is required if admins upload product images through `/api/upload/image`.
+- For Cloud Build trigger deploys, configure the same values on the `sheetstock` Cloud Run service or source them from Secret Manager.
 
 ## License
 

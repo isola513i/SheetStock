@@ -574,7 +574,7 @@ export default function CatalogPage() {
         </div>
       ) : (
         <>
-          <AnnouncementCarousel items={announcementData?.items ?? []} />
+          <AnnouncementCarousel items={announcementData?.items ?? []} hidden={scrollDir === 'down'} />
 
           {/* Count + Sort */}
           <div className="px-5 pt-3 pb-2 flex items-center justify-between">
