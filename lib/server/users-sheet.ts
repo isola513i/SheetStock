@@ -16,6 +16,10 @@ export type UserRecord = {
   status: string;
 };
 
+export type AuthResult =
+  | { ok: true; user: AppUser }
+  | { ok: false; reason: 'not_found' | 'invalid_password' | 'ambiguous_phone' };
+
 // --- Cache ---
 
 let usersCache: { data: UserRecord[]; timestamp: number } | null = null;
@@ -199,21 +203,40 @@ export async function phoneExistsInSheet(phone: string): Promise<boolean> {
 
 // --- Authentication ---
 
-export async function authenticate(phone: string, password: string): Promise<AppUser | null> {
+export async function authenticate(identifier: string, password: string): Promise<AuthResult> {
   const users = await loadUsersFromSheet();
 
-  const normalizedPhone = normalizePhone(phone);
-  const normalizedId = normalizeId(phone);
+  const normalizedPhone = normalizePhone(identifier);
+  const normalizedId = normalizeId(identifier);
+  const activeUsers = users.filter((user) => statusAllowsLogin(user.status));
 
-  const matched = users.find((u) => {
-    const statusOk = statusAllowsLogin(u.status);
-    const phoneMatches = normalizedPhone.length > 0 && normalizePhone(u.phone) === normalizedPhone;
-    const idMatches = normalizedId.length > 0 && normalizeId(u.id) === normalizedId;
-    return (phoneMatches || idMatches) && statusOk;
-  });
-  if (!matched) return null;
+  const idMatches = activeUsers.filter((user) => normalizedId.length > 0 && normalizeId(user.id) === normalizedId);
+  if (idMatches.length > 0) {
+    const matched = idMatches.find((user) => user.password === password);
+    if (!matched) return { ok: false, reason: 'invalid_password' };
 
-  if (password !== matched.password) return null;
+    setUsersCache(users.map((u) => ({
+      id: u.id, phone: u.phone, name: u.name, role: u.role,
+      password: u.password, status: u.status,
+    })));
+
+    return {
+      ok: true,
+      user: {
+        id: matched.id,
+        phone: matched.phone || undefined,
+        name: matched.name,
+        role: matched.role,
+      },
+    };
+  }
+
+  const phoneMatches = activeUsers.filter((user) => normalizedPhone.length > 0 && normalizePhone(user.phone) === normalizedPhone);
+  if (phoneMatches.length === 0) return { ok: false, reason: 'not_found' };
+  if (phoneMatches.length > 1) return { ok: false, reason: 'ambiguous_phone' };
+
+  const matched = phoneMatches[0];
+  if (password !== matched.password) return { ok: false, reason: 'invalid_password' };
 
   // Update cache for findUserById in middleware
   setUsersCache(users.map((u) => ({
@@ -222,9 +245,12 @@ export async function authenticate(phone: string, password: string): Promise<App
   })));
 
   return {
-    id: matched.id,
-    phone: matched.phone || undefined,
-    name: matched.name,
-    role: matched.role,
+    ok: true,
+    user: {
+      id: matched.id,
+      phone: matched.phone || undefined,
+      name: matched.name,
+      role: matched.role,
+    },
   };
 }

@@ -1,14 +1,10 @@
 'use client';
 
 import { memo } from 'react';
-import { LayoutGrid, PackageSearch, ScanLine, Settings, UserCheck } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { LayoutGrid, LogIn, PackageSearch, ScanLine, Settings, UserCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import type { UserRole } from '@/lib/types';
-
-const TAB_SPRING = { type: 'spring' as const, stiffness: 500, damping: 30 };
-const ICON_SPRING = { type: 'spring' as const, stiffness: 400, damping: 25 };
 
 type ActivePage = 'inventory' | 'catalog' | 'settings' | 'approvals';
 
@@ -39,21 +35,14 @@ function NavItem({
     <button
       type="button"
       onClick={onClick}
-      className={`relative flex min-h-11 flex-col items-center justify-center gap-1 cursor-pointer px-3 py-2 rounded-xl transition-colors duration-200 ${active ? 'text-[var(--brand-primary)]' : 'text-gray-400 hover:text-gray-600'}`}
+      className={`relative flex min-h-11 flex-col items-center justify-center gap-1 cursor-pointer rounded-lg px-3 py-2 transition-[background-color,color] duration-150 ${active ? 'bg-[var(--brand-primary-soft)] text-[var(--brand-primary-strong)]' : 'text-[var(--text-muted)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-secondary)]'}`}
     >
-      {active && (
-        <motion.div
-          layoutId="activeTabIndicator"
-          className="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-1 bg-[var(--brand-primary)] rounded-b-full"
-          transition={TAB_SPRING}
-        />
-      )}
-      <motion.div animate={{ scale: active ? 1.1 : 1 }} transition={ICON_SPRING} className="relative">
+      <div className="relative">
         {icon}
         {badge && badge > 0 ? (
-          <span className="absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{badge}</span>
+          <span className="absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 bg-[var(--status-danger)] text-[var(--bg-card)] text-[9px] font-bold rounded-md flex items-center justify-center">{badge}</span>
         ) : null}
-      </motion.div>
+      </div>
       <span className="text-[10px] font-medium leading-tight">{label}</span>
     </button>
   );
@@ -66,7 +55,7 @@ export const BottomNav = memo(function BottomNav({ activePage, userRole, isGuest
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 border-t border-[var(--border-color)] px-2 pt-2 flex justify-around items-center z-40"
+      className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-[var(--border-color)] px-2 pt-2"
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)', backgroundColor: 'var(--bg-card)' }}
     >
       {/* Customer/Guest: catalog as home. Admin/Sale: inventory as home */}
@@ -89,6 +78,14 @@ export const BottomNav = memo(function BottomNav({ activePage, userRole, isGuest
             if (onInventoryClick) onInventoryClick();
             else router.push('/');
           }}
+        />
+      )}
+
+      {isGuest && (
+        <NavItem
+          icon={<LogIn className="w-5.5 h-5.5" />}
+          label="เข้าสู่ระบบ"
+          onClick={() => router.push('/login')}
         />
       )}
 

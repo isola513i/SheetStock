@@ -1,19 +1,107 @@
 @import "tailwindcss";
 
 :root {
-  --brand-primary: #f99109;
-  --bg-primary: #F2F2F7;
-  --bg-card: #ffffff;
-  --bg-card-hover: #f9fafb;
-  --text-primary: #111827;
-  --text-secondary: #6b7280;
-  --text-muted: #9ca3af;
-  --border-color: #e5e7eb;
-  --bg-secondary: #f3f4f6;
-  --border-subtle: #f3f4f6;
-  --status-danger: #dc2626;
-  --status-warning: #d97706;
-  --status-success: #16a34a;
+  --color-spicy-paprika-50: #fcede8;
+  --color-spicy-paprika-100: #f9dbd2;
+  --color-spicy-paprika-200: #f3b7a5;
+  --color-spicy-paprika-300: #ed9378;
+  --color-spicy-paprika-400: #e86f4a;
+  --color-spicy-paprika-500: #e24b1d;
+  --color-spicy-paprika-600: #b53c17;
+  --color-spicy-paprika-700: #872d12;
+  --color-spicy-paprika-800: #5a1e0c;
+  --color-spicy-paprika-900: #2d0f06;
+  --color-spicy-paprika-950: #200b04;
+
+  --color-twilight-indigo-50: #edeff7;
+  --color-twilight-indigo-100: #dce0ef;
+  --color-twilight-indigo-200: #b9c0df;
+  --color-twilight-indigo-300: #95a1d0;
+  --color-twilight-indigo-400: #7282c0;
+  --color-twilight-indigo-500: #4f62b0;
+  --color-twilight-indigo-600: #3f4f8d;
+  --color-twilight-indigo-700: #2f3b6a;
+  --color-twilight-indigo-800: #202746;
+  --color-twilight-indigo-900: #101423;
+  --color-twilight-indigo-950: #0b0e19;
+
+  --color-orange-50: #fef6e7;
+  --color-orange-100: #fcedcf;
+  --color-orange-200: #fadb9e;
+  --color-orange-300: #f7c96e;
+  --color-orange-400: #f5b83d;
+  --color-orange-500: #f2a60d;
+  --color-orange-600: #c2850a;
+  --color-orange-700: #916308;
+  --color-orange-800: #614205;
+  --color-orange-900: #302103;
+  --color-orange-950: #221702;
+
+  --color-muted-olive-50: #f3f7ee;
+  --color-muted-olive-100: #e6efdc;
+  --color-muted-olive-200: #cddeba;
+  --color-muted-olive-300: #b4ce97;
+  --color-muted-olive-400: #9bbe74;
+  --color-muted-olive-500: #83ad52;
+  --color-muted-olive-600: #688b41;
+  --color-muted-olive-700: #4e6831;
+  --color-muted-olive-800: #344521;
+  --color-muted-olive-900: #1a2310;
+  --color-muted-olive-950: #12180b;
+
+  --color-steel-blue-50: #edf3f7;
+  --color-steel-blue-100: #dce8ef;
+  --color-steel-blue-200: #b8d1e0;
+  --color-steel-blue-300: #95b9d0;
+  --color-steel-blue-400: #71a2c1;
+  --color-steel-blue-500: #4e8bb1;
+  --color-steel-blue-600: #3e6f8e;
+  --color-steel-blue-700: #2f536a;
+  --color-steel-blue-800: #1f3847;
+  --color-steel-blue-900: #101c23;
+  --color-steel-blue-950: #0b1319;
+
+  --brand-primary: oklch(61% 0.21 8);
+  --brand-primary-strong: oklch(50% 0.2 8);
+  --brand-primary-soft: oklch(96% 0.035 8);
+  --bg-primary: oklch(98% 0.014 8);
+  --bg-card: oklch(99.4% 0.006 8);
+  --bg-card-hover: oklch(97.5% 0.018 8);
+  --bg-secondary: oklch(96% 0.02 8);
+  --bg-tertiary: oklch(93.5% 0.024 8);
+  --text-primary: oklch(22% 0.015 20);
+  --text-secondary: oklch(45% 0.018 20);
+  --text-muted: oklch(62% 0.018 20);
+  --border-color: oklch(90% 0.018 8);
+  --border-subtle: oklch(94% 0.014 8);
+  --status-danger: oklch(52% 0.19 25);
+  --status-warning: oklch(58% 0.13 70);
+  --status-success: oklch(50% 0.12 150);
+}
+
+.catalog-theme {
+  --catalog-header: #29335c;
+  --catalog-header-text: color-mix(in oklab, var(--bg-card) 94%, var(--catalog-header-action));
+  --catalog-header-muted: color-mix(in oklab, var(--bg-card) 72%, var(--catalog-header));
+  --catalog-header-action: #f3a712;
+  --catalog-header-action-text: color-mix(in oklab, var(--bg-card) 96%, var(--catalog-header-action));
+  --catalog-emphasis: #e4572e;
+  --brand-primary: var(--catalog-header-action);
+  --brand-primary-strong: var(--catalog-header);
+  --brand-primary-soft: color-mix(in oklab, var(--catalog-header-action) 16%, var(--bg-card));
+  --bg-primary: color-mix(in oklab, var(--color-steel-blue-50) 64%, var(--color-orange-50));
+  --bg-card: color-mix(in oklab, var(--color-orange-50) 62%, var(--color-steel-blue-50));
+  --bg-card-hover: color-mix(in oklab, var(--color-spicy-paprika-50) 54%, var(--color-steel-blue-50));
+  --bg-secondary: color-mix(in oklab, var(--color-steel-blue-50) 78%, var(--color-orange-100));
+  --bg-tertiary: color-mix(in oklab, var(--color-steel-blue-100) 80%, var(--color-orange-100));
+  --text-primary: var(--catalog-header);
+  --text-secondary: var(--color-twilight-indigo-700);
+  --text-muted: var(--color-steel-blue-600);
+  --border-color: color-mix(in oklab, var(--color-steel-blue-200) 78%, var(--color-orange-100));
+  --border-subtle: color-mix(in oklab, var(--color-steel-blue-100) 70%, var(--color-orange-100));
+  --status-danger: var(--catalog-emphasis);
+  --status-warning: var(--color-orange-600);
+  --status-success: var(--color-muted-olive-600);
 }
 
 

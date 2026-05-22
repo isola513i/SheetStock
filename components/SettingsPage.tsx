@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Clock, Globe, Grid3X3, List, LogIn, LogOut, RefreshCcw, ShieldCheck, Smartphone, Trash2, UserPlus, Vibrate } from 'lucide-react';
+import useSWR, { useSWRConfig } from 'swr';
+import { Clock, Grid3X3, List, Loader2, LogIn, LogOut, Megaphone, RefreshCcw, Save, ShieldCheck, Smartphone, Trash2, UserPlus, Vibrate } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import type { InventoryViewMode, UserRole } from '@/lib/types';
+import type { AnnouncementItem, InventoryViewMode, UserRole } from '@/lib/types';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { t, getLocale, setLocale, type Locale } from '@/lib/i18n';
 
@@ -21,6 +22,15 @@ type SettingsPageProps = {
   recentScans: string[];
   onClearRecentScans: () => void;
   onScanItemClick: (barcode: string) => void;
+};
+
+const ANNOUNCEMENTS_API_KEY = '/api/announcements';
+const ANNOUNCEMENT_SLOTS = 3;
+
+const fetchAnnouncements = async (url: string): Promise<{ items: AnnouncementItem[] }> => {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('Failed to load announcements');
+  return response.json();
 };
 
 function ToggleSwitch({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
@@ -98,6 +108,97 @@ function GuestAccountSection() {
         </button>
       </div>
     </div>
+  );
+}
+
+function AdminAnnouncementSection() {
+  const { mutate: mutateGlobal } = useSWRConfig();
+  const { data, isLoading } = useSWR<{ items: AnnouncementItem[] }>(ANNOUNCEMENTS_API_KEY, fetchAnnouncements, {
+    revalidateOnFocus: true,
+    dedupingInterval: 10_000,
+  });
+  const [drafts, setDrafts] = useState<string[]>(() => Array.from({ length: ANNOUNCEMENT_SLOTS }, () => ''));
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [saveState, setSaveState] = useState<'idle' | 'saved' | 'error'>('idle');
+  const serverDrafts = Array.from({ length: ANNOUNCEMENT_SLOTS }, (_, index) => data?.items[index]?.text ?? '');
+  const displayDrafts = isDirty ? drafts : serverDrafts;
+
+  const saveAnnouncements = async () => {
+    setIsSaving(true);
+    setSaveState('idle');
+    try {
+      const response = await fetch(ANNOUNCEMENTS_API_KEY, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: displayDrafts }),
+      });
+      if (!response.ok) throw new Error('Failed to save announcements');
+      const nextData = await response.json() as { items: AnnouncementItem[] };
+      await mutateGlobal(ANNOUNCEMENTS_API_KEY, nextData, false);
+      setDrafts(Array.from({ length: ANNOUNCEMENT_SLOTS }, (_, index) => nextData.items[index]?.text ?? ''));
+      setIsDirty(false);
+      setSaveState('saved');
+    } catch (error) {
+      console.error(error);
+      setSaveState('error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <section className="rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4">
+      <div className="mb-4 flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
+          <Megaphone className="h-4.5 w-4.5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-[var(--text-primary)]">Announcement หน้า Catalog</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-muted)]">แก้ข้อความใหญ่ได้ไม่เกิน 3 รายการ ระบบจะ slide วนให้อัตโนมัติ และช่องที่เว้นว่างจะไม่ถูกแสดง</p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {displayDrafts.map((draft, index) => (
+          <label key={index} className="block">
+            <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">
+              ข้อความ {index + 1}
+            </span>
+            <textarea
+              value={draft}
+              maxLength={180}
+              rows={3}
+              onChange={(event) => {
+                setDrafts((current) => {
+                  const base = isDirty ? current : displayDrafts;
+                  return base.map((value, currentIndex) => (currentIndex === index ? event.target.value : value));
+                });
+                setIsDirty(true);
+                setSaveState('idle');
+              }}
+              placeholder="พิมพ์ประกาศที่ต้องการแสดงบนหน้า /catalog"
+              className="min-h-[88px] w-full rounded-2xl border border-[var(--border-color)] bg-[var(--bg-secondary)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none transition-[border-color,box-shadow] focus:border-[var(--brand-primary)] focus:shadow-[0_0_0_3px_color-mix(in_oklab,var(--brand-primary)_18%,transparent)]"
+            />
+          </label>
+        ))}
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3">
+        <p className="text-[11px] text-[var(--text-muted)]">
+          {isLoading ? 'กำลังโหลดข้อความล่าสุด...' : saveState === 'saved' ? 'บันทึกประกาศแล้ว' : saveState === 'error' ? 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง' : 'เปลี่ยนแปลงได้ทันทีโดยไม่ต้องแก้โค้ด'}
+        </p>
+        <button
+          type="button"
+          disabled={isSaving}
+          onClick={saveAnnouncements}
+          className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[var(--brand-primary)] px-4 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          บันทึกประกาศ
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -211,32 +312,13 @@ export function SettingsPage({
           right={<ToggleSwitch enabled={hapticsEnabled} onToggle={onToggleHaptics} />}
           onClick={onToggleHaptics}
         />
-        {userRole !== 'customer' && (
-          <SettingRow
-            icon={viewMode === 'list' ? <List className="h-4.5 w-4.5" /> : <Grid3X3 className="h-4.5 w-4.5" />}
-            label={t('settings.viewMode', locale)}
-            description={viewMode === 'list' ? t('settings.viewModeList', locale) : t('settings.viewModeGrid', locale)}
-            right={
-              <div className="flex bg-[var(--bg-secondary)] rounded-lg p-0.5">
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); onChangeViewMode('list'); }}
-                  className={`h-7 w-8 rounded-md flex items-center justify-center transition-colors ${viewMode === 'list' ? 'bg-[var(--bg-card)] shadow-sm' : ''}`}
-                >
-                  <List className={`h-3.5 w-3.5 ${viewMode === 'list' ? 'text-[var(--brand-primary)]' : 'text-[var(--text-muted)]'}`} />
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); onChangeViewMode('grid'); }}
-                  className={`h-7 w-8 rounded-md flex items-center justify-center transition-colors ${viewMode === 'grid' ? 'bg-[var(--bg-card)] shadow-sm' : ''}`}
-                >
-                  <Grid3X3 className={`h-3.5 w-3.5 ${viewMode === 'grid' ? 'text-[var(--brand-primary)]' : 'text-[var(--text-muted)]'}`} />
-                </button>
-              </div>
-            }
-            onClick={() => onChangeViewMode(viewMode === 'list' ? 'grid' : 'list')}
-          />
-        )}
+        <SettingRow
+          icon={viewMode === 'list' ? <List className="h-4.5 w-4.5" /> : <Grid3X3 className="h-4.5 w-4.5" />}
+          label={t('settings.viewMode', locale)}
+          description={viewMode === 'list' ? t('settings.viewModeList', locale) : t('settings.viewModeGrid', locale)}
+          right={<ToggleSwitch enabled={viewMode === 'grid'} onToggle={() => onChangeViewMode(viewMode === 'list' ? 'grid' : 'list')} />}
+          onClick={() => onChangeViewMode(viewMode === 'list' ? 'grid' : 'list')}
+        />
       </section>
 
       {/* Actions */}
@@ -254,6 +336,8 @@ export function SettingsPage({
           onClick={() => setConfirmResetOpen(true)}
         />
       </section>
+
+      {userRole === 'admin' && <AdminAnnouncementSection />}
 
       {/* About */}
       <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-2xl p-4">

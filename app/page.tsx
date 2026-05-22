@@ -35,6 +35,18 @@ const fetcher = async (url: string): Promise<InventoryApiResponse> => {
 
 import { softHaptic } from '@/lib/haptics';
 
+function readMultiFilter(searchParams: URLSearchParams, key: 'category' | 'brand' | 'series') {
+  return Array.from(
+    new Set(
+      searchParams
+        .getAll(key)
+        .flatMap((value) => value.split(','))
+        .map((value) => value.trim())
+        .filter(Boolean)
+    )
+  );
+}
+
 function InventoryDashboardContent() {
   const router = useRouter();
   const pathname = usePathname();
@@ -89,16 +101,21 @@ function InventoryDashboardContent() {
 
   const sort = (searchParams.get('sort') as InventorySortPreset) || DEFAULT_SORT;
   const stockFilter = (searchParams.get('stock') as InventoryStockFilter) || 'inStock';
-  const categoryFilter = searchParams.get('category') ?? '';
-  const brandFilter = searchParams.get('brand') ?? '';
+  const categoryFilter = readMultiFilter(searchParams, 'category');
+  const brandFilter = readMultiFilter(searchParams, 'brand');
+  const seriesFilter = readMultiFilter(searchParams, 'series');
   const page = Math.max(1, Number(searchParams.get('page') ?? '1'));
 
   const updateQuery = useCallback(
-    (updates: Record<string, string | number | null>) => {
+    (updates: Record<string, string | number | string[] | null>) => {
       const next = new URLSearchParams(searchParams.toString());
       Object.entries(updates).forEach(([key, value]) => {
+        next.delete(key);
         if (value === null || value === '' || value === 'null') {
-          next.delete(key);
+          return;
+        }
+        if (Array.isArray(value)) {
+          value.filter(Boolean).forEach((item) => next.append(key, item));
         } else {
           next.set(key, String(value));
         }
@@ -182,10 +199,11 @@ function InventoryDashboardContent() {
     params.set('page', String(page));
     params.set('pageSize', String(PAGE_SIZE));
     if (stockFilter !== 'all') params.set('stock', stockFilter);
-    if (categoryFilter) params.set('category', categoryFilter);
-    if (brandFilter) params.set('brand', brandFilter);
+    categoryFilter.forEach((value) => params.append('category', value));
+    brandFilter.forEach((value) => params.append('brand', value));
+    seriesFilter.forEach((value) => params.append('series', value));
     return `/api/inventory?${params.toString()}`;
-  }, [debouncedSearchQuery, sort, page, stockFilter, categoryFilter, brandFilter]);
+  }, [debouncedSearchQuery, sort, page, stockFilter, categoryFilter, brandFilter, seriesFilter]);
 
   const { data, isLoading, isValidating, mutate } = useSWR(apiUrl, fetcher, {
     revalidateOnFocus: true,
@@ -221,10 +239,11 @@ function InventoryDashboardContent() {
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (stockFilter !== 'all' && stockFilter !== 'inStock') count += 1;
-    if (categoryFilter) count += 1;
-    if (brandFilter) count += 1;
+    count += categoryFilter.length;
+    count += brandFilter.length;
+    count += seriesFilter.length;
     return count;
-  }, [stockFilter, categoryFilter, brandFilter]);
+  }, [stockFilter, categoryFilter, brandFilter, seriesFilter]);
   const isSettingsTab = activeTab === 'settings';
 
   useEffect(() => {
@@ -284,13 +303,13 @@ function InventoryDashboardContent() {
     }
   };
 
-  const applySheetFilters = (filters: { stock: InventoryStockFilter; category: string; brand: string; series: string }) => {
+  const applySheetFilters = (filters: { stock: InventoryStockFilter; category: string[]; brand: string[]; series: string[] }) => {
     softHaptic();
     updateQuery({
       stock: filters.stock === 'all' ? null : filters.stock,
-      category: filters.category || null,
-      brand: filters.brand || null,
-      series: filters.series || null,
+      category: filters.category,
+      brand: filters.brand,
+      series: filters.series,
       page: 1,
     });
   };
@@ -600,13 +619,12 @@ function InventoryDashboardContent() {
 
       {!isSettingsTab && (
         <FilterSheet
-        key={`${isFilterOpen}-${stockFilter}-${categoryFilter}-${brandFilter}`}
         open={isFilterOpen}
         onOpenChange={setIsFilterOpen}
         stockFilter={stockFilter}
         category={categoryFilter}
         brand={brandFilter}
-        series=""
+        series={seriesFilter}
         applyFilters={applySheetFilters}
         clearFilters={clearFilters}
         facets={data?.availableFacets ?? { categories: [], brands: [], series: [] }}

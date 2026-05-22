@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
+import { Check, Search, X } from 'lucide-react';
 import type { InventoryFacetData, InventoryFacetOption, InventoryStockFilter } from '@/lib/types';
 import { softHaptic } from '@/lib/haptics';
 
@@ -9,26 +10,27 @@ type FilterSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   stockFilter: InventoryStockFilter;
-  category: string;
-  brand: string;
-  series: string;
-  applyFilters: (filters: { stock: InventoryStockFilter; category: string; brand: string; series: string }) => void;
+  category: string[];
+  brand: string[];
+  series: string[];
+  applyFilters: (filters: { stock: InventoryStockFilter; category: string[]; brand: string[]; series: string[] }) => void;
   clearFilters: () => void;
   facets?: InventoryFacetData | null;
-  /** All items for computing preview result count */
-  allItems?: { stock?: number; quantity?: number; category?: string; brand?: string }[];
+  allItems?: { stock?: number; quantity?: number; category?: string; brand?: string; series?: string }[];
 };
 
 const EMPTY_FACETS: InventoryFacetData = { categories: [], brands: [], series: [] };
+const EMPTY_VALUES: string[] = [];
+const TOP_COUNT = 6;
+const SHEET_TRANSITION = { duration: 0.24, ease: [0.22, 1, 0.36, 1] as const };
+const SHEET_EXIT_MS = 240;
 
-const STOCK_OPTIONS: { id: InventoryStockFilter; label: string }[] = [
-  { id: 'all', label: 'ทั้งหมด' },
-  { id: 'inStock', label: 'มีสินค้า' },
-  { id: 'lowStock', label: 'ใกล้หมด' },
-  { id: 'outOfStock', label: 'หมดสต็อก' },
+const STOCK_OPTIONS: { id: InventoryStockFilter; label: string; note: string }[] = [
+  { id: 'all', label: 'ทั้งหมด', note: 'ดูสินค้าทุกรายการ' },
+  { id: 'inStock', label: 'มีสินค้า', note: 'พร้อมขายตอนนี้' },
+  { id: 'lowStock', label: 'ใกล้หมด', note: 'เหลือน้อยกว่า 10 ชิ้น' },
+  { id: 'outOfStock', label: 'หมดสต็อก', note: 'ยังไม่มีของพร้อมส่ง' },
 ];
-
-const TOP_COUNT = 5;
 
 function readFacetOptions(source: unknown, key: 'categories' | 'brands' | 'series'): InventoryFacetOption[] {
   if (!source || typeof source !== 'object') return [];
@@ -41,128 +43,229 @@ function readFacetOptions(source: unknown, key: 'categories' | 'brands' | 'serie
   });
 }
 
-// 44px min touch target
-function FacetChip({ label, count, active, onClick }: { label: string; count?: number; active: boolean; onClick: () => void }) {
+function CheckboxMark({ active }: { active: boolean }) {
+  return (
+    <span
+      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+        active
+          ? 'border-[var(--catalog-header)] bg-[var(--catalog-header)] text-[var(--bg-card)]'
+          : 'border-[color:color-mix(in_oklab,var(--catalog-header)_28%,var(--border-color))] bg-[var(--bg-card)] text-transparent'
+      }`}
+    >
+      <Check className="h-3.5 w-3.5" strokeWidth={3} />
+    </span>
+  );
+}
+
+function RadioMark({ active }: { active: boolean }) {
+  return (
+    <span
+      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
+        active
+          ? 'border-[var(--catalog-header)] text-[var(--catalog-header)]'
+          : 'border-[color:color-mix(in_oklab,var(--catalog-header)_30%,var(--border-color))] text-transparent'
+      }`}
+    >
+      <span className={`h-2.5 w-2.5 rounded-full ${active ? 'bg-current' : 'bg-transparent'}`} />
+    </span>
+  );
+}
+
+function FilterRow({
+  label,
+  note,
+  count,
+  active,
+  onClick,
+  mode = 'checkbox',
+}: {
+  label: string;
+  note?: string;
+  count?: number;
+  active: boolean;
+  onClick: () => void;
+  mode?: 'checkbox' | 'radio';
+}) {
   return (
     <button
       type="button"
-      onClick={() => { softHaptic(); onClick(); }}
-      className={`shrink-0 min-h-[44px] py-2 px-3.5 rounded-xl text-sm transition-colors ${active ? 'bg-[var(--brand-primary)] text-white shadow-sm' : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)]'}`}
+      onClick={() => {
+        softHaptic();
+        onClick();
+      }}
+      className={`flex min-h-[56px] w-full items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-[background-color,border-color,transform] duration-150 ease-out ${
+        active
+          ? 'border-[color:color-mix(in_oklab,var(--catalog-header-action)_24%,var(--catalog-header))] bg-[color:color-mix(in_oklab,var(--catalog-header-action)_12%,var(--bg-card))]'
+          : 'border-transparent bg-transparent hover:bg-[color:color-mix(in_oklab,var(--catalog-header)_3%,var(--bg-card))]'
+      }`}
     >
-      {label}{count !== undefined ? <span className="opacity-60 ml-0.5">({count})</span> : null}
+      {mode === 'radio' ? <RadioMark active={active} /> : <CheckboxMark active={active} />}
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px] font-medium leading-tight text-[var(--text-primary)]">{label}</span>
+        {note ? <span className="mt-1 block text-[12px] leading-tight text-[var(--text-muted)]">{note}</span> : null}
+      </span>
+      {typeof count === 'number' ? (
+        <span className="shrink-0 rounded-full bg-[color:color-mix(in_oklab,var(--catalog-header)_8%,var(--bg-card))] px-2.5 py-1 text-[11px] font-semibold text-[var(--catalog-header)]">
+          {count}
+        </span>
+      ) : null}
     </button>
   );
 }
 
-function ExpandableFacetSection({
-  label,
+function FacetSection({
+  title,
   options,
-  selected,
-  onSelect,
+  selectedValues,
+  onToggle,
 }: {
-  label: string;
+  title: string;
   options: InventoryFacetOption[];
-  selected: string;
-  onSelect: (v: string) => void;
+  selectedValues: string[];
+  onToggle: (value: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [search, setSearch] = useState('');
+  const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   const hasMore = options.length > TOP_COUNT;
+  const totalCount = options.reduce((sum, option) => sum + option.count, 0);
 
-  const filtered = useMemo(() => {
-    if (!search) return options;
-    const q = search.toLowerCase();
-    return options.filter((o) => o.value.toLowerCase().includes(q));
-  }, [options, search]);
+  const filteredOptions = useMemo(() => {
+    if (!query.trim()) return options;
+    const lower = query.trim().toLowerCase();
+    return options.filter((option) => option.value.toLowerCase().includes(lower));
+  }, [options, query]);
 
-  const displayOptions = expanded ? filtered : options.slice(0, TOP_COUNT);
+  const visibleOptions = expanded ? filteredOptions : options.slice(0, TOP_COUNT);
+  const selectedCount = selectedValues.length;
+  const hiddenSelectedOptions = !expanded
+    ? selectedValues
+      .filter((value) => !visibleOptions.some((option) => option.value === value))
+      .map((value) => options.find((option) => option.value === value))
+      .filter((option): option is InventoryFacetOption => Boolean(option))
+    : [];
 
-  const selectedVisible = displayOptions.some((o) => o.value === selected);
-  const extraSelected = !expanded && selected && !selectedVisible
-    ? options.find((o) => o.value === selected)
-    : null;
-
-  const handleExpand = useCallback(() => {
-    setExpanded(true);
-    setSearch('');
-    setTimeout(() => searchRef.current?.focus(), 100);
-  }, []);
-
-  const handleCollapse = useCallback(() => {
-    setExpanded(false);
-    setSearch('');
-  }, []);
+  useEffect(() => {
+    if (!expanded) return;
+    const id = window.setTimeout(() => searchRef.current?.focus(), 80);
+    return () => window.clearTimeout(id);
+  }, [expanded]);
 
   return (
-    <section className="py-4 border-b border-gray-100 last:border-b-0">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-sm font-medium text-[var(--text-primary)]">{label} <span className="text-[var(--text-muted)] font-normal">({options.length})</span></p>
-        {expanded && (
-          <button type="button" onClick={handleCollapse} className="text-xs text-[var(--brand-primary)] font-medium min-h-[44px] px-2 flex items-center">
-            ย่อ
+    <section className="border-t border-[var(--border-subtle)] pt-5">
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <div>
+          <h4 className="text-[1.05rem] font-semibold text-[var(--catalog-header)]">{title}</h4>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">{options.length} ตัวเลือก</p>
+        </div>
+        {selectedCount > 0 ? (
+          <button
+            type="button"
+            onClick={() => {
+              softHaptic();
+              selectedValues.forEach((value) => onToggle(value));
+            }}
+            className="rounded-full bg-[color:color-mix(in_oklab,var(--catalog-header-action)_12%,var(--bg-card))] px-3 py-1 text-xs font-semibold text-[var(--catalog-header)]"
+          >
+            ล้าง
           </button>
-        )}
+        ) : null}
       </div>
 
-      {expanded && hasMore && (
+      {hasMore && expanded ? (
         <div className="relative mb-3">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
           <input
             ref={searchRef}
             type="text"
-            placeholder={`ค้นหา${label}...`}
-            aria-label={`ค้นหา${label}`}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full h-11 pl-10 pr-9 rounded-xl bg-[var(--bg-secondary)] text-sm outline-none"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={`ค้นหา${title}`}
+            className="h-12 w-full rounded-2xl border border-[var(--border-color)] bg-[var(--bg-card)] pl-10 pr-10 text-sm text-[var(--text-primary)] outline-none transition-[border-color,box-shadow] focus:border-[color:color-mix(in_oklab,var(--catalog-header-action)_42%,var(--catalog-header))] focus:shadow-[0_0_0_3px_color-mix(in_oklab,var(--catalog-header-action)_16%,transparent)]"
           />
-          {search && (
-            <button type="button" aria-label={`ล้างการค้นหา${label}`} onClick={() => setSearch('')} className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center">
-              <X className="w-4 h-4 text-[var(--text-muted)]" />
+          {query ? (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              aria-label={`ล้างการค้นหา${title}`}
+              className="absolute right-1 top-1 flex h-10 w-10 items-center justify-center rounded-xl text-[var(--text-muted)]"
+            >
+              <X className="h-4 w-4" />
             </button>
-          )}
+          ) : null}
         </div>
-      )}
+      ) : null}
 
-      <div className="flex flex-wrap gap-2">
-        <FacetChip label="ทั้งหมด" active={selected === ''} onClick={() => onSelect('')} />
-        {displayOptions.map((o) => (
-          <FacetChip key={o.value} label={o.value} count={o.count} active={selected === o.value} onClick={() => onSelect(o.value)} />
+      <div className="space-y-1.5">
+        <FilterRow
+          label="ทั้งหมด"
+          note={selectedCount > 0 ? `เลือกอยู่ ${selectedCount} รายการ` : 'ไม่จำกัดตัวกรองในหมวดนี้'}
+          count={totalCount}
+          active={selectedCount === 0}
+          onClick={() => {
+            selectedValues.forEach((value) => onToggle(value));
+          }}
+        />
+        {visibleOptions.map((option) => (
+          <FilterRow
+            key={option.value}
+            label={option.value}
+            count={option.count}
+            active={selectedValues.includes(option.value)}
+            onClick={() => onToggle(option.value)}
+          />
         ))}
-        {extraSelected && (
-          <FacetChip label={extraSelected.value} count={extraSelected.count} active onClick={() => onSelect(extraSelected.value)} />
-        )}
+        {!expanded
+          ? hiddenSelectedOptions.map((option) => (
+            <FilterRow
+              key={option.value}
+              label={option.value}
+              count={option.count}
+              active
+              onClick={() => onToggle(option.value)}
+            />
+          ))
+          : null}
       </div>
 
-      {!expanded && hasMore && (
+      {hasMore ? (
         <button
           type="button"
-          onClick={handleExpand}
-          className="mt-2.5 text-xs text-[var(--brand-primary)] font-medium min-h-[44px] flex items-center"
+          onClick={() => {
+            softHaptic();
+            setExpanded((current) => !current);
+            setQuery('');
+          }}
+          className="mt-3 text-sm font-semibold text-[var(--catalog-header)]"
         >
-          ดูทั้งหมด ({options.length})
+          {expanded ? '- ลดลง' : `+ เพิ่มเติม (${options.length - TOP_COUNT})`}
         </button>
-      )}
+      ) : null}
 
-      {expanded && search && filtered.length === 0 && (
-        <p className="mt-2 text-xs text-[var(--text-muted)]">ไม่พบ &quot;{search}&quot;</p>
-      )}
+      {expanded && query && filteredOptions.length === 0 ? (
+        <p className="mt-3 text-sm text-[var(--text-muted)]">ไม่พบรายการที่ตรงกับ &quot;{query}&quot;</p>
+      ) : null}
     </section>
   );
 }
 
 export function FilterSheet(props: FilterSheetProps) {
   const open = props?.open ?? false;
-  const onOpenChange = props?.onOpenChange ?? (() => undefined);
+  const onOpenChange = props?.onOpenChange;
   const stockFilter = props?.stockFilter ?? 'all';
-  const category = props?.category ?? '';
-  const brand = props?.brand ?? '';
-  const series = props?.series ?? '';
-  const applyFilters = props?.applyFilters ?? (() => undefined);
-  const clearFilters = props?.clearFilters ?? (() => undefined);
+  const category = props?.category ?? EMPTY_VALUES;
+  const brand = props?.brand ?? EMPTY_VALUES;
+  const series = props?.series ?? EMPTY_VALUES;
+  const applyFilters = props?.applyFilters;
   const facets = props?.facets ?? EMPTY_FACETS;
   const allItems = props?.allItems;
+
+  const [renderSheet, setRenderSheet] = useState(open);
+  const [isClosing, setIsClosing] = useState(false);
+  const [draftStock, setDraftStock] = useState<InventoryStockFilter>(stockFilter);
+  const [draftCategory, setDraftCategory] = useState<string[]>(category);
+  const [draftBrand, setDraftBrand] = useState<string[]>(brand);
+  const [draftSeries, setDraftSeries] = useState<string[]>(series);
 
   const safeFacets = useMemo<InventoryFacetData>(() => ({
     categories: readFacetOptions(facets, 'categories'),
@@ -170,12 +273,56 @@ export function FilterSheet(props: FilterSheetProps) {
     series: readFacetOptions(facets, 'series'),
   }), [facets]);
 
-  const [draftStock, setDraftStock] = useState<InventoryStockFilter>(stockFilter);
-  const [draftCategory, setDraftCategory] = useState(category);
-  const [draftBrand, setDraftBrand] = useState(brand);
-  const [draftSeries, setDraftSeries] = useState(series);
+  useEffect(() => {
+    if (open) {
+      const timeoutId = window.setTimeout(() => {
+        setDraftStock(stockFilter);
+        setDraftCategory(category);
+        setDraftBrand(brand);
+        setDraftSeries(series);
+        setRenderSheet(true);
+        setIsClosing(false);
+      }, 0);
+      return () => window.clearTimeout(timeoutId);
+    }
 
-  // Compute preview result count based on draft filters
+    if (!renderSheet) {
+      return;
+    }
+
+    const closeFrameId = window.setTimeout(() => {
+      setIsClosing(true);
+    }, 0);
+    const timeoutId = window.setTimeout(() => {
+      setRenderSheet(false);
+      setIsClosing(false);
+    }, SHEET_EXIT_MS);
+    return () => {
+      window.clearTimeout(closeFrameId);
+      window.clearTimeout(timeoutId);
+    };
+  }, [open, renderSheet, stockFilter, category, brand, series]);
+
+  useEffect(() => {
+    if (!renderSheet) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [renderSheet]);
+
+  useEffect(() => {
+    if (!renderSheet) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onOpenChange?.(false);
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [renderSheet, onOpenChange]);
+
+  const activeCount = Number(draftStock !== 'all') + draftCategory.length + draftBrand.length + draftSeries.length;
+
   const previewCount = useMemo(() => {
     if (!allItems) return null;
     return allItems.filter((item) => {
@@ -183,101 +330,134 @@ export function FilterSheet(props: FilterSheetProps) {
       if (draftStock === 'inStock' && qty <= 0) return false;
       if (draftStock === 'lowStock' && (qty <= 0 || qty >= 10)) return false;
       if (draftStock === 'outOfStock' && qty > 0) return false;
-      if (draftCategory && item.category !== draftCategory) return false;
-      if (draftBrand && item.brand !== draftBrand) return false;
+      if (draftCategory.length > 0 && !draftCategory.includes(item.category ?? '')) return false;
+      if (draftBrand.length > 0 && !draftBrand.includes(item.brand ?? '')) return false;
+      if (draftSeries.length > 0 && !draftSeries.includes(item.series ?? '')) return false;
       return true;
     }).length;
-  }, [allItems, draftStock, draftCategory, draftBrand]);
+  }, [allItems, draftStock, draftCategory, draftBrand, draftSeries]);
 
-  // Lock body scroll
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
-  }, [open]);
+  const toggleMultiValue = (setter: React.Dispatch<React.SetStateAction<string[]>>, value: string) => {
+    setter((current) => (current.includes(value) ? current.filter((item) => item !== value) : [...current, value]));
+  };
 
-  if (!open) return null;
-
-  const hasActiveFilters = draftStock !== 'all' || draftCategory || draftBrand;
+  if (!renderSheet) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] bg-[var(--bg-card)] flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
-      {/* Sticky Header */}
-      <div className="shrink-0 px-4 pt-3 pb-3 flex items-center justify-between border-b border-[var(--border-subtle)]">
-        <button
-          type="button"
-          onClick={() => onOpenChange(false)}
-          aria-label="ปิดตัวกรอง"
-          className="w-11 h-11 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center"
-        >
-          <X className="w-5 h-5 text-[var(--text-secondary)]" />
-        </button>
-        <h3 className="text-base font-semibold text-[var(--text-primary)]">ตัวกรอง</h3>
-        <button
-          type="button"
-          onClick={() => {
-            softHaptic();
-            setDraftStock('all');
-            setDraftCategory('');
-            setDraftBrand('');
-            setDraftSeries('');
-          }}
-          className={`text-sm font-medium min-h-10 px-2 ${hasActiveFilters ? 'text-[var(--brand-primary)]' : 'text-[var(--text-muted)]'}`}
-          disabled={!hasActiveFilters}
-        >
-          ล้างค่า
-        </button>
-      </div>
+    <div className="catalog-theme fixed inset-0 z-[70]">
+      <motion.button
+        type="button"
+        aria-label="ปิดตัวกรอง"
+        onClick={() => onOpenChange?.(false)}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: isClosing ? 0 : 1 }}
+        transition={SHEET_TRANSITION}
+        className="absolute inset-0 bg-[color:color-mix(in_oklab,var(--catalog-header)_20%,transparent)] supports-backdrop-filter:backdrop-blur-[3px]"
+      />
 
-      {/* Scrollable Body */}
-      <div
-        className="flex-1 overflow-y-auto overscroll-contain px-5"
-        style={{ WebkitOverflowScrolling: 'touch' }}
+      <motion.div
+        initial={{ y: '100%', opacity: 1 }}
+        animate={isClosing ? { y: -48, opacity: 0.98 } : { y: 0, opacity: 1 }}
+        transition={SHEET_TRANSITION}
+        className="absolute inset-x-0 bottom-0 flex max-h-[92dvh] flex-col overflow-hidden rounded-t-[2rem] border-t border-[color:color-mix(in_oklab,var(--catalog-header)_14%,var(--border-color))] bg-[color:color-mix(in_oklab,var(--bg-card)_97%,var(--catalog-header-action)_3%)] shadow-[0_-16px_48px_-30px_rgba(17,24,39,0.4)]"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
-        {/* Stock */}
-        <section className="py-4 border-b border-[var(--border-subtle)]">
-          <p className="text-sm font-medium text-[var(--text-primary)] mb-3">สถานะสินค้า</p>
-          <div className="flex flex-wrap gap-2">
-            {STOCK_OPTIONS.map((opt) => (
-              <FacetChip key={opt.id} label={opt.label} active={draftStock === opt.id} onClick={() => setDraftStock(opt.id)} />
-            ))}
+        <div className="shrink-0 border-b border-[var(--border-subtle)] px-5 pb-4 pt-3">
+          <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-[color:color-mix(in_oklab,var(--catalog-header)_14%,var(--bg-card))]" />
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h3 className="text-[1.9rem] font-semibold leading-none text-[var(--catalog-header)]">ตัวกรอง</h3>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                {activeCount > 0 ? `เลือกไว้ ${activeCount} ตัวกรอง` : 'ปรับรายการให้ตรงสินค้าที่ต้องการ'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onOpenChange?.(false)}
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_oklab,var(--catalog-header)_4%,var(--bg-card))] text-[var(--catalog-header)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--catalog-header)_8%,var(--bg-card))]"
+            >
+              <X className="h-6 w-6" />
+            </button>
           </div>
-        </section>
+        </div>
 
-        {/* Category */}
-        <ExpandableFacetSection
-          label="หมวดหมู่"
-          options={safeFacets.categories}
-          selected={draftCategory}
-          onSelect={setDraftCategory}
-        />
+        <div className="flex-1 overflow-y-auto px-5 pb-6 pt-5" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <section>
+            <div className="mb-3">
+              <h4 className="text-[1.05rem] font-semibold text-[var(--catalog-header)]">สถานะสินค้า</h4>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">เลือกมุมมองสต็อกที่ต้องการเห็นก่อน</p>
+            </div>
+            <div className="space-y-1.5">
+              {STOCK_OPTIONS.map((option) => (
+                <FilterRow
+                  key={option.id}
+                  label={option.label}
+                  note={option.note}
+                  active={draftStock === option.id}
+                  mode="radio"
+                  onClick={() => setDraftStock(option.id)}
+                />
+              ))}
+            </div>
+          </section>
 
-        {/* Brand */}
-        <ExpandableFacetSection
-          label="แบรนด์"
-          options={safeFacets.brands}
-          selected={draftBrand}
-          onSelect={setDraftBrand}
-        />
+          <FacetSection
+            title="หมวดหมู่"
+            options={safeFacets.categories}
+            selectedValues={draftCategory}
+            onToggle={(value) => toggleMultiValue(setDraftCategory, value)}
+          />
 
-        <div className="h-8" />
-      </div>
+          <FacetSection
+            title="แบรนด์"
+            options={safeFacets.brands}
+            selectedValues={draftBrand}
+            onToggle={(value) => toggleMultiValue(setDraftBrand, value)}
+          />
 
-      {/* Sticky Footer */}
-      <div className="shrink-0 border-t border-[var(--border-subtle)] px-5 py-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom,0px) + 12px)' }}>
-        <button
-          type="button"
-          onClick={() => {
-            softHaptic();
-            applyFilters({ stock: draftStock, category: draftCategory, brand: draftBrand, series: draftSeries });
-            onOpenChange(false);
-          }}
-          className="w-full min-h-[52px] rounded-2xl bg-[var(--brand-primary)] text-white text-base font-semibold shadow-lg shadow-orange-500/20"
-        >
-          {previewCount !== null ? `แสดงผล ${previewCount} รายการ` : 'นำไปใช้'}
-        </button>
-      </div>
+          <FacetSection
+            title="ซีรีส์"
+            options={safeFacets.series}
+            selectedValues={draftSeries}
+            onToggle={(value) => toggleMultiValue(setDraftSeries, value)}
+          />
+        </div>
+
+        <div className="shrink-0 border-t border-[var(--border-subtle)] bg-[color:color-mix(in_oklab,var(--bg-card)_98%,var(--catalog-header-action)_2%)] px-5 pb-[calc(env(safe-area-inset-bottom,0px)+14px)] pt-4">
+          <div className="mb-3 flex items-center justify-between text-sm">
+            <span className="text-[var(--text-secondary)]">รายการที่จะแสดง</span>
+            <span className="font-semibold text-[var(--catalog-header)]">
+              {previewCount !== null ? `${previewCount} รายการ` : 'พร้อมใช้งาน'}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                softHaptic();
+                setDraftStock('all');
+                setDraftCategory([]);
+                setDraftBrand([]);
+                setDraftSeries([]);
+              }}
+              className="flex min-h-[54px] items-center justify-center rounded-full border border-[color:color-mix(in_oklab,var(--catalog-header)_18%,var(--border-color))] bg-[var(--bg-card)] px-4 text-base font-semibold text-[var(--catalog-header)]"
+            >
+              {activeCount > 0 ? `ล้าง (${activeCount})` : 'ล้าง'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                softHaptic();
+                applyFilters?.({ stock: draftStock, category: draftCategory, brand: draftBrand, series: draftSeries });
+                onOpenChange?.(false);
+              }}
+              className="flex min-h-[54px] items-center justify-center rounded-full bg-[var(--catalog-header)] px-4 text-base font-semibold text-[var(--bg-card)] shadow-[0_16px_30px_-22px_rgba(41,51,92,0.7)]"
+            >
+              ใช้
+            </button>
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 }

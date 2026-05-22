@@ -56,9 +56,19 @@ export function CartSheet({
   const documentRef = useRef<HTMLDivElement>(null);
   const [issueDate] = useState(() => new Date());
   const [isExporting, setIsExporting] = useState(false);
+  const [draftQuantities, setDraftQuantities] = useState<Record<string, string>>({});
   const poNumber = useMemo(() => makePurchaseOrderNumber(issueDate), [issueDate]);
   const total = lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
   const itemCount = lines.reduce((sum, line) => sum + line.quantity, 0);
+
+  const commitQuantity = (productId: string, quantity: number) => {
+    onUpdateQuantity(productId, quantity);
+    setDraftQuantities((current) => {
+      const next = { ...current };
+      delete next[productId];
+      return next;
+    });
+  };
 
   const exportPurchaseOrder = async (format: 'png' | 'pdf') => {
     if (!documentRef.current || lines.length === 0) return;
@@ -97,7 +107,7 @@ export function CartSheet({
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="max-h-[92dvh] rounded-t-[2rem] bg-[var(--bg-card)] border-none px-0 pt-0 overflow-hidden" showCloseButton={false}>
+        <SheetContent side="bottom" className="catalog-theme max-h-[92dvh] rounded-t-2xl border border-[var(--border-color)] bg-[var(--bg-card)] px-0 pt-0 overflow-hidden" showCloseButton={false}>
           <div className="flex h-full max-h-[92dvh] flex-col">
             <div className="shrink-0 px-5 pt-3 pb-4 border-b border-[var(--border-subtle)]">
               <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--border-color)]" />
@@ -109,7 +119,7 @@ export function CartSheet({
                 <button
                   type="button"
                   onClick={() => onOpenChange(false)}
-                  className="h-10 w-10 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center text-[var(--text-secondary)]"
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
                   aria-label="ปิดตะกร้า"
                 >
                   <X className="h-5 w-5" />
@@ -120,7 +130,7 @@ export function CartSheet({
             <div className="flex-1 overflow-y-auto px-5 py-4">
               {lines.length === 0 ? (
                 <div className="py-16 text-center">
-                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[var(--bg-secondary)]">
+                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-xl bg-[var(--bg-secondary)]">
                     <ShoppingCart className="h-7 w-7 text-[var(--text-muted)]" />
                   </div>
                   <p className="font-medium text-[var(--text-primary)]">ยังไม่มีสินค้าในตะกร้า</p>
@@ -129,9 +139,9 @@ export function CartSheet({
               ) : (
                 <div className="space-y-3">
                   {lines.map((line) => (
-                    <div key={line.productId} className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-3">
+                    <div key={line.productId} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-3">
                       <div className="flex gap-3">
-                        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white">
+                        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[var(--bg-card)]">
                           <ProductImage src={line.imageUrl} alt={line.name} sizes="64px" className="object-contain" />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -143,7 +153,7 @@ export function CartSheet({
                             <button
                               type="button"
                               onClick={() => onRemoveLine(line.productId)}
-                              className="shrink-0 rounded-full p-2 text-[var(--status-danger)]"
+                              className="shrink-0 rounded-lg p-2 text-[var(--status-danger)]"
                               aria-label={`ลบ ${line.name} ออกจากตะกร้า`}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -152,33 +162,57 @@ export function CartSheet({
                           <div className="mt-3 flex items-center justify-between gap-3">
                             <div>
                               <p className="text-xs text-[var(--text-muted)]">ราคา</p>
-                              <p className="font-semibold text-[var(--brand-primary)]">฿{formatMoney(line.unitPrice)}</p>
+                              <p className="font-semibold text-[var(--catalog-emphasis)]">฿{formatMoney(line.unitPrice)}</p>
                               <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">เหลือ {line.stock.toLocaleString('th-TH')} ชิ้น</p>
                             </div>
-                            <div className="flex items-center rounded-full bg-white p-1 shadow-sm">
+                            <div className="flex items-center rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] p-1">
                               <button
                                 type="button"
-                                onClick={() => onUpdateQuantity(line.productId, line.quantity - 1)}
-                                className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-secondary)]"
+                                onClick={() => commitQuantity(line.productId, line.quantity - 1)}
+                                className="flex h-9 w-9 items-center justify-center rounded-md text-[var(--text-secondary)]"
                                 aria-label="ลดจำนวน"
                               >
                                 <Minus className="h-4 w-4" />
                               </button>
-                              <span className="min-w-9 text-center text-sm font-semibold">{line.quantity}</span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={line.stock}
+                                step={1}
+                                value={draftQuantities[line.productId] ?? String(line.quantity)}
+                                onChange={(event) => {
+                                  setDraftQuantities((current) => ({
+                                    ...current,
+                                    [line.productId]: event.target.value,
+                                  }));
+                                }}
+                                onBlur={(event) => {
+                                  const raw = event.target.value.trim();
+                                  const parsed = raw === '' ? 1 : Number(raw);
+                                  commitQuantity(line.productId, Number.isFinite(parsed) ? parsed : 1);
+                                }}
+                                onKeyDown={(event) => {
+                                  if (event.key === 'Enter') {
+                                    event.currentTarget.blur();
+                                  }
+                                }}
+                                className="w-14 border-0 bg-transparent text-center text-sm font-semibold text-[var(--text-primary)] outline-none [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                aria-label="จำนวนสินค้า"
+                              />
                               <button
                                 type="button"
-                                onClick={() => onUpdateQuantity(line.productId, line.quantity + 1)}
+                                onClick={() => commitQuantity(line.productId, line.quantity + 1)}
                                 disabled={line.quantity >= line.stock}
-                                className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-secondary)] disabled:opacity-40"
+                                className="flex h-9 w-9 items-center justify-center rounded-md text-[var(--text-secondary)] disabled:opacity-40"
                                 aria-label="เพิ่มจำนวน"
                               >
                                 <Plus className="h-4 w-4" />
                               </button>
                             </div>
                           </div>
-                          <div className="mt-2 flex justify-between border-t border-dashed border-[var(--border-color)] pt-2 text-sm">
+                          <div className="mt-2 flex justify-between border-t border-[var(--border-color)] pt-2 text-sm">
                             <span className="text-[var(--text-secondary)]">รวม</span>
-                            <span className="font-semibold text-[var(--text-primary)]">฿{formatMoney(line.unitPrice * line.quantity)}</span>
+                            <span className="font-semibold text-[var(--catalog-emphasis)]">฿{formatMoney(line.unitPrice * line.quantity)}</span>
                           </div>
                         </div>
                       </div>
@@ -191,7 +225,7 @@ export function CartSheet({
             <div className="shrink-0 border-t border-[var(--border-subtle)] bg-[var(--bg-card)] px-5 pb-[calc(env(safe-area-inset-bottom,0px)+14px)] pt-4">
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-sm font-medium text-[var(--text-secondary)]">ยอดรวม</span>
-                <span className="text-xl font-bold text-[var(--text-primary)]">฿{formatMoney(total)}</span>
+                <span className="text-xl font-bold text-[var(--catalog-emphasis)]">฿{formatMoney(total)}</span>
               </div>
               {lines.length > 0 && (
                 <p className="mb-3 text-xs leading-relaxed text-[var(--text-muted)]">บันทึกเป็นใบสั่งซื้อ PO เพื่อส่งให้ทีมเปิดเอกสารขายใน Peak และประสานงานโกดัง</p>
@@ -201,7 +235,7 @@ export function CartSheet({
                   type="button"
                   disabled={lines.length === 0 || isExporting}
                   onClick={() => exportPurchaseOrder('png')}
-                  className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[var(--bg-secondary)] text-sm font-medium text-[var(--text-primary)] disabled:opacity-50"
+                  className="flex h-12 items-center justify-center gap-2 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] text-sm font-medium text-[var(--text-primary)] disabled:opacity-50"
                 >
                   <FileImage className="h-4 w-4" /> PNG
                 </button>
@@ -209,7 +243,7 @@ export function CartSheet({
                   type="button"
                   disabled={lines.length === 0 || isExporting}
                   onClick={() => exportPurchaseOrder('pdf')}
-                  className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[var(--brand-primary)] text-sm font-medium text-white disabled:opacity-50"
+                  className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[var(--brand-primary)] text-sm font-semibold text-[var(--bg-card)] disabled:opacity-50"
                 >
                   {isExporting ? <Download className="h-4 w-4 animate-bounce" /> : <FileText className="h-4 w-4" />} บันทึก PDF
                 </button>

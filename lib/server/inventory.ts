@@ -31,6 +31,15 @@ function normalizeOptionalNumber(value: string | null): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function normalizeMultiValue(searchParams: URLSearchParams, key: 'category' | 'brand' | 'series'): string[] {
+  const values = searchParams
+    .getAll(key)
+    .flatMap((value) => value.split(','))
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return Array.from(new Set(values));
+}
+
 function normalizeStockFilter(value: string | null): InventoryStockFilter {
   if (value === 'inStock' || value === 'lowStock' || value === 'outOfStock') return value;
   return 'all';
@@ -84,9 +93,9 @@ function parseExpiryDate(value: string): Date {
 export function parseInventoryQuery(searchParams: URLSearchParams): Required<InventoryQuery> {
   const q = searchParams.get('q') ?? '';
   const stock = normalizeStockFilter(searchParams.get('stock'));
-  const category = searchParams.get('category') ?? '';
-  const brand = searchParams.get('brand') ?? '';
-  const series = searchParams.get('series') ?? '';
+  const category = normalizeMultiValue(searchParams, 'category');
+  const brand = normalizeMultiValue(searchParams, 'brand');
+  const series = normalizeMultiValue(searchParams, 'series');
   const minQty = normalizeOptionalNumber(searchParams.get('minQty')) ?? 0;
   const maxQty = normalizeOptionalNumber(searchParams.get('maxQty')) ?? Number.POSITIVE_INFINITY;
   const minPrice = normalizeOptionalNumber(searchParams.get('minPrice')) ?? 0;
@@ -292,9 +301,9 @@ export async function getInventoryData(query: Required<InventoryQuery>): Promise
 
     const matchBarcodePriority = !barcodeQuery || item.barcode === barcodeQuery;
 
-    const matchCategory = !query.category || item.category === query.category;
-    const matchBrand = !query.brand || item.brand === query.brand;
-    const matchSeries = !query.series || item.series === query.series;
+    const matchCategory = query.category.length === 0 || query.category.includes(item.category);
+    const matchBrand = query.brand.length === 0 || query.brand.includes(item.brand);
+    const matchSeries = query.series.length === 0 || query.series.includes(item.series);
 
     const matchStock =
       query.stock === 'all' ||

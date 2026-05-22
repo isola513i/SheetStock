@@ -60,9 +60,9 @@ export type InventoryTabKey = 'inventory' | 'search' | 'settings';
 export interface InventoryQuery {
   q?: string;
   stock?: InventoryStockFilter;
-  category?: string;
-  brand?: string;
-  series?: string;
+  category?: string[];
+  brand?: string[];
+  series?: string[];
   minQty?: number;
   maxQty?: number;
   minPrice?: number;
@@ -107,4 +107,10 @@ export interface CatalogItem {
   price: number;
   vipPrice?: number;
   vvipPrice?: number;
+}
+
+export interface AnnouncementItem {
+  id: string;
+  text: string;
+  order: number;
 }
