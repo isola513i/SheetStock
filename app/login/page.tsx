@@ -72,7 +72,7 @@ export default function LoginPage() {
           <div className="absolute right-[-2.5rem] top-[-2rem] h-32 w-32 rounded-full bg-[color:color-mix(in_oklab,var(--bg-card)_18%,transparent)] blur-2xl" />
           <div className="absolute left-[-3rem] top-16 h-28 w-28 rounded-full bg-[color:color-mix(in_oklab,var(--catalog-header)_18%,transparent)] blur-2xl" />
 
-          <div className="relative z-10 flex items-center justify-between gap-3">
+          <div className="relative z-10 flex items-center justify-start">
             <button
               type="button"
               onClick={() => {
@@ -84,21 +84,11 @@ export default function LoginPage() {
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <div className="flex items-center gap-2 text-sm text-[color:color-mix(in_oklab,var(--bg-card)_68%,transparent)]">
-              <span>ยังไม่มีบัญชี?</span>
-              <button
-                type="button"
-                onClick={() => router.push('/register')}
-                className="rounded-2xl bg-[color:color-mix(in_oklab,var(--bg-card)_14%,transparent)] px-4 py-2 font-semibold text-[var(--catalog-header-text)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--bg-card)_20%,transparent)]"
-              >
-                สมัครสมาชิก
-              </button>
-            </div>
           </div>
 
-          <div className="relative z-10 flex justify-center pt-16">
-            <div className="flex h-28 w-28 items-center justify-center rounded-[2rem] bg-[color:color-mix(in_oklab,var(--bg-card)_12%,transparent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
-              <Image src="/icons/logo.svg" alt="SheetStock logo" width={76} height={76} className="h-[4.75rem] w-[4.75rem]" priority />
+          <div className="relative z-10 flex justify-center pt-14">
+            <div className="flex h-36 w-36 items-center justify-center rounded-[2.25rem] bg-[color:color-mix(in_oklab,var(--bg-card)_12%,transparent)] shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
+              <Image src="/icons/logo.svg" alt="SheetStock logo" width={104} height={104} className="h-[6.5rem] w-[6.5rem]" priority />
             </div>
           </div>
         </section>
@@ -163,7 +153,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="flex h-14 w-full items-center justify-center rounded-[1.35rem] bg-[linear-gradient(90deg,#d88d11_0%,#f3a712_52%,#f6bc41_100%)] text-[1.08rem] font-semibold text-[var(--catalog-header)] shadow-[0_18px_30px_-20px_rgba(243,167,18,0.9)] transition-[transform,filter,box-shadow] duration-150 ease-out hover:-translate-y-0.5 hover:brightness-[1.03] hover:shadow-[0_22px_34px_-20px_rgba(243,167,18,0.95)] active:translate-y-0 disabled:opacity-60"
+                className="flex h-14 w-full items-center justify-center rounded-[1.35rem] bg-[linear-gradient(90deg,#d88d11_0%,#f3a712_52%,#f6bc41_100%)] text-[1.08rem] font-semibold text-white shadow-[0_18px_30px_-20px_rgba(243,167,18,0.9)] transition-[transform,filter,box-shadow] duration-150 ease-out hover:-translate-y-0.5 hover:brightness-[1.03] hover:shadow-[0_22px_34px_-20px_rgba(243,167,18,0.95)] active:translate-y-0 disabled:opacity-60"
               >
                 {loading ? t('login.loading', locale) : t('login.submit', locale)}
               </button>

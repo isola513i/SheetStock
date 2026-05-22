@@ -34,6 +34,10 @@ function safe(value: string | null | undefined): string {
   return value == null || value === '' ? '' : String(value);
 }
 
+function normalizeStatus(status: string) {
+  return status.trim();
+}
+
 function getUsersRange() {
   return process.env.GOOGLE_USERS_RANGE ?? 'รหัสลูกค้า!A:E';
 }
@@ -43,13 +47,14 @@ function getUsersSheetName() {
 }
 
 function roleFromStatus(status: string): UserRole {
-  if (status === 'ผู้ดูแล' || status.toLowerCase() === 'admin') return 'admin';
-  if (status === 'sale' || status === 'ฝ่ายขาย') return 'sale';
+  const normalized = normalizeStatus(status);
+  if (normalized === 'ผู้ดูแล' || normalized.toLowerCase() === 'admin') return 'admin';
+  if (normalized.toLowerCase() === 'sale' || normalized === 'ฝ่ายขาย') return 'sale';
   return 'customer';
 }
 
 function statusAllowsLogin(status: string) {
-  return VALID_STATUSES.includes(status);
+  return VALID_STATUSES.includes(normalizeStatus(status));
 }
 
 function normalizePhone(phone: string) {
@@ -86,7 +91,7 @@ export async function loadUsersFromSheet(): Promise<UserRecord[]> {
       // Company auth sheet schema:
       // A=ลำดับ, B=ID, C=PASSWORD, D=Phone Number, E=Status
       const id = safe(row[1]);
-      const status = safe(row[4]) || 'ดูสินค้า';
+      const status = normalizeStatus(safe(row[4])) || 'ดูสินค้า';
       return {
         id,
         phone: safe(row[3]),
@@ -177,18 +182,25 @@ export async function updateUserFieldsInSheet(
 
 // --- Access Tier ---
 
-const VALID_STATUSES = ['active', 'ดูสินค้า', 'ผู้เข้าถึงทั้งหมด', 'ผู้ดูแล'];
+const VALID_STATUSES = ['active', 'ดูสินค้า', 'ผู้เข้าถึงทั้งหมด', 'ผู้ดูแล', 'ฝ่ายขาย', 'sale', 'admin'];
 
 export function getUserAccessTier(user: { role: string; status: string }): AccessTier {
   if (user.role === 'admin' || user.role === 'sale') return 'vvip';
-  const s = user.status;
+  const s = normalizeStatus(user.status);
   if (s === 'ผู้เข้าถึงทั้งหมด') return 'vvip';
-  if (s === 'ดูสินค้า') return 'vip';
-  if (s === 'active') return 'vip';
+  if (s === 'ดูสินค้า') return 'public';
+  if (s === 'active') return 'public';
   return 'public';
 }
 
 // --- Queries ---
+
+export async function findUserRecordById(id: string): Promise<UserRecord | null> {
+  const users = await loadUsersFromSheet();
+  const normalized = normalizeId(id);
+  if (!normalized) return null;
+  return users.find((u) => normalizeId(u.id) === normalized) ?? null;
+}
 
 export async function findUserByPhone(phone: string): Promise<UserRecord | null> {
   const users = await loadUsersFromSheet();

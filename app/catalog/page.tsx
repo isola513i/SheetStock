@@ -149,10 +149,48 @@ const SORT_OPTIONS: { id: SortOption; label: string }[] = [
   { id: 'lowStock', label: 'ใกล้หมดก่อน' },
 ];
 
-/** Return the display price for a given tier — VVIP falls back to VIP price */
+function canViewVvipPrice(tier: AccessTier) {
+  return tier === 'vvip';
+}
+
+function hasVvipPrice(item: CatalogItem, tier: AccessTier) {
+  return canViewVvipPrice(tier) && item.vvipPrice != null && item.vvipPrice > 0;
+}
+
+function formatBaht(value: number, options: { decimals?: boolean } = {}) {
+  if (value <= 0) return '-';
+  return `฿${options.decimals ? value.toFixed(2) : Math.round(value).toLocaleString('th-TH')}`;
+}
+
+function CatalogPrice({ item, tier, align = 'left' }: { item: CatalogItem; tier: AccessTier; align?: 'left' | 'right' }) {
+  const showVvip = hasVvipPrice(item, tier);
+  const alignClass = align === 'right' ? 'items-end text-right' : 'items-start text-left';
+
+  if (!showVvip) {
+    return (
+      <div className={`flex flex-col ${alignClass}`}>
+        <span className="text-[18px] font-bold leading-none text-[var(--catalog-emphasis)]">
+          {formatBaht(item.price)}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`flex flex-col gap-1 ${alignClass}`}>
+      <span className="text-[11px] font-medium leading-none text-[var(--text-muted)]">
+        ปกติ {formatBaht(item.price)}
+      </span>
+      <span className="text-[18px] font-bold leading-none text-[var(--catalog-emphasis)]">
+        VVIP {formatBaht(item.vvipPrice ?? 0)}
+      </span>
+    </div>
+  );
+}
+
+/** Return the price used for sorting and cart line unit price. */
 function getDisplayPrice(item: CatalogItem, tier: AccessTier): number {
   if (tier === 'vvip' && item.vvipPrice != null && item.vvipPrice > 0) return item.vvipPrice;
-  if ((tier === 'vip' || tier === 'vvip') && item.vipPrice != null && item.vipPrice > 0) return item.vipPrice;
   return item.price;
 }
 
@@ -477,6 +515,7 @@ export default function CatalogPage() {
 
   const isSettingsTab = activeTab === 'settings';
   const activeFilterCount = categoryFilter.length + brandFilter.length + seriesFilter.length;
+  const catalogStatusLabel = accessTier === 'vvip' ? 'VVIP' : 'GUEST';
 
   return (
     <div className="catalog-theme fixed inset-0 w-full flex flex-col bg-[var(--bg-primary)] text-[var(--text-primary)] overflow-hidden">
@@ -488,8 +527,12 @@ export default function CatalogPage() {
             <h1 className="mt-0.5 text-[1.35rem] font-semibold leading-tight text-[var(--catalog-header-text)]">{isSettingsTab ? 'ตั้งค่า' : 'สินค้า'}</h1>
           </div>
           {!isSettingsTab && (
-            <span className="rounded-lg border border-[color:color-mix(in_oklab,var(--catalog-header-text)_34%,transparent)] bg-[color:color-mix(in_oklab,var(--bg-card)_94%,transparent)] px-2.5 py-1 text-[11px] font-medium text-[var(--catalog-header)]">
-              {accessTier === 'public' ? 'GUEST' : accessTier.toUpperCase()}
+            <span className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium ${
+              accessTier === 'vvip'
+                ? 'border-[color:color-mix(in_oklab,var(--catalog-header-action)_72%,transparent)] bg-[var(--catalog-header-action)] text-[var(--catalog-header-action-text)]'
+                : 'border-[color:color-mix(in_oklab,var(--catalog-header-text)_34%,transparent)] bg-[color:color-mix(in_oklab,var(--bg-card)_94%,transparent)] text-[var(--catalog-header)]'
+            }`}>
+              {catalogStatusLabel}
             </span>
           )}
         </div>
@@ -566,7 +609,13 @@ export default function CatalogPage() {
               await mutate();
             }}
             onResetPreferences={() => { setHapticsEnabled(true); window.localStorage.removeItem('sheetstock-haptics'); }}
-            onLogout={async () => { await fetch('/api/auth/logout', { method: 'POST' }); router.push('/login'); }}
+            onLogout={async () => {
+              await fetch('/api/auth/logout', { method: 'POST' });
+              setCartLines([]);
+              setActiveTab('catalog');
+              await mutate(undefined, { revalidate: false });
+              await mutate();
+            }}
             userRole={userRole ?? 'customer'} userName={userName}
             customerTier={accessTier === 'vvip' ? 'VVIP' : accessTier === 'vip' ? 'VIP' : undefined}
             recentScans={[]} onClearRecentScans={() => {}} onScanItemClick={() => {}}
@@ -639,7 +688,6 @@ export default function CatalogPage() {
                   {visibleItems.map((item) => {
                     const isOut = item.stock <= 0;
                     const isLow = item.stock > 0 && item.stock < 10;
-                    const displayPrice = getDisplayPrice(item, accessTier);
                     const metaLine = [item.brand, item.category, item.series].filter(Boolean).join(' • ');
 
                     if (catalogViewMode === 'grid') {
@@ -679,9 +727,7 @@ export default function CatalogPage() {
                                 {item.barcode}
                               </p>
                               <div className="mt-1.5 flex items-end justify-between gap-2">
-                                <p className="text-[18px] font-bold leading-none text-[var(--catalog-emphasis)]">
-                                  {displayPrice > 0 ? `฿${Math.round(displayPrice).toLocaleString('th-TH')}` : '-'}
-                                </p>
+                                <CatalogPrice item={item} tier={accessTier} />
                                 <div className="text-right">
                                   <p className="text-base font-bold leading-none text-[var(--text-primary)]">{item.stock.toLocaleString('th-TH')}</p>
                                   <p className="mt-0.5 text-[9px] font-medium leading-none text-[var(--text-muted)]">จำนวน</p>
@@ -746,9 +792,7 @@ export default function CatalogPage() {
                           <div className="mt-2 flex items-end justify-between gap-3 border-t border-[var(--border-subtle)] pt-2">
                             <div>
                               <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--text-muted)]">ราคา</p>
-                              <p className="text-base font-semibold leading-none text-[var(--catalog-emphasis)]">
-                                {displayPrice > 0 ? `฿${Math.round(displayPrice).toLocaleString('th-TH')}` : '-'}
-                              </p>
+                              <CatalogPrice item={item} tier={accessTier} />
                             </div>
                             <p className="text-right text-[11px] font-medium leading-tight text-[var(--text-secondary)]">
                               {item.quantityPerBox ? `${item.quantityPerBox}/ลัง` : `${item.stock.toLocaleString('th-TH')} ชิ้น`}
@@ -810,12 +854,16 @@ export default function CatalogPage() {
                   <div className="flex items-start justify-between gap-3 border-t border-[var(--border-color)] pt-3">
                     <span className="text-sm text-[var(--text-secondary)]">ราคา</span>
                     <div className="min-w-0 text-right">
-                      {displayPrice !== selectedItem.price && selectedItem.price > 0 && (
-                        <span className="text-xs text-[var(--text-muted)] line-through mr-1.5">฿{selectedItem.price.toFixed(2)}</span>
+                      {hasVvipPrice(selectedItem, accessTier) ? (
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-xs text-[var(--text-muted)]">ปกติ {formatBaht(selectedItem.price, { decimals: true })}</span>
+                          <span className="text-sm font-semibold text-[var(--catalog-emphasis)]">VVIP {formatBaht(displayPrice, { decimals: true })}</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm font-semibold text-[var(--catalog-emphasis)]">
+                          {formatBaht(displayPrice, { decimals: true })}
+                        </span>
                       )}
-                      <span className="text-sm font-semibold text-[var(--catalog-emphasis)]">
-                        {displayPrice > 0 ? `฿${displayPrice.toFixed(2)}` : '-'}
-                      </span>
                     </div>
                   </div>
                   <div className="flex items-start justify-between gap-3 border-t border-[var(--border-color)] pt-3">

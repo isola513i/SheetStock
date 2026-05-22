@@ -15,7 +15,7 @@ type SettingsPageProps = {
   onToggleHaptics: () => void;
   onRefreshData: () => void;
   onResetPreferences: () => void;
-  onLogout: () => void;
+  onLogout: () => Promise<void> | void;
   userRole?: UserRole;
   userName?: string;
   customerTier?: string;

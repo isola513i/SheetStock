@@ -126,12 +126,12 @@ type RefreshPayload = { sub: string; exp: number };
 
 // authenticate() is in users-sheet.ts to avoid bundling googleapis in Edge middleware
 
-const VALID_STATUSES = ['active', 'ดูสินค้า', 'ผู้เข้าถึงทั้งหมด', 'ผู้ดูแล'];
+const VALID_STATUSES = ['active', 'ดูสินค้า', 'ผู้เข้าถึงทั้งหมด', 'ผู้ดูแล', 'ฝ่ายขาย', 'sale', 'admin'];
 
 export function findUserById(id: string): AppUser | null {
   if (!usersCacheMap) return null;
   const matched = usersCacheMap.get(id);
-  if (!matched || !VALID_STATUSES.includes(matched.status)) return null;
+  if (!matched || !VALID_STATUSES.includes(matched.status.trim())) return null;
   return {
     id: matched.id,
     phone: matched.phone || undefined,
