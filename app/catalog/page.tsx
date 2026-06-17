@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 import PullToRefresh from 'pulltorefreshjs';
 import { useInventoryStream } from '@/lib/hooks/use-inventory-stream';
-import { ArrowUpDown, LogIn, PackageSearch, Plus, Search, Settings, ShoppingCart, SlidersHorizontal, X } from 'lucide-react';
+import { ArrowUpDown, LogOut, Plus, Search, ShoppingCart, SlidersHorizontal, X } from 'lucide-react';
 import { AnnouncementCarousel } from '@/components/catalog/AnnouncementCarousel';
 import { ProductImage, FALLBACK_IMAGE_SRC, toSafeImageSrc } from '@/components/ProductImage';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -515,6 +515,12 @@ export default function CatalogPage() {
   const isSettingsTab = activeTab === 'settings';
   const activeFilterCount = categoryFilter.length + brandFilter.length + seriesFilter.length;
   const catalogStatusLabel = accessTier === 'vvip' ? 'VVIP' : 'GUEST';
+  const desktopRoleLabel = userRole === 'admin' ? 'ADMIN' : userRole === 'sale' ? 'SALE' : 'CUSTOMER';
+  const desktopRoleClass = userRole === 'admin'
+    ? 'border-red-200 bg-red-50 text-red-700'
+    : userRole === 'sale'
+      ? 'border-blue-200 bg-blue-50 text-blue-700'
+      : 'border-emerald-200 bg-emerald-50 text-emerald-700';
   const catalogShellClass = 'mx-auto w-full max-w-[1180px]';
   const catalogGridClass = catalogViewMode === 'grid'
     ? 'grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 lg:gap-4'
@@ -538,43 +544,38 @@ export default function CatalogPage() {
                 accessTier === 'vvip'
                   ? 'border-[color:color-mix(in_oklab,var(--catalog-header-action)_72%,transparent)] bg-[var(--catalog-header-action)] text-[var(--catalog-header-action-text)]'
                   : 'border-[color:color-mix(in_oklab,var(--catalog-header-text)_34%,transparent)] bg-[color:color-mix(in_oklab,var(--bg-card)_94%,transparent)] text-[var(--catalog-header)]'
-              }`}>
+              } lg:hidden`}>
                 {catalogStatusLabel}
               </span>
             )}
-            <div className="hidden items-center gap-1.5 rounded-2xl border border-[color:color-mix(in_oklab,var(--catalog-header-text)_16%,transparent)] bg-[color:color-mix(in_oklab,var(--catalog-header)_88%,var(--bg-card))] p-1 lg:flex">
-              <button
-                type="button"
-                onClick={() => setActiveTab('catalog')}
-                className={`inline-flex h-10 items-center gap-2 rounded-xl px-3.5 text-sm font-semibold transition-[background-color,color] duration-150 ${
-                  !isSettingsTab
-                    ? 'bg-[var(--catalog-header-action)] text-[var(--catalog-header-action-text)]'
-                    : 'text-[var(--catalog-header-muted)] hover:bg-[color:color-mix(in_oklab,var(--bg-card)_10%,transparent)] hover:text-[var(--catalog-header-text)]'
-                }`}
-              >
-                <PackageSearch className="h-4 w-4" />
-                สินค้า
-              </button>
+            <div className="hidden items-center gap-2 lg:flex">
               {isLoggedIn ? (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('settings')}
-                  className={`inline-flex h-10 items-center gap-2 rounded-xl px-3.5 text-sm font-semibold transition-[background-color,color] duration-150 ${
-                    isSettingsTab
-                      ? 'bg-[var(--catalog-header-action)] text-[var(--catalog-header-action-text)]'
-                      : 'text-[var(--catalog-header-muted)] hover:bg-[color:color-mix(in_oklab,var(--bg-card)_10%,transparent)] hover:text-[var(--catalog-header-text)]'
-                  }`}
-                >
-                  <Settings className="h-4 w-4" />
-                  ตั้งค่า
-                </button>
+                <>
+                  <span className={`inline-flex h-9 items-center rounded-full border px-3 text-[11px] font-semibold tracking-[0.02em] ${desktopRoleClass}`}>
+                    {desktopRoleLabel}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await fetch('/api/auth/logout', { method: 'POST' });
+                      setActiveTab('catalog');
+                      await mutate(undefined, { revalidate: false });
+                      await mutate();
+                      router.push('/login');
+                    }}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:color-mix(in_oklab,var(--catalog-header-text)_16%,transparent)] bg-[color:color-mix(in_oklab,var(--bg-card)_10%,transparent)] text-[var(--catalog-header-muted)] transition-[background-color,color,border-color] duration-150 hover:border-[color:color-mix(in_oklab,var(--catalog-header-text)_26%,transparent)] hover:bg-[color:color-mix(in_oklab,var(--bg-card)_18%,transparent)] hover:text-[var(--catalog-header-text)]"
+                    aria-label="ออกจากระบบ"
+                    title="ออกจากระบบ"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </button>
+                </>
               ) : (
                 <button
                   type="button"
                   onClick={() => router.push('/login')}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl px-3.5 text-sm font-semibold text-[var(--catalog-header-muted)] transition-[background-color,color] duration-150 hover:bg-[color:color-mix(in_oklab,var(--bg-card)_10%,transparent)] hover:text-[var(--catalog-header-text)]"
+                  className="inline-flex h-10 items-center gap-2 rounded-full border border-[color:color-mix(in_oklab,var(--catalog-header-text)_16%,transparent)] bg-[color:color-mix(in_oklab,var(--bg-card)_10%,transparent)] px-4 text-sm font-semibold text-[var(--catalog-header-text)] transition-[background-color,color,border-color] duration-150 hover:border-[color:color-mix(in_oklab,var(--catalog-header-text)_26%,transparent)] hover:bg-[color:color-mix(in_oklab,var(--bg-card)_18%,transparent)]"
                 >
-                  <LogIn className="h-4 w-4" />
                   เข้าสู่ระบบ
                 </button>
               )}
