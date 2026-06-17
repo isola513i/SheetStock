@@ -5,6 +5,7 @@ import { LayoutGrid, LogIn, PackageSearch, ScanLine, Settings, UserCheck } from 
 import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import type { UserRole } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 type ActivePage = 'inventory' | 'catalog' | 'settings' | 'approvals';
 
@@ -13,6 +14,7 @@ type BottomNavProps = {
   userRole: UserRole;
   isGuest?: boolean;
   pendingCount?: number;
+  className?: string;
   onScanClick?: () => void;
   onSettingsClick?: () => void;
   onInventoryClick?: () => void;
@@ -48,14 +50,17 @@ function NavItem({
   );
 }
 
-export const BottomNav = memo(function BottomNav({ activePage, userRole, isGuest, pendingCount, onScanClick, onSettingsClick, onInventoryClick }: BottomNavProps) {
+export const BottomNav = memo(function BottomNav({ activePage, userRole, isGuest, pendingCount, className, onScanClick, onSettingsClick, onInventoryClick }: BottomNavProps) {
   const router = useRouter();
   const isCustomer = userRole === 'customer';
   const isAdmin = userRole === 'admin';
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-[var(--border-color)] px-2 pt-2"
+      className={cn(
+        'fixed bottom-0 left-0 right-0 z-40 mx-auto flex max-w-[1180px] items-center justify-around border-t border-[var(--border-color)] px-2 pt-2',
+        className
+      )}
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)', backgroundColor: 'var(--bg-card)' }}
     >
       {/* Customer/Guest: catalog as home. Admin/Sale: inventory as home */}

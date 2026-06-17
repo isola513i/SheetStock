@@ -153,7 +153,7 @@ export const ProductList = memo(function ProductList({ processedInventory, viewM
   const hasMore = visibleCount < processedInventory.length;
 
   return (
-    <main className="px-5 pb-6">
+    <main className="mx-auto w-full max-w-[1180px] px-4 pb-6 sm:px-6 lg:px-8">
       <AnimatePresence mode="wait">
         {viewMode === 'grid' ? (
           <motion.div
@@ -162,7 +162,7 @@ export const ProductList = memo(function ProductList({ processedInventory, viewM
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={CONTAINER_TRANSITION}
-            className="grid grid-cols-2 gap-4"
+            className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4"
           >
             {visibleItems.map((item, idx) => {
               const isOutOfStock = item.quantity <= 0;
@@ -177,7 +177,7 @@ export const ProductList = memo(function ProductList({ processedInventory, viewM
                     <ProductImage
                       src={item.imageUrl}
                       alt={item.name}
-                      sizes="(max-width: 768px) 45vw, 200px"
+                      sizes="(max-width: 767px) 45vw, (max-width: 1023px) 33vw, 25vw"
                       className={`object-cover ${isOutOfStock ? 'grayscale opacity-70' : ''}`}
                     />
                     {isOutOfStock && (
@@ -233,8 +233,8 @@ export const ProductList = memo(function ProductList({ processedInventory, viewM
       {/* Infinite scroll sentinel */}
       {hasMore && (
         <div ref={loadMoreRef} className="py-4 flex justify-center">
-          <div className="grid grid-cols-2 gap-4 w-full">
-            {[0, 1].map((i) => (
+          <div className="grid w-full grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
               <div key={i} className="h-48 rounded-2xl bg-white animate-pulse border border-gray-100" />
             ))}
           </div>

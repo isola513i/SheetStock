@@ -67,6 +67,15 @@ function looksLikeImageUrl(value: string): boolean {
   return trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/');
 }
 
+function normalizeExpiryDate(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed || looksLikeImageUrl(trimmed)) return '';
+  if (/^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$/.test(trimmed)) return trimmed;
+  if (/^\d{1,2}[/-]\d{2,4}$/.test(trimmed)) return trimmed;
+  if (/^\d{4}[.-]\d{1,2}([.-]\d{1,2})?$/.test(trimmed)) return trimmed;
+  return '';
+}
+
 function parseExpiryDate(value: string): Date {
   if (!value) return new Date(0);
 
@@ -221,6 +230,7 @@ export async function fetchInventoryFromGoogleSheets(): Promise<InventoryItem[]>
       const name = safeString(row[INVENTORY_COLUMNS.name]) || shortName;
       const status = safeString(row[INVENTORY_COLUMNS.status]);
       const rawImageUrl = safeString(row[INVENTORY_COLUMNS.imageUrl]);
+      const rawExpiryDate = safeString(row[INVENTORY_COLUMNS.expiryDate]);
       const rawQuantityPerBox = safeString(row[INVENTORY_COLUMNS.quantityPerBox]);
       const imageUrl = looksLikeImageUrl(rawImageUrl)
         ? rawImageUrl
@@ -240,7 +250,7 @@ export async function fetchInventoryFromGoogleSheets(): Promise<InventoryItem[]>
         series: safeString(row[INVENTORY_COLUMNS.series]),
         price: safeNumber(row[INVENTORY_COLUMNS.price]),
         quantity: safeNumber(row[INVENTORY_COLUMNS.quantity]),
-        expiryDate: safeString(row[INVENTORY_COLUMNS.expiryDate]),
+        expiryDate: normalizeExpiryDate(rawExpiryDate),
         quantityPerBox,
         notes: shortName,
         imageUrl,

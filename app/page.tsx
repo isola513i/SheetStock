@@ -428,8 +428,8 @@ function InventoryDashboardContent() {
   return (
     <div className="fixed inset-0 w-full flex flex-col bg-[var(--bg-primary)] text-[var(--text-primary)] overflow-hidden overscroll-none">
       {/* Orange Header */}
-      <div className={`shrink-0 z-30 bg-[var(--brand-primary)] rounded-b-[1.5rem] px-5 pt-8 text-white shadow-sm transition-all duration-300 ${scrollDir === 'down' ? 'pb-4' : 'pb-5'}`}>
-        <div className="flex justify-between items-center mb-4">
+      <div className={`shrink-0 z-30 bg-[var(--brand-primary)] rounded-b-[1.5rem] px-4 pt-8 text-white shadow-sm transition-all duration-300 sm:px-6 lg:px-8 ${scrollDir === 'down' ? 'pb-4' : 'pb-5'}`}>
+        <div className="mx-auto mb-4 flex max-w-[1180px] items-center justify-between">
           <h1 className="text-2xl font-medium tracking-tight">{isSettingsTab ? 'ตั้งค่า' : 'รายการสินค้า'}</h1>
           {!isSettingsTab && (
             <div className="flex items-center gap-2">
@@ -456,8 +456,8 @@ function InventoryDashboardContent() {
         </div>
         
         {!isSettingsTab && (
-          <div className={`overflow-hidden transition-all duration-300 ${scrollDir === 'down' ? 'max-h-0 opacity-0' : 'max-h-[120px] opacity-100'}`}>
-          <div className="relative mb-4">
+          <div className={`mx-auto max-w-[1180px] overflow-hidden transition-all duration-300 ${scrollDir === 'down' ? 'max-h-0 opacity-0' : 'max-h-[120px] opacity-100'}`}>
+          <div className="relative mb-4 lg:max-w-[34rem]">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
               ref={searchInputRef}
@@ -473,7 +473,7 @@ function InventoryDashboardContent() {
             />
           </div>
 
-          <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+            <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1 lg:flex-wrap lg:overflow-visible">
             <button
               onClick={() => applyQuickPreset('inStock')}
               className={`shrink-0 min-h-9 px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${stockFilter === 'inStock' ? 'bg-white text-[var(--brand-primary)] shadow-sm' : 'bg-black/15 text-white'}`}
@@ -530,7 +530,7 @@ function InventoryDashboardContent() {
         ) : (
           <>
             {/* Sort & Count */}
-            <div className="flex items-center justify-between px-5 py-4">
+            <div className="mx-auto flex max-w-[1180px] items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <span className="text-sm text-gray-500 font-medium">พบ {totalItems} รายการ</span>
           <div className="flex gap-2">
             <button
@@ -554,20 +554,20 @@ function InventoryDashboardContent() {
           </div>
             </div>
             {isValidating && !isLoading && (
-          <div className="px-5 -mt-1 mb-2">
+          <div className="mx-auto -mt-1 mb-2 max-w-[1180px] px-4 sm:px-6 lg:px-8">
             <div className="h-1.5 w-full rounded-full bg-gray-200 overflow-hidden">
               <div className="h-full w-1/3 bg-[var(--brand-primary)] animate-[pulse_900ms_ease-in-out_infinite]" />
             </div>
           </div>
             )}
             {isLoading ? (
-          <main className="px-5 pb-6 space-y-3">
+          <main className="mx-auto max-w-[1180px] space-y-3 px-4 pb-6 sm:px-6 lg:px-8">
             {Array.from({ length: 6 }).map((_, idx) => (
               <div key={idx} className="h-20 rounded-2xl bg-white animate-pulse border border-gray-100" />
             ))}
           </main>
             ) : processedInventory.length === 0 ? (
-          <main className="px-5 pb-6">
+          <main className="mx-auto max-w-[1180px] px-4 pb-6 sm:px-6 lg:px-8">
             <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] px-5 py-10 text-center">
               <div className="mx-auto w-20 h-20 rounded-full bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center mb-4">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--brand-primary)]">

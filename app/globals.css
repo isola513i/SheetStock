@@ -175,3 +175,261 @@ input, select, textarea {
 
 /* Safe area bottom padding utility */
 .pb-safe { padding-bottom: env(safe-area-inset-bottom, 1rem); }
+
+@media (min-width: 1024px) {
+  .catalog-detail-dialog {
+    inset: auto !important;
+    left: 50% !important;
+    top: 50% !important;
+    bottom: auto !important;
+    width: min(760px, calc(100vw - 3rem)) !important;
+    transform: translate(-50%, -50%) !important;
+    animation-name: catalog-dialog-in-desktop;
+  }
+}
+
+/* Catalog: lightweight motion for browsing and product selection. */
+.catalog-page .catalog-header {
+  animation: catalog-header-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.catalog-page .catalog-search-zone {
+  animation: catalog-content-in 340ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+}
+
+.catalog-page .catalog-toolbar {
+  animation: catalog-content-in 320ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+}
+
+.catalog-page .catalog-grid {
+  animation: catalog-content-in 340ms cubic-bezier(0.22, 1, 0.36, 1) 150ms both;
+}
+
+.catalog-page .catalog-chip-row > button {
+  transition-duration: 150ms;
+  transition-property: background-color, border-color, color, transform;
+  transition-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.catalog-page .catalog-chip-row > button:active {
+  transform: scale(0.98);
+}
+
+.catalog-page .catalog-card,
+.catalog-page .catalog-list-row {
+  animation: catalog-item-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  contain: layout paint;
+}
+
+.catalog-page .catalog-card:nth-child(1),
+.catalog-page .catalog-list-row:nth-child(1) { animation-delay: 20ms; }
+.catalog-page .catalog-card:nth-child(2),
+.catalog-page .catalog-list-row:nth-child(2) { animation-delay: 45ms; }
+.catalog-page .catalog-card:nth-child(3),
+.catalog-page .catalog-list-row:nth-child(3) { animation-delay: 70ms; }
+.catalog-page .catalog-card:nth-child(4),
+.catalog-page .catalog-list-row:nth-child(4) { animation-delay: 95ms; }
+.catalog-page .catalog-card:nth-child(n+5),
+.catalog-page .catalog-list-row:nth-child(n+5) { animation-delay: 110ms; }
+
+.catalog-page .catalog-add-button,
+.catalog-page .catalog-cart-fab {
+  transition-duration: 150ms;
+  transition-property: background-color, box-shadow, opacity, transform;
+  transition-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.catalog-page .catalog-cart-fab {
+  animation: catalog-fab-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.catalog-detail-dialog {
+  animation: catalog-dialog-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .catalog-page .catalog-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 18px 34px -25px color-mix(in oklab, var(--catalog-header) 46%, transparent);
+  }
+
+  .catalog-page .catalog-list-row:hover {
+    transform: translateY(-1px);
+    background-color: color-mix(in oklab, var(--bg-card) 86%, var(--catalog-header-action) 4%);
+  }
+
+  .catalog-page .catalog-chip-row > button:hover {
+    transform: translateY(-1px);
+  }
+}
+
+@keyframes catalog-header-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes catalog-content-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes catalog-item-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes catalog-fab-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.92); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes catalog-dialog-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes catalog-dialog-in-desktop {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 16px)) scale(0.985); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* Auth screens: restrained motion for hierarchy and feedback. */
+.auth-shell {
+  animation: auth-shell-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.auth-hero {
+  animation: auth-hero-in 520ms cubic-bezier(0.16, 1, 0.3, 1) 40ms both;
+}
+
+.auth-panel {
+  animation: auth-panel-in 520ms cubic-bezier(0.16, 1, 0.3, 1) 110ms both;
+}
+
+.auth-logo-wrap {
+  animation: auth-logo-in 560ms cubic-bezier(0.22, 1, 0.36, 1) 180ms both;
+}
+
+.auth-note {
+  animation: auth-note-in 520ms cubic-bezier(0.22, 1, 0.36, 1) 260ms both;
+}
+
+.auth-copy,
+.auth-field,
+.auth-actions {
+  animation: auth-content-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.auth-copy { animation-delay: 180ms; }
+.auth-field:nth-of-type(1) { animation-delay: 240ms; }
+.auth-field:nth-of-type(2) { animation-delay: 290ms; }
+.auth-field:nth-of-type(3) { animation-delay: 340ms; }
+.auth-field:nth-of-type(4) { animation-delay: 390ms; }
+.auth-actions { animation-delay: 430ms; }
+
+.auth-orb {
+  animation: auth-orb-drift 9s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+  will-change: transform;
+}
+
+.auth-orb-b {
+  animation-duration: 11s;
+  animation-delay: -2s;
+}
+
+.auth-input-wrap:focus-within {
+  transform: translateY(-1px);
+}
+
+.auth-input-wrap {
+  transition-duration: 160ms;
+  transition-property: background-color, border-color, box-shadow, transform;
+  transition-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.auth-input-error {
+  animation: auth-field-nudge 180ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@keyframes auth-shell-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes auth-hero-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes auth-panel-in {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes auth-logo-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes auth-note-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes auth-content-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes auth-orb-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(10px, -8px, 0) scale(1.06); }
+}
+
+@keyframes auth-field-nudge {
+  0% { transform: translateX(0); }
+  35% { transform: translateX(-3px); }
+  70% { transform: translateX(3px); }
+  100% { transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-shell,
+  .auth-hero,
+  .auth-panel,
+  .auth-logo-wrap,
+  .auth-note,
+  .auth-copy,
+  .auth-field,
+  .auth-actions,
+  .auth-orb,
+  .auth-input-error {
+    animation: none !important;
+  }
+
+  .auth-input-wrap:focus-within {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalog-page .catalog-header,
+  .catalog-page .catalog-search-zone,
+  .catalog-page .catalog-toolbar,
+  .catalog-page .catalog-grid,
+  .catalog-page .catalog-card,
+  .catalog-page .catalog-list-row,
+  .catalog-page .catalog-cart-fab,
+  .catalog-detail-dialog {
+    animation: none !important;
+  }
+
+  .catalog-page .catalog-card,
+  .catalog-page .catalog-list-row,
+  .catalog-page .catalog-chip-row > button,
+  .catalog-page .catalog-add-button,
+  .catalog-page .catalog-cart-fab {
+    transition-duration: 0.01ms !important;
+    transform: none !important;
+  }
+}

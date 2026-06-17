@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 import PullToRefresh from 'pulltorefreshjs';
 import { useInventoryStream } from '@/lib/hooks/use-inventory-stream';
-import { ArrowUpDown, Plus, Search, ShoppingCart, SlidersHorizontal, X } from 'lucide-react';
+import { ArrowUpDown, LogIn, PackageSearch, Plus, Search, Settings, ShoppingCart, SlidersHorizontal, X } from 'lucide-react';
 import { AnnouncementCarousel } from '@/components/catalog/AnnouncementCarousel';
 import { ProductImage, FALLBACK_IMAGE_SRC, toSafeImageSrc } from '@/components/ProductImage';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -138,10 +138,11 @@ type CatalogResponse = {
 };
 
 type StockFilter = 'all' | 'inStock' | 'lowStock' | 'outOfStock';
-type SortOption = 'nameAsc' | 'nameDesc' | 'priceLow' | 'priceHigh' | 'lowStock';
+type SortOption = 'sheetOrder' | 'nameAsc' | 'nameDesc' | 'priceLow' | 'priceHigh' | 'lowStock';
 type CatalogViewMode = 'grid' | 'list';
 
 const SORT_OPTIONS: { id: SortOption; label: string }[] = [
+  { id: 'sheetOrder', label: 'ลำดับในชีต' },
   { id: 'nameAsc', label: 'ชื่อ ก-ฮ' },
   { id: 'nameDesc', label: 'ชื่อ ฮ-ก' },
   { id: 'priceLow', label: 'ราคาต่ำสุด' },
@@ -212,8 +213,9 @@ function getCartStorageKey(ownerKey: string) {
   return `${CART_STORAGE_PREFIX}:${encodeURIComponent(ownerKey)}`;
 }
 
-function clampQuantity(quantity: number, stock: number) {
-  return Math.max(1, Math.min(Math.floor(quantity), Math.max(1, stock)));
+function normalizeCartQuantity(quantity: number) {
+  if (!Number.isFinite(quantity)) return 1;
+  return Math.max(1, Math.floor(quantity));
 }
 
 function toCartLine(item: CatalogItem, accessTier: AccessTier, quantity: number): CartLine {
@@ -226,7 +228,7 @@ function toCartLine(item: CatalogItem, accessTier: AccessTier, quantity: number)
     series: item.series,
     imageUrl: item.imageUrl,
     unitPrice: getDisplayPrice(item, accessTier),
-    quantity: clampQuantity(quantity, item.stock),
+    quantity: normalizeCartQuantity(quantity),
     stock: item.stock,
     quantityPerBox: item.quantityPerBox,
   };
@@ -303,7 +305,7 @@ export default function CatalogPage() {
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [brandFilter, setBrandFilter] = useState<string[]>([]);
   const [seriesFilter, setSeriesFilter] = useState<string[]>([]);
-  const [sort, setSort] = useState<SortOption>('nameAsc');
+  const [sort, setSort] = useState<SortOption>('sheetOrder');
   const [selectedItem, setSelectedItem] = useState<CatalogItem | null>(null);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -311,6 +313,7 @@ export default function CatalogPage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [cartLines, setCartLines] = useState<CartLine[]>([]);
+  const [poCustomerName, setPoCustomerName] = useState('');
   const loadedCartKeyRef = useRef<string | null>(null);
   const [activeTab, setActiveTab] = useState<'catalog' | 'settings'>('catalog');
   const [catalogViewMode, setCatalogViewMode] = useState<CatalogViewMode>(() => {
@@ -391,14 +394,16 @@ export default function CatalogPage() {
     if (brandFilter.length > 0) list = list.filter((i) => brandFilter.includes(i.brand));
     if (seriesFilter.length > 0) list = list.filter((i) => seriesFilter.includes(i.series));
 
-    list = [...list].sort((a, b) => {
-      if (sort === 'nameAsc') return a.name.localeCompare(b.name, 'th');
-      if (sort === 'nameDesc') return b.name.localeCompare(a.name, 'th');
-      if (sort === 'priceLow') return getDisplayPrice(a, accessTier) - getDisplayPrice(b, accessTier);
-      if (sort === 'priceHigh') return getDisplayPrice(b, accessTier) - getDisplayPrice(a, accessTier);
-      if (sort === 'lowStock') return a.stock - b.stock;
-      return 0;
-    });
+    if (sort !== 'sheetOrder') {
+      list = [...list].sort((a, b) => {
+        if (sort === 'nameAsc') return a.name.localeCompare(b.name, 'th');
+        if (sort === 'nameDesc') return b.name.localeCompare(a.name, 'th');
+        if (sort === 'priceLow') return getDisplayPrice(a, accessTier) - getDisplayPrice(b, accessTier);
+        if (sort === 'priceHigh') return getDisplayPrice(b, accessTier) - getDisplayPrice(a, accessTier);
+        if (sort === 'lowStock') return a.stock - b.stock;
+        return 0;
+      });
+    }
     return list;
   }, [data, searchQuery, stockFilter, categoryFilter, brandFilter, seriesFilter, sort, accessTier]);
 
@@ -409,15 +414,13 @@ export default function CatalogPage() {
   useEffect(() => {
     if (!data) return;
     let changed = false;
-    let clamped = false;
     const next = cartLines.flatMap((line) => {
       const item = catalogById.get(line.productId);
-      if (!item || item.stock <= 0) {
+      if (!item) {
         changed = true;
         return [];
       }
       const updated = toCartLine(item, accessTier, line.quantity);
-      if (updated.quantity !== line.quantity) clamped = true;
       if (
         updated.unitPrice !== line.unitPrice ||
         updated.stock !== line.stock ||
@@ -432,14 +435,14 @@ export default function CatalogPage() {
     if (changed) {
       const timer = setTimeout(() => {
         setCartLines(next);
-        if (clamped) toast('จำนวนสินค้าในตะกร้าถูกปรับตามสต็อกล่าสุด', 'warning');
       }, 0);
       return () => clearTimeout(timer);
     }
-  }, [data, catalogById, accessTier, cartLines, toast]);
+  }, [data, catalogById, accessTier, cartLines]);
 
-  const cartItemCount = cartLines.reduce((sum, line) => sum + line.quantity, 0);
+  const cartItemCount = cartLines.length;
   const cartTotal = cartLines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
+  const effectivePoCustomerName = poCustomerName || userName || '';
 
   // Infinite scroll
   useEffect(() => {
@@ -479,10 +482,6 @@ export default function CatalogPage() {
   }, [resetCatalogPagination]);
 
   const addToCart = useCallback((item: CatalogItem, quantity = 1) => {
-    if (item.stock <= 0) {
-      toast('สินค้านี้หมดสต็อก', 'warning');
-      return;
-    }
     setCartLines((current) => {
       const existing = current.find((line) => line.productId === item.productId);
       if (existing) {
@@ -501,7 +500,7 @@ export default function CatalogPage() {
     setCartLines((current) => current.flatMap((line) => {
       if (line.productId !== productId) return [line];
       if (quantity <= 0) return [];
-      return [{ ...line, quantity: clampQuantity(quantity, line.stock) }];
+      return [{ ...line, quantity: normalizeCartQuantity(quantity) }];
     }));
   }, []);
 
@@ -516,30 +515,76 @@ export default function CatalogPage() {
   const isSettingsTab = activeTab === 'settings';
   const activeFilterCount = categoryFilter.length + brandFilter.length + seriesFilter.length;
   const catalogStatusLabel = accessTier === 'vvip' ? 'VVIP' : 'GUEST';
+  const catalogShellClass = 'mx-auto w-full max-w-[1180px]';
+  const catalogGridClass = catalogViewMode === 'grid'
+    ? 'grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 lg:gap-4'
+    : 'grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-3';
+  const catalogSkeletonClass = catalogViewMode === 'grid'
+    ? 'h-[300px] rounded-[18px] lg:h-[320px]'
+    : 'h-[116px] rounded-xl';
 
   return (
-    <div className="catalog-theme fixed inset-0 w-full flex flex-col bg-[var(--bg-primary)] text-[var(--text-primary)] overflow-hidden">
+    <div className="catalog-theme catalog-page fixed inset-0 w-full flex flex-col bg-[var(--bg-primary)] text-[var(--text-primary)] overflow-hidden">
       {/* Header */}
-      <div className={`shrink-0 z-30 border-b border-[color:color-mix(in_oklab,var(--catalog-header)_80%,var(--border-color))] bg-[var(--catalog-header)] px-5 transition-all duration-200 ${scrollDir === 'down' && !isSettingsTab ? 'pb-3' : 'pb-4'}`} style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 14px)' }}>
-        <div className="mb-3 flex items-end justify-between gap-4">
+      <div className={`catalog-header shrink-0 z-30 border-b border-[color:color-mix(in_oklab,var(--catalog-header)_80%,var(--border-color))] bg-[var(--catalog-header)] px-4 transition-all duration-200 sm:px-6 lg:px-8 ${scrollDir === 'down' && !isSettingsTab ? 'pb-3' : 'pb-4 lg:pb-5'}`} style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 14px)' }}>
+        <div className={`${catalogShellClass} mb-3 flex items-end justify-between gap-4`}>
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--catalog-header-action)]">{isSettingsTab ? 'Account' : 'Korean Catalog'}</p>
             <h1 className="mt-0.5 text-[1.35rem] font-semibold leading-tight text-[var(--catalog-header-text)]">{isSettingsTab ? 'ตั้งค่า' : 'สินค้า'}</h1>
           </div>
-          {!isSettingsTab && (
-            <span className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium ${
-              accessTier === 'vvip'
-                ? 'border-[color:color-mix(in_oklab,var(--catalog-header-action)_72%,transparent)] bg-[var(--catalog-header-action)] text-[var(--catalog-header-action-text)]'
-                : 'border-[color:color-mix(in_oklab,var(--catalog-header-text)_34%,transparent)] bg-[color:color-mix(in_oklab,var(--bg-card)_94%,transparent)] text-[var(--catalog-header)]'
-            }`}>
-              {catalogStatusLabel}
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {!isSettingsTab && (
+              <span className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium ${
+                accessTier === 'vvip'
+                  ? 'border-[color:color-mix(in_oklab,var(--catalog-header-action)_72%,transparent)] bg-[var(--catalog-header-action)] text-[var(--catalog-header-action-text)]'
+                  : 'border-[color:color-mix(in_oklab,var(--catalog-header-text)_34%,transparent)] bg-[color:color-mix(in_oklab,var(--bg-card)_94%,transparent)] text-[var(--catalog-header)]'
+              }`}>
+                {catalogStatusLabel}
+              </span>
+            )}
+            <div className="hidden items-center gap-1.5 rounded-2xl border border-[color:color-mix(in_oklab,var(--catalog-header-text)_16%,transparent)] bg-[color:color-mix(in_oklab,var(--catalog-header)_88%,var(--bg-card))] p-1 lg:flex">
+              <button
+                type="button"
+                onClick={() => setActiveTab('catalog')}
+                className={`inline-flex h-10 items-center gap-2 rounded-xl px-3.5 text-sm font-semibold transition-[background-color,color] duration-150 ${
+                  !isSettingsTab
+                    ? 'bg-[var(--catalog-header-action)] text-[var(--catalog-header-action-text)]'
+                    : 'text-[var(--catalog-header-muted)] hover:bg-[color:color-mix(in_oklab,var(--bg-card)_10%,transparent)] hover:text-[var(--catalog-header-text)]'
+                }`}
+              >
+                <PackageSearch className="h-4 w-4" />
+                สินค้า
+              </button>
+              {isLoggedIn ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('settings')}
+                  className={`inline-flex h-10 items-center gap-2 rounded-xl px-3.5 text-sm font-semibold transition-[background-color,color] duration-150 ${
+                    isSettingsTab
+                      ? 'bg-[var(--catalog-header-action)] text-[var(--catalog-header-action-text)]'
+                      : 'text-[var(--catalog-header-muted)] hover:bg-[color:color-mix(in_oklab,var(--bg-card)_10%,transparent)] hover:text-[var(--catalog-header-text)]'
+                  }`}
+                >
+                  <Settings className="h-4 w-4" />
+                  ตั้งค่า
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => router.push('/login')}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl px-3.5 text-sm font-semibold text-[var(--catalog-header-muted)] transition-[background-color,color] duration-150 hover:bg-[color:color-mix(in_oklab,var(--bg-card)_10%,transparent)] hover:text-[var(--catalog-header-text)]"
+                >
+                  <LogIn className="h-4 w-4" />
+                  เข้าสู่ระบบ
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {!isSettingsTab && (
-          <div className={`overflow-hidden transition-all duration-200 ${scrollDir === 'down' ? 'max-h-0 opacity-0' : 'max-h-[120px] opacity-100'}`}>
-            <div className="relative mb-3">
+          <div className={`catalog-search-zone ${catalogShellClass} overflow-hidden transition-all duration-200 ${scrollDir === 'down' ? 'max-h-0 opacity-0' : 'max-h-[120px] opacity-100'}`}>
+            <div className="relative mb-3 lg:max-w-[34rem]">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
               <input
                 type="text"
@@ -561,7 +606,7 @@ export default function CatalogPage() {
 
             {/* Category chips */}
             {facets.categories.length > 0 && (
-              <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+              <div className="catalog-chip-row flex gap-2 overflow-x-auto hide-scrollbar pb-1 lg:flex-wrap lg:overflow-visible">
                 <button
                   type="button"
                   onClick={() => {
@@ -599,34 +644,36 @@ export default function CatalogPage() {
 
       {/* Content */}
       {isSettingsTab ? (
-        <div className="flex-1 overflow-y-auto pb-24">
-          <SettingsPage
-            viewMode={catalogViewMode} hapticsEnabled={hapticsEnabled}
-            onChangeViewMode={setCatalogViewMode}
-            onToggleHaptics={() => setHapticsEnabled((p) => !p)}
-            onRefreshData={async () => {
-              await fetch('/api/catalog?refresh=true');
-              await mutate();
-            }}
-            onResetPreferences={() => { setHapticsEnabled(true); window.localStorage.removeItem('sheetstock-haptics'); }}
-            onLogout={async () => {
-              await fetch('/api/auth/logout', { method: 'POST' });
-              setCartLines([]);
-              setActiveTab('catalog');
-              await mutate(undefined, { revalidate: false });
-              await mutate();
-            }}
-            userRole={userRole ?? 'customer'} userName={userName}
-            customerTier={accessTier === 'vvip' ? 'VVIP' : accessTier === 'vip' ? 'VIP' : undefined}
-            recentScans={[]} onClearRecentScans={() => {}} onScanItemClick={() => {}}
-          />
+        <div className="flex-1 overflow-y-auto px-4 pb-24 sm:px-6 lg:px-8">
+          <div className={catalogShellClass}>
+            <SettingsPage
+              viewMode={catalogViewMode} hapticsEnabled={hapticsEnabled}
+              onChangeViewMode={setCatalogViewMode}
+              onToggleHaptics={() => setHapticsEnabled((p) => !p)}
+              onRefreshData={async () => {
+                await fetch('/api/catalog?refresh=true');
+                await mutate();
+              }}
+              onResetPreferences={() => { setHapticsEnabled(true); window.localStorage.removeItem('sheetstock-haptics'); }}
+              onLogout={async () => {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                setCartLines([]);
+                setActiveTab('catalog');
+                await mutate(undefined, { revalidate: false });
+                await mutate();
+              }}
+              userRole={userRole ?? 'customer'} userName={userName}
+              customerTier={accessTier === 'vvip' ? 'VVIP' : accessTier === 'vip' ? 'VIP' : undefined}
+              recentScans={[]} onClearRecentScans={() => {}} onScanItemClick={() => {}}
+            />
+          </div>
         </div>
       ) : (
         <>
           <AnnouncementCarousel items={announcementData?.items ?? []} hidden={scrollDir === 'down'} />
 
           {/* Count + Sort */}
-          <div className="px-5 pt-3 pb-2 flex items-center justify-between">
+          <div className={`catalog-toolbar ${catalogShellClass} px-4 pt-3 pb-2 flex items-center justify-between sm:px-6 lg:px-0`}>
             <p className="text-[13px] font-medium text-[var(--text-secondary)]">พบ {items.length.toLocaleString('th-TH')} รายการ</p>
             <div className="flex gap-2">
               <button
@@ -650,41 +697,42 @@ export default function CatalogPage() {
           </div>
 
           {/* Grid */}
-          <div id="catalog-scroll" ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4 pb-24 hide-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
-            {isLoading ? (
-              <>
-                {isSlowCatalogLoad && (
-                  <div className="mb-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
-                    <p className="text-sm font-medium text-[var(--text-primary)]">กำลังเชื่อมต่อข้อมูลสินค้า</p>
-                    <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">Google Sheets อาจตอบช้ากว่าปกติ ข้อมูลจะแสดงทันทีเมื่อโหลดสำเร็จ</p>
+          <div id="catalog-scroll" ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4 pb-24 hide-scrollbar sm:px-6 lg:px-8 lg:pb-10" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div className={catalogShellClass}>
+              {isLoading ? (
+                <>
+                  {isSlowCatalogLoad && (
+                    <div className="mb-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-3">
+                      <p className="text-sm font-medium text-[var(--text-primary)]">กำลังเชื่อมต่อข้อมูลสินค้า</p>
+                      <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">Google Sheets อาจตอบช้ากว่าปกติ ข้อมูลจะแสดงทันทีเมื่อโหลดสำเร็จ</p>
+                    </div>
+                  )}
+                  <div className={`${catalogGridClass} mt-2`}>
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className={`${catalogSkeletonClass} bg-[var(--bg-card)] border border-[var(--border-subtle)] animate-pulse`} />
+                    ))}
                   </div>
-                )}
-                <div className={`${catalogViewMode === 'grid' ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-1 gap-2.5 sm:grid-cols-2'} mt-2`}>
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className={`${catalogViewMode === 'grid' ? 'h-[300px] rounded-[18px]' : 'h-[116px] rounded-xl'} bg-[var(--bg-card)] border border-[var(--border-subtle)] animate-pulse`} />
-                  ))}
+                </>
+              ) : catalogError ? (
+                <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-5 py-8 text-center mt-2">
+                  <p className="text-[var(--text-primary)] font-semibold mb-1">โหลดสินค้าไม่สำเร็จ</p>
+                  <p className="mx-auto mb-4 max-w-[26rem] text-sm leading-relaxed text-[var(--text-secondary)]">ตรวจสอบการเชื่อมต่อ Google Sheets แล้วลองใหม่อีกครั้ง</p>
+                  <button onClick={() => mutate()} className="px-4 py-2 rounded-xl bg-[var(--brand-primary)] text-[var(--bg-card)] text-sm font-semibold">
+                    โหลดใหม่
+                  </button>
                 </div>
-              </>
-            ) : catalogError ? (
-              <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-5 py-8 text-center mt-2">
-                <p className="text-[var(--text-primary)] font-semibold mb-1">โหลดสินค้าไม่สำเร็จ</p>
-                <p className="mx-auto mb-4 max-w-[26rem] text-sm leading-relaxed text-[var(--text-secondary)]">ตรวจสอบการเชื่อมต่อ Google Sheets แล้วลองใหม่อีกครั้ง</p>
-                <button onClick={() => mutate()} className="px-4 py-2 rounded-xl bg-[var(--brand-primary)] text-[var(--bg-card)] text-sm font-semibold">
-                  โหลดใหม่
-                </button>
-              </div>
-            ) : items.length === 0 ? (
-              <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] px-5 py-8 text-center mt-2">
-                <p className="text-[var(--text-primary)] font-medium mb-1">ไม่พบสินค้า</p>
-                <p className="text-sm text-[var(--text-secondary)] mb-4">ลองเปลี่ยนคำค้นหาหรือตัวกรอง</p>
-                <button onClick={() => { resetCatalogPagination(); setSearchQuery(''); setStockFilter('all'); setCategoryFilter([]); setBrandFilter([]); setSeriesFilter([]); }} className="px-4 py-2 rounded-xl bg-[var(--brand-primary)] text-[var(--bg-card)] text-sm font-semibold">
-                  ล้างตัวกรอง
-                </button>
-              </div>
-            ) : (
-              <>
-                <AnimatePresence>
-                <div className={`${catalogViewMode === 'grid' ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-1 gap-2.5 sm:grid-cols-2'} mt-2`}>
+              ) : items.length === 0 ? (
+                <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-color)] px-5 py-8 text-center mt-2">
+                  <p className="text-[var(--text-primary)] font-medium mb-1">ไม่พบสินค้า</p>
+                  <p className="text-sm text-[var(--text-secondary)] mb-4">ลองเปลี่ยนคำค้นหาหรือตัวกรอง</p>
+                  <button onClick={() => { resetCatalogPagination(); setSearchQuery(''); setStockFilter('all'); setCategoryFilter([]); setBrandFilter([]); setSeriesFilter([]); }} className="px-4 py-2 rounded-xl bg-[var(--brand-primary)] text-[var(--bg-card)] text-sm font-semibold">
+                    ล้างตัวกรอง
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <AnimatePresence>
+                    <div className={`catalog-grid ${catalogGridClass} mt-2`}>
                   {visibleItems.map((item) => {
                     const isOut = item.stock <= 0;
                     const isLow = item.stock > 0 && item.stock < 10;
@@ -694,7 +742,7 @@ export default function CatalogPage() {
                       return (
                         <article
                           key={item.productId}
-                          className={`overflow-hidden rounded-[18px] border bg-[var(--bg-card)] shadow-[0_14px_28px_-24px_color-mix(in_oklab,var(--brand-primary)_38%,transparent)] transition-[border-color,transform,box-shadow] duration-150 ease-out ${
+                              className={`catalog-card overflow-hidden rounded-[18px] border bg-[var(--bg-card)] shadow-[0_14px_28px_-24px_color-mix(in_oklab,var(--brand-primary)_38%,transparent)] transition-[border-color,transform,box-shadow] duration-150 ease-out ${
                             isOut ? 'border-[color:color-mix(in_oklab,var(--status-danger)_24%,var(--bg-card))]' : isLow ? 'border-[color:color-mix(in_oklab,var(--status-warning)_24%,var(--bg-card))]' : 'border-[var(--border-subtle)]'
                           }`}
                         >
@@ -705,14 +753,14 @@ export default function CatalogPage() {
                             onClick={() => setSelectedItem(item)}
                           >
                             <div className="relative aspect-[1.03] w-full overflow-hidden bg-[var(--bg-secondary)]">
-                              <ProductImage src={item.imageUrl} alt={item.name} sizes="(max-width: 768px) 50vw, 220px" className={`object-cover ${isOut ? 'grayscale opacity-70' : ''}`} />
+                              <ProductImage src={item.imageUrl} alt={item.name} sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 25vw" className="object-cover" />
                               {isOut && (
                                 <div className="absolute inset-0 flex items-center justify-center bg-[color:color-mix(in_oklab,var(--text-primary)_18%,transparent)]">
                                   <span className="rounded-full bg-[var(--bg-card)] px-3 py-1 text-[10px] font-semibold text-[var(--status-danger)] shadow-sm">หมด</span>
                                 </div>
                               )}
                             </div>
-                            <div className={`px-3 pt-3 ${isOut ? 'opacity-65' : ''}`}>
+                            <div className="px-3 pt-3">
                               {item.brand ? (
                                 <span className={`inline-flex max-w-full items-center rounded-full border px-2.5 py-1 text-[10px] font-medium leading-none ${brandColor(item.brand)}`}>
                                   <span className="truncate">{item.brand}</span>
@@ -739,8 +787,7 @@ export default function CatalogPage() {
                             <button
                               type="button"
                               onClick={() => addToCart(item)}
-                              disabled={isOut}
-                              className="flex h-9 w-full items-center justify-center gap-1.5 rounded-full border border-transparent bg-[#29335C] text-[12px] font-semibold text-white shadow-[0_10px_18px_-14px_rgba(41,51,92,0.7)] transition-all duration-150 ease-out hover:-translate-y-0.5 hover:bg-[#36446F] hover:shadow-[0_14px_24px_-12px_rgba(41,51,92,0.75)] active:translate-y-0 active:shadow-[0_8px_14px_-12px_rgba(41,51,92,0.65)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:bg-[#29335C] disabled:hover:shadow-[0_10px_18px_-14px_rgba(41,51,92,0.7)]"
+                              className="catalog-add-button flex h-9 w-full items-center justify-center gap-1.5 rounded-full border border-transparent bg-[#29335C] text-[12px] font-semibold text-white shadow-[0_10px_18px_-14px_rgba(41,51,92,0.7)] transition-all duration-150 ease-out hover:-translate-y-0.5 hover:bg-[#36446F] hover:shadow-[0_14px_24px_-12px_rgba(41,51,92,0.75)] active:translate-y-0 active:shadow-[0_8px_14px_-12px_rgba(41,51,92,0.65)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:bg-[#29335C] disabled:hover:shadow-[0_10px_18px_-14px_rgba(41,51,92,0.7)]"
                             >
                               <ShoppingCart className="h-3.5 w-3.5" />
                               เพิ่มลงตะกร้า
@@ -755,20 +802,20 @@ export default function CatalogPage() {
                         type="button"
                         key={item.productId}
                         aria-label={`ดูรายละเอียดสินค้า ${item.name}`}
-                        className={`flex min-h-[116px] cursor-pointer overflow-hidden rounded-xl border bg-[var(--bg-card)] text-left transition-[background-color,border-color,transform] duration-150 ease-out active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:color-mix(in_oklab,var(--brand-primary)_26%,transparent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)] ${
+                        className={`catalog-list-row flex min-h-[116px] cursor-pointer overflow-hidden rounded-xl border bg-[var(--bg-card)] text-left transition-[background-color,border-color,transform] duration-150 ease-out active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:color-mix(in_oklab,var(--brand-primary)_26%,transparent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)] ${
                           isOut ? 'border-[color:color-mix(in_oklab,var(--status-danger)_24%,var(--bg-card))]' : isLow ? 'border-[color:color-mix(in_oklab,var(--status-warning)_28%,var(--bg-card))]' : 'border-[var(--border-color)]'
                         }`}
                         onClick={() => setSelectedItem(item)}
                       >
                         <div className="relative m-2 h-[100px] w-[92px] shrink-0 overflow-hidden rounded-lg bg-[var(--bg-secondary)]">
-                          <ProductImage src={item.imageUrl} alt={item.name} sizes="(max-width: 768px) 45vw, 200px" className={`object-cover ${isOut ? 'grayscale opacity-70' : ''}`} />
+                          <ProductImage src={item.imageUrl} alt={item.name} sizes="92px" className="object-cover" />
                           {isOut && (
                             <div className="absolute inset-0 flex items-center justify-center bg-[color:color-mix(in_oklab,var(--text-primary)_18%,transparent)]">
                               <span className="rounded-md bg-[var(--bg-card)] px-2 py-1 text-[10px] font-semibold text-[var(--status-danger)]">หมด</span>
                             </div>
                           )}
                         </div>
-                        <div className={`flex min-w-0 flex-1 flex-col justify-between py-3 pr-3 ${isOut ? 'opacity-65' : ''}`}>
+                        <div className="flex min-w-0 flex-1 flex-col justify-between py-3 pr-3">
                           <div>
                             <div className="mb-1.5 flex items-center justify-between gap-2">
                               {item.brand ? (
@@ -802,49 +849,53 @@ export default function CatalogPage() {
                       </button>
                     );
                   })}
-                </div>
-              </AnimatePresence>
+                    </div>
+                  </AnimatePresence>
 
-              {visibleCount < items.length && (
-                <div ref={loadMoreRef} className={`py-4 ${catalogViewMode === 'grid' ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-1 gap-2.5 sm:grid-cols-2'}`}>
-                  {[0, 1].map((i) => <div key={i} className={`${catalogViewMode === 'grid' ? 'h-[300px] rounded-[18px]' : 'h-[116px] rounded-xl'} bg-[var(--bg-card)] animate-pulse border border-[var(--border-subtle)]`} />)}
-                </div>
+                  {visibleCount < items.length && (
+                    <div ref={loadMoreRef} className={`py-4 ${catalogGridClass}`}>
+                      {[0, 1, 2, 3].map((i) => <div key={i} className={`${catalogSkeletonClass} bg-[var(--bg-card)] animate-pulse border border-[var(--border-subtle)]`} />)}
+                    </div>
+                  )}
+                </>
               )}
-              </>
-            )}
+            </div>
           </div>
         </>
       )}
 
       {/* Product Detail Sheet */}
       <Sheet open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
-        <SheetContent side="bottom" className="catalog-theme max-h-[92dvh] rounded-t-2xl border border-[var(--border-color)] bg-[var(--bg-card)]" showCloseButton={false}>
+        <SheetContent side="bottom" className="catalog-theme catalog-detail-dialog max-h-[92dvh] rounded-t-2xl border border-[var(--border-color)] bg-[var(--bg-card)] lg:rounded-[1.75rem] lg:border lg:shadow-[0_28px_80px_-46px_rgba(41,51,92,0.7)]" showCloseButton={false}>
           {selectedItem && (() => {
             const displayPrice = getDisplayPrice(selectedItem, accessTier);
             return (
               <div className="flex max-h-[92dvh] flex-col">
-                <div className="overflow-y-auto px-5 pt-4" style={{ WebkitOverflowScrolling: 'touch', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
-                <div className="mb-4 flex justify-center">
-                  <button
-                    type="button"
-                    aria-label={`ดูรูปภาพสินค้า ${selectedItem.name} แบบเต็มหน้าจอ`}
-                    className="relative h-44 w-44 cursor-pointer overflow-hidden rounded-xl bg-[var(--bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:ring-offset-2"
-                    onClick={() => {
-                      const imgSrc = selectedItem.imageUrl || FALLBACK_IMAGE_SRC;
-                      setSelectedItem(null);
-                      setTimeout(() => setFullscreenImage(imgSrc), 150);
-                    }}
-                  >
-                    <ProductImage src={selectedItem.imageUrl} alt={selectedItem.name} sizes="192px" className="object-cover" />
-                  </button>
-                </div>
+                <div className="overflow-y-auto px-5 pt-4 lg:grid lg:grid-cols-[220px_1fr] lg:gap-6 lg:px-6 lg:pt-6" style={{ WebkitOverflowScrolling: 'touch', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
+                  <div className="lg:sticky lg:top-6 lg:self-start">
+                    <div className="mb-4 flex justify-center lg:mb-3">
+                      <button
+                        type="button"
+                        aria-label={`ดูรูปภาพสินค้า ${selectedItem.name} แบบเต็มหน้าจอ`}
+                        className="relative h-44 w-44 cursor-pointer overflow-hidden rounded-xl bg-[var(--bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:ring-offset-2 lg:h-[220px] lg:w-[220px] lg:rounded-2xl"
+                        onClick={() => {
+                          const imgSrc = selectedItem.imageUrl || FALLBACK_IMAGE_SRC;
+                          setSelectedItem(null);
+                          setTimeout(() => setFullscreenImage(imgSrc), 150);
+                        }}
+                      >
+                        <ProductImage src={selectedItem.imageUrl} alt={selectedItem.name} sizes="(max-width: 1023px) 192px, 220px" className="object-cover" />
+                      </button>
+                    </div>
 
-                <h3 className="mb-1 text-center text-lg font-semibold leading-snug text-[var(--text-primary)]">{selectedItem.name}</h3>
-                <div className="mb-4 flex flex-wrap justify-center gap-2">
-                  {selectedItem.category && <Badge className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border-color)] text-[11px] rounded-md">{selectedItem.category}</Badge>}
-                  {selectedItem.brand && <Badge className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border-color)] text-[11px] rounded-md">{selectedItem.brand}</Badge>}
-                  {selectedItem.series && <Badge className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border-color)] text-[11px] rounded-md">{selectedItem.series}</Badge>}
-                </div>
+                    <h3 className="mb-1 text-center text-lg font-semibold leading-snug text-[var(--text-primary)] lg:text-left">{selectedItem.name}</h3>
+                    <div className="mb-4 flex flex-wrap justify-center gap-2 lg:justify-start">
+                      {selectedItem.category && <Badge className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border-color)] text-[11px] rounded-md">{selectedItem.category}</Badge>}
+                      {selectedItem.brand && <Badge className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border-color)] text-[11px] rounded-md">{selectedItem.brand}</Badge>}
+                      {selectedItem.series && <Badge className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border-color)] text-[11px] rounded-md">{selectedItem.series}</Badge>}
+                    </div>
+                  </div>
+                  <div>
 
                 <div className="mb-4 space-y-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4">
                   <div className="flex items-start justify-between gap-3">
@@ -886,7 +937,7 @@ export default function CatalogPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-[0.8fr_1.2fr] gap-2 pb-1">
+                <div className="grid grid-cols-[0.8fr_1.2fr] gap-2 pb-1 lg:sticky lg:bottom-0 lg:bg-[var(--bg-card)] lg:pb-0 lg:pt-1">
                   <button onClick={() => setSelectedItem(null)} className="h-12 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] text-sm font-medium text-[var(--text-secondary)]">
                     ปิด
                   </button>
@@ -895,13 +946,13 @@ export default function CatalogPage() {
                       addToCart(selectedItem);
                       setSelectedItem(null);
                     }}
-                    disabled={selectedItem.stock <= 0}
                     className="flex h-12 items-center justify-center gap-2 rounded-xl border border-transparent bg-[#29335C] text-sm font-semibold text-white shadow-[0_10px_18px_-14px_rgba(41,51,92,0.7)] transition-all duration-150 ease-out hover:-translate-y-0.5 hover:bg-[#36446F] hover:shadow-[0_14px_24px_-12px_rgba(41,51,92,0.75)] active:translate-y-0 active:shadow-[0_8px_14px_-12px_rgba(41,51,92,0.65)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:bg-[#29335C] disabled:hover:shadow-[0_10px_18px_-14px_rgba(41,51,92,0.7)]"
                   >
                     <Plus className="h-4 w-4" />
                     เพิ่มลงตะกร้า
                   </button>
                 </div>
+                  </div>
                 </div>
               </div>
             );
@@ -963,8 +1014,7 @@ export default function CatalogPage() {
         <button
           type="button"
           onClick={() => setIsCartOpen(true)}
-          className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+64px)] right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-[color:color-mix(in_oklab,var(--brand-primary)_22%,transparent)] bg-[#29335C] text-white shadow-[0_14px_30px_-18px_rgba(41,51,92,0.72)] transition-all duration-150 ease-out hover:-translate-y-0.5 hover:bg-[#36446F] hover:shadow-[0_18px_34px_-16px_rgba(41,51,92,0.78)] active:translate-y-0 active:shadow-[0_12px_24px_-18px_rgba(41,51,92,0.7)]"
-          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 64px)' }}
+          className="catalog-cart-fab fixed bottom-[calc(env(safe-area-inset-bottom,0px)+64px)] right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-[color:color-mix(in_oklab,var(--brand-primary)_22%,transparent)] bg-[#29335C] text-white shadow-[0_14px_30px_-18px_rgba(41,51,92,0.72)] transition-all duration-150 ease-out hover:-translate-y-0.5 hover:bg-[#36446F] hover:shadow-[0_18px_34px_-16px_rgba(41,51,92,0.78)] active:translate-y-0 active:shadow-[0_12px_24px_-18px_rgba(41,51,92,0.7)] lg:bottom-6 lg:right-[max(2rem,calc((100vw-1180px)/2))]"
           aria-label="เปิดตะกร้าสินค้า"
         >
           <span className="relative flex h-10 w-10 items-center justify-center">
@@ -981,7 +1031,9 @@ export default function CatalogPage() {
           open={isCartOpen}
           onOpenChange={setIsCartOpen}
           lines={cartLines}
-          customer={{ name: userName ?? 'ลูกค้า', phone: data?.customerPhone ?? null }}
+          customer={{ name: effectivePoCustomerName.trim() || 'ลูกค้า', phone: data?.customerPhone ?? null }}
+          customerName={effectivePoCustomerName}
+          onCustomerNameChange={setPoCustomerName}
           onUpdateQuantity={updateCartQuantity}
           onRemoveLine={removeCartLine}
           onClearCart={clearCart}
@@ -996,6 +1048,7 @@ export default function CatalogPage() {
           onScanClick={() => {}}
           onSettingsClick={() => setActiveTab('settings')}
           onInventoryClick={() => setActiveTab('catalog')}
+          className="lg:hidden"
         />
       ) : (
         <BottomNav
@@ -1005,6 +1058,7 @@ export default function CatalogPage() {
           onScanClick={() => {}}
           onSettingsClick={() => setActiveTab('settings')}
           onInventoryClick={() => setActiveTab('catalog')}
+          className="lg:hidden"
         />
       )}
 
@@ -1012,11 +1066,6 @@ export default function CatalogPage() {
 
       {fullscreenImage && <FullscreenImageViewer src={fullscreenImage} onClose={() => setFullscreenImage(null)} />}
 
-      <style jsx global>{`
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .ptr--ptr { box-shadow: none !important; }
-      `}</style>
     </div>
   );
 }

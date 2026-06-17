@@ -39,6 +39,8 @@ type CartSheetProps = {
   onOpenChange: (open: boolean) => void;
   lines: CartLine[];
   customer: PurchaseOrderCustomer;
+  customerName: string;
+  onCustomerNameChange: (name: string) => void;
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveLine: (productId: string) => void;
   onClearCart: () => void;
@@ -49,6 +51,8 @@ export function CartSheet({
   onOpenChange,
   lines,
   customer,
+  customerName,
+  onCustomerNameChange,
   onUpdateQuantity,
   onRemoveLine,
   onClearCart,
@@ -59,7 +63,11 @@ export function CartSheet({
   const [draftQuantities, setDraftQuantities] = useState<Record<string, string>>({});
   const poNumber = useMemo(() => makePurchaseOrderNumber(issueDate), [issueDate]);
   const total = lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
-  const itemCount = lines.reduce((sum, line) => sum + line.quantity, 0);
+  const itemCount = lines.length;
+  const purchaseOrderCustomer = useMemo(() => ({
+    ...customer,
+    name: customerName.trim() || customer.name || 'ลูกค้า',
+  }), [customer, customerName]);
 
   const commitQuantity = (productId: string, quantity: number) => {
     onUpdateQuantity(productId, quantity);
@@ -114,7 +122,7 @@ export function CartSheet({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-medium text-[var(--text-muted)]">ใบสั่งซื้อ PO</p>
-                  <h2 className="text-xl font-semibold text-[var(--text-primary)]">{itemCount} ชิ้นในตะกร้า</h2>
+                  <h2 className="text-xl font-semibold text-[var(--text-primary)]">{itemCount} รายการในตะกร้า</h2>
                 </div>
                 <button
                   type="button"
@@ -138,6 +146,22 @@ export function CartSheet({
                 </div>
               ) : (
                 <div className="space-y-3">
+                  <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-3">
+                    <label htmlFor="po-customer-name" className="text-xs font-semibold text-[var(--text-secondary)]">
+                      ชื่อลูกค้าในใบ PO
+                    </label>
+                    <input
+                      id="po-customer-name"
+                      type="text"
+                      value={customerName}
+                      onChange={(event) => onCustomerNameChange(event.target.value)}
+                      placeholder={customer.name || 'กรอกชื่อลูกค้า'}
+                      className="mt-2 h-11 w-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] px-3 text-sm font-medium text-[var(--text-primary)] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[var(--text-muted)] focus:border-[var(--brand-primary)] focus:shadow-[0_0_0_3px_color-mix(in_oklab,var(--brand-primary)_16%,transparent)]"
+                    />
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--text-muted)]">
+                      ชื่อนี้จะถูกนำไปแสดงในช่องผู้สั่งซื้อของใบ PO
+                    </p>
+                  </div>
                   {lines.map((line) => (
                     <div key={line.productId} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-3">
                       <div className="flex gap-3">
@@ -163,7 +187,9 @@ export function CartSheet({
                             <div>
                               <p className="text-xs text-[var(--text-muted)]">ราคา</p>
                               <p className="font-semibold text-[var(--catalog-emphasis)]">฿{formatMoney(line.unitPrice)}</p>
-                              <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">เหลือ {line.stock.toLocaleString('th-TH')} ชิ้น</p>
+                              <p className={`mt-0.5 text-[11px] ${line.stock <= 0 ? 'text-[var(--status-danger)]' : 'text-[var(--text-muted)]'}`}>
+                                {line.stock <= 0 ? 'สินค้าหมด' : `เหลือ ${line.stock.toLocaleString('th-TH')} ชิ้น`}
+                              </p>
                             </div>
                             <div className="flex items-center rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] p-1">
                               <button
@@ -177,7 +203,6 @@ export function CartSheet({
                               <input
                                 type="number"
                                 min={1}
-                                max={line.stock}
                                 step={1}
                                 value={draftQuantities[line.productId] ?? String(line.quantity)}
                                 onChange={(event) => {
@@ -202,8 +227,7 @@ export function CartSheet({
                               <button
                                 type="button"
                                 onClick={() => commitQuantity(line.productId, line.quantity + 1)}
-                                disabled={line.quantity >= line.stock}
-                                className="flex h-9 w-9 items-center justify-center rounded-md text-[var(--text-secondary)] disabled:opacity-40"
+                                className="flex h-9 w-9 items-center justify-center rounded-md text-[var(--text-secondary)]"
                                 aria-label="เพิ่มจำนวน"
                               >
                                 <Plus className="h-4 w-4" />
@@ -266,7 +290,7 @@ export function CartSheet({
         <PurchaseOrderDocument
           ref={documentRef}
           lines={lines}
-          customer={customer}
+          customer={purchaseOrderCustomer}
           poNumber={poNumber}
           issueDate={issueDate}
           exportSafeImages={true}
