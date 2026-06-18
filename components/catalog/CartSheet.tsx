@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, FileImage, FileText, Minus, Plus, ShoppingCart, Trash2, X } from 'lucide-react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { ProductImage } from '@/components/ProductImage';
@@ -62,6 +62,7 @@ export function CartSheet({
   const [issueDate] = useState(() => new Date());
   const [isExporting, setIsExporting] = useState(false);
   const [draftQuantities, setDraftQuantities] = useState<Record<string, string>>({});
+  const [isDesktop, setIsDesktop] = useState(false);
   const poNumber = useMemo(() => makePurchaseOrderNumber(issueDate), [issueDate]);
   const total = lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
   const itemCount = lines.length;
@@ -69,6 +70,14 @@ export function CartSheet({
     ...customer,
     name: customerName.trim() || customer.name || 'ลูกค้า',
   }), [customer, customerName]);
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)');
+    const update = () => setIsDesktop(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   const commitQuantity = (productId: string, quantity: number) => {
     onUpdateQuantity(productId, quantity);
@@ -116,23 +125,40 @@ export function CartSheet({
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="catalog-theme max-h-[92dvh] rounded-t-2xl border border-[var(--border-color)] bg-[var(--bg-card)] px-0 pt-0 overflow-hidden" showCloseButton={false}>
-          <div className="flex h-full max-h-[92dvh] flex-col">
+        <SheetContent
+          side={isDesktop ? 'right' : 'bottom'}
+          className="catalog-theme max-h-[92dvh] overflow-hidden rounded-t-2xl border border-[var(--border-color)] bg-[var(--bg-card)] px-0 pt-0 lg:h-dvh lg:max-h-dvh lg:w-[min(480px,calc(100vw-2rem))] lg:max-w-none lg:rounded-l-2xl lg:rounded-tr-none lg:border-l lg:border-t-0"
+          showCloseButton={false}
+        >
+          <div className="flex h-full max-h-[92dvh] flex-col lg:max-h-dvh">
             <div className="shrink-0 px-5 pt-3 pb-4 border-b border-[var(--border-subtle)]">
-              <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--border-color)]" />
+              <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--border-color)] lg:hidden" />
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs font-medium text-[var(--text-muted)]">ใบสั่งซื้อ PO</p>
                   <h2 className="text-xl font-semibold text-[var(--text-primary)]">{itemCount} รายการในตะกร้า</h2>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onOpenChange(false)}
-                  className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
-                  aria-label="ปิดตะกร้า"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {lines.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={onClearCart}
+                      className="flex h-10 items-center gap-1.5 rounded-full border border-[color:color-mix(in_oklab,var(--status-danger)_20%,var(--border-color))] bg-[color:color-mix(in_oklab,var(--status-danger)_7%,var(--bg-card))] px-3 text-xs font-semibold text-[var(--status-danger)] transition-colors hover:bg-[color:color-mix(in_oklab,var(--status-danger)_11%,var(--bg-card))]"
+                      aria-label="ล้างตะกร้า"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      ล้าง
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onOpenChange(false)}
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border-color)] bg-[var(--bg-secondary)] text-[var(--text-secondary)]"
+                    aria-label="ปิดตะกร้า"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -279,15 +305,6 @@ export function CartSheet({
                   {isExporting ? <Download className="h-4 w-4 animate-bounce" /> : <FileText className="h-4 w-4" />} บันทึก PDF
                 </button>
               </div>
-              {lines.length > 0 && (
-                <button
-                  type="button"
-                  onClick={onClearCart}
-                  className="mt-3 h-10 w-full rounded-xl text-sm font-medium text-[var(--status-danger)]"
-                >
-                  ล้างตะกร้า
-                </button>
-              )}
             </div>
           </div>
         </SheetContent>

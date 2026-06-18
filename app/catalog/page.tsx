@@ -986,26 +986,26 @@ export default function CatalogPage() {
             const maxQuantity = Math.max(1, selectedItem.stock);
             const detailQuantity = selectedItem.stock > 0 ? Math.min(quantityValue, maxQuantity) : 1;
             return (
-              <div className="flex max-h-[92dvh] flex-col">
-                <div className="overflow-y-auto px-5 pt-4 lg:grid lg:grid-cols-[220px_1fr] lg:gap-6 lg:px-6 lg:pt-6" style={{ WebkitOverflowScrolling: 'touch', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
-                  <div className="lg:sticky lg:top-6 lg:self-start">
-                    <div className="mb-4 flex justify-center lg:mb-3">
+              <div className="flex max-h-[92dvh] flex-col lg:max-h-[min(88dvh,820px)]">
+                <div className="overflow-y-auto px-5 pt-4 lg:grid lg:grid-cols-[minmax(310px,0.85fr)_1.15fr] lg:gap-8 lg:px-8 lg:pt-8" style={{ WebkitOverflowScrolling: 'touch', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
+                  <div className="lg:sticky lg:top-8 lg:self-start">
+                    <div className="mb-4 flex justify-center lg:mb-4">
                       <button
                         type="button"
                         aria-label={`ดูรูปภาพสินค้า ${selectedItem.name} แบบเต็มหน้าจอ`}
-                        className="relative h-44 w-44 cursor-pointer overflow-hidden rounded-xl bg-[var(--bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:ring-offset-2 lg:h-[220px] lg:w-[220px] lg:rounded-2xl"
+                        className="relative h-44 w-44 cursor-pointer overflow-hidden rounded-xl bg-[var(--bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:ring-offset-2 lg:h-[320px] lg:w-full lg:rounded-2xl"
                         onClick={() => {
                           const imgSrc = selectedItem.imageUrl || FALLBACK_IMAGE_SRC;
                           setSelectedItem(null);
                           setTimeout(() => setFullscreenImage(imgSrc), 150);
                         }}
                       >
-                        <ProductImage src={selectedItem.imageUrl} alt={selectedItem.name} sizes="(max-width: 1023px) 192px, 220px" className="object-cover" />
+                        <ProductImage src={selectedItem.imageUrl} alt={selectedItem.name} sizes="(max-width: 1023px) 192px, 34vw" className="object-cover" />
                       </button>
                     </div>
 
-                    <h3 className="mb-1 text-center text-lg font-semibold leading-snug text-[var(--text-primary)] lg:text-left">{selectedItem.name}</h3>
-                    <div className="mb-4 flex flex-wrap justify-center gap-2 lg:justify-start">
+                    <h3 className="mb-1 text-center text-lg font-semibold leading-snug text-[var(--text-primary)] lg:text-left lg:text-[1.45rem] lg:leading-tight">{selectedItem.name}</h3>
+                    <div className="mb-4 flex flex-wrap justify-center gap-2 lg:mb-0 lg:justify-start">
                       {selectedItem.category && <Badge className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border-color)] text-[11px] rounded-md">{selectedItem.category}</Badge>}
                       {selectedItem.brand && <Badge className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border-color)] text-[11px] rounded-md">{selectedItem.brand}</Badge>}
                       {selectedItem.series && <Badge className="bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border-color)] text-[11px] rounded-md">{selectedItem.series}</Badge>}
@@ -1013,7 +1013,7 @@ export default function CatalogPage() {
                   </div>
                   <div>
 
-                <div className="mb-4 space-y-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4">
+                <div className="mb-4 space-y-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4 lg:p-5">
                   <div className="flex items-start justify-between gap-3">
                     <span className="text-sm text-[var(--text-secondary)]">บาร์โค้ด</span>
                     <span className="min-w-0 break-all text-right font-mono text-sm text-[var(--text-primary)]">{selectedItem.barcode}</span>
@@ -1053,7 +1053,7 @@ export default function CatalogPage() {
                   )}
                 </div>
 
-                <div className="mb-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3">
+                <div className="mb-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3 lg:p-4">
                   <label htmlFor="detail-quantity" className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">
                     จำนวนที่ต้องการ ({unitLabel})
                   </label>
@@ -1101,7 +1101,7 @@ export default function CatalogPage() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-[0.8fr_1.2fr] gap-2 pb-1 lg:sticky lg:bottom-0 lg:bg-[var(--bg-card)] lg:pb-0 lg:pt-1">
+                <div className="grid grid-cols-[0.8fr_1.2fr] gap-2 pb-1 lg:sticky lg:bottom-0 lg:bg-[var(--bg-card)] lg:pb-0 lg:pt-2">
                   <button onClick={() => setSelectedItem(null)} className="h-12 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] text-sm font-medium text-[var(--text-secondary)]">
                     ปิด
                   </button>

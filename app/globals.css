@@ -182,7 +182,9 @@ input, select, textarea {
     left: 50% !important;
     top: 50% !important;
     bottom: auto !important;
-    width: min(760px, calc(100vw - 3rem)) !important;
+    width: clamp(900px, 70vw, 1240px) !important;
+    max-width: calc(100vw - 4rem) !important;
+    max-height: min(88dvh, 820px) !important;
     transform: translate(-50%, -50%) !important;
     animation-name: catalog-dialog-in-desktop;
   }
