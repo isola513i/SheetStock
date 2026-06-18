@@ -132,6 +132,11 @@ const GOOGLE_SHEETS_READ_OPTIONS = {
   retry: false,
 };
 
+function getInventoryRange() {
+  const configuredRange = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:Q';
+  return configuredRange.replace(/!A:P$/i, '!A:Q');
+}
+
 export function invalidateInventoryCache() {
   inventoryCache = null;
   facetCache = null;
@@ -143,17 +148,17 @@ const INVENTORY_COLUMNS = {
   brand: 2,         // C: Brand
   category: 3,      // D: หมวด
   series: 4,        // E: Serie รุ่น
-  shortName: 5,     // F: ชื่อเรียก
-  name: 6,          // G: รวม
-  imagePath: 7,     // H: รูป
-  imageUrl: 8,      // I: URL ของรูป
-  expiryDate: 9,    // J: วันหมดอายุ
-  quantityPerBox: 10, // K: จำนวนลัง
-  image: 11,        // L: Image
-  quantity: 12,     // M: จำนวน
-  price: 13,        // N: ราคา
-  vvipPrice: 14,    // O: ราคาVVIP
-  status: 15,       // P: เปิด
+  shortName: 6,     // G: ชื่อเรียก
+  name: 7,          // H: รวม
+  imagePath: 8,     // I: รูป
+  imageUrl: 9,      // J: URL ของรูป
+  expiryDate: 10,   // K: วันหมดอายุ
+  quantityPerBox: 11, // L: จำนวนลัง
+  image: 12,        // M: Image
+  quantity: 13,     // N: จำนวน
+  price: 14,        // O: ราคา
+  vvipPrice: 15,    // P: ราคาVVIP
+  status: 16,       // Q: เปิด
 } as const;
 
 function isOpenProduct(value: string): boolean {
@@ -181,7 +186,7 @@ export async function fetchInventoryFromGoogleSheets(): Promise<InventoryItem[]>
     ?.trim();
   const apiKey = process.env.GOOGLE_API_KEY;
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:P';
+  const range = getInventoryRange();
 
   if (!spreadsheetId || (!apiKey && (!clientEmail || !privateKey))) {
     return mockInventory;
@@ -397,7 +402,7 @@ export async function appendProductToGoogleSheets(product: NewProduct): Promise<
     ?.replace(/\\"/g, '"')
     ?.trim();
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:P';
+  const range = getInventoryRange();
 
   if (!spreadsheetId || !clientEmail || !privateKey) {
     return { ok: false, error: 'Google Sheets credentials not configured' };
@@ -411,11 +416,11 @@ export async function appendProductToGoogleSheets(product: NewProduct): Promise<
     });
 
     const sheets = google.sheets({ version: 'v4' });
-    // Use sheet name + A:P to anchor append at column A with the company sheet schema.
+    // Use sheet name + A:Q to anchor append at column A with the company sheet schema.
     const sheetName = range.split('!')[0] || 'inventory';
     await sheets.spreadsheets.values.append({
       spreadsheetId,
-      range: `${sheetName}!A:P`,
+      range: `${sheetName}!A:Q`,
       auth,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
@@ -425,17 +430,18 @@ export async function appendProductToGoogleSheets(product: NewProduct): Promise<
           product.brand, // C: Brand
           product.category, // D: หมวด
           product.series, // E: Serie รุ่น
-          product.notes || product.name, // F: ชื่อเรียก
-          product.name, // G: รวม
-          '', // H: รูป
-          product.imageUrl, // I: URL ของรูป
-          product.expiryDate, // J: วันหมดอายุ
-          product.quantityPerBox, // K: จำนวนลัง
-          '', // L: Image
-          product.quantity, // M: จำนวน
-          product.price, // N: ราคา
-          '', // O: ราคาVVIP
-          'เปิด', // P: เปิด
+          '', // F: reserved/blank
+          product.notes || product.name, // G: ชื่อเรียก
+          product.name, // H: รวม
+          '', // I: รูป
+          product.imageUrl, // J: URL ของรูป
+          product.expiryDate, // K: วันหมดอายุ
+          product.quantityPerBox, // L: จำนวนลัง
+          '', // M: Image
+          product.quantity, // N: จำนวน
+          product.price, // O: ราคา
+          '', // P: ราคาVVIP
+          'เปิด', // Q: เปิด
         ]],
       },
     });
@@ -466,7 +472,7 @@ export async function updateProductQuantityInSheet(barcode: string, addQuantity:
     ?.replace(/\\"/g, '"')
     ?.trim();
   const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-  const range = process.env.GOOGLE_SHEETS_RANGE ?? 'inventory!A:P';
+  const range = getInventoryRange();
 
   if (!spreadsheetId || !clientEmail || !privateKey) {
     return { ok: false, newQuantity: 0, error: 'Google Sheets credentials not configured' };
@@ -492,9 +498,9 @@ export async function updateProductQuantityInSheet(barcode: string, addQuantity:
     const currentQty = safeNumber(rows[rowIndex][INVENTORY_COLUMNS.quantity]);
     const updatedRowQty = currentQty + addQuantity;
 
-    // Update column M (จำนวน) — sheet rows are 1-indexed, so rowIndex+1
+    // Update column N (จำนวน) — sheet rows are 1-indexed, so rowIndex+1
     const sheetName = range.split('!')[0] || 'inventory';
-    const cellRange = `${sheetName}!M${rowIndex + 1}`;
+    const cellRange = `${sheetName}!N${rowIndex + 1}`;
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: cellRange,
