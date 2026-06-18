@@ -126,7 +126,7 @@ export function parseInventoryQuery(searchParams: URLSearchParams): Required<Inv
 // In-memory cache for inventory data — avoids redundant Google Sheets calls
 let inventoryCache: { data: InventoryItem[]; timestamp: number } | null = null;
 const INVENTORY_CACHE_TTL = process.env.NODE_ENV === 'production' ? 5 * 60_000 : 30_000; // 5min prod, 30s dev
-const GOOGLE_SHEETS_READ_TIMEOUT_MS = 15_000;
+const GOOGLE_SHEETS_READ_TIMEOUT_MS = 35_000;
 const GOOGLE_SHEETS_READ_OPTIONS = {
   timeout: GOOGLE_SHEETS_READ_TIMEOUT_MS,
   retry: false,
@@ -172,7 +172,10 @@ export async function loadInventoryFromGoogleSheets(): Promise<InventoryItem[]> 
   }
 
   const result = await fetchInventoryFromGoogleSheets();
-  inventoryCache = { data: result, timestamp: Date.now() };
+  // Don't cache mock/fallback data — let the next request retry the real API
+  if (result !== mockInventory) {
+    inventoryCache = { data: result, timestamp: Date.now() };
+  }
   return result;
 }
 

@@ -734,7 +734,7 @@ export default function CatalogPage() {
           <AnnouncementCarousel items={announcementData?.items ?? []} hidden={scrollDir === 'down'} />
 
           {/* Count + Sort */}
-          <div className={`catalog-toolbar ${catalogShellClass} px-4 pt-3 pb-2 flex items-center justify-between sm:px-6 lg:px-0`}>
+          <div className={`catalog-toolbar relative z-10 ${catalogShellClass} px-4 pt-3 pb-2 flex items-center justify-between sm:px-6 lg:px-0`}>
             <p className="text-[13px] font-medium text-[var(--text-secondary)]">พบ {items.length.toLocaleString('th-TH')} รายการ</p>
             <div className="flex gap-2">
               <button

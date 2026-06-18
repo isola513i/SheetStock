@@ -379,7 +379,7 @@ export function FilterSheet(props: FilterSheetProps) {
         animate={isClosing ? (isSidebar ? { x: '100%', opacity: 0.98 } : { y: -48, opacity: 0.98 }) : (isSidebar ? { x: 0, opacity: 1 } : { y: 0, opacity: 1 })}
         transition={SHEET_TRANSITION}
         className={`absolute inset-x-0 bottom-0 flex max-h-[92dvh] flex-col overflow-hidden rounded-t-[2rem] border-t border-[color:color-mix(in_oklab,var(--catalog-header)_14%,var(--border-color))] bg-[color:color-mix(in_oklab,var(--bg-card)_97%,var(--catalog-header-action)_3%)] shadow-[0_-16px_48px_-30px_rgba(17,24,39,0.4)] ${
-          isSidebar ? 'lg:inset-y-0 lg:left-auto lg:right-0 lg:bottom-auto lg:h-full lg:max-h-none lg:w-[min(430px,calc(100vw-3rem))] lg:rounded-l-[1.75rem] lg:rounded-tr-none lg:border-l lg:border-t-0 lg:shadow-[-28px_0_70px_-48px_rgba(41,51,92,0.75)]' : ''
+          isSidebar ? 'lg:inset-y-0 lg:left-auto lg:right-0 lg:bottom-auto lg:h-full lg:max-h-none lg:w-[min(430px,calc(100vw-3rem))] lg:rounded-none lg:border-l lg:border-t-0 lg:shadow-[-28px_0_70px_-48px_rgba(41,51,92,0.75)]' : ''
         }`}
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
@@ -402,7 +402,7 @@ export function FilterSheet(props: FilterSheetProps) {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 pb-6 pt-5" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div className="flex-1 overflow-y-auto overscroll-contain px-5 pb-6 pt-5" style={{ WebkitOverflowScrolling: 'touch', willChange: 'transform' }}>
           <section>
             <div className="mb-3">
               <h4 className="text-[1.05rem] font-semibold text-[var(--catalog-header)]">สถานะสินค้า</h4>
