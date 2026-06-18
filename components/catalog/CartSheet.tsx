@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from 'react';
 import { Download, FileImage, FileText, Minus, Plus, ShoppingCart, Trash2, X } from 'lucide-react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { ProductImage } from '@/components/ProductImage';
+import { getCheckoutUnitLabel } from '@/lib/catalog-units';
 import { PurchaseOrderDocument } from './PurchaseOrderDocument';
 import type { CartLine, PurchaseOrderCustomer } from './quote-types';
 
@@ -164,6 +165,9 @@ export function CartSheet({
                   </div>
                   {lines.map((line) => (
                     <div key={line.productId} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-3">
+                      {(() => {
+                        const unitLabel = getCheckoutUnitLabel(line);
+                        return (
                       <div className="flex gap-3">
                         <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[var(--bg-card)]">
                           <ProductImage src={line.imageUrl} alt={line.name} sizes="64px" className="object-contain" />
@@ -188,7 +192,7 @@ export function CartSheet({
                               <p className="text-xs text-[var(--text-muted)]">ราคา</p>
                               <p className="font-semibold text-[var(--catalog-emphasis)]">฿{formatMoney(line.unitPrice)}</p>
                               <p className={`mt-0.5 text-[11px] ${line.stock <= 0 ? 'text-[var(--status-danger)]' : 'text-[var(--text-muted)]'}`}>
-                                {line.stock <= 0 ? 'สินค้าหมด' : `เหลือ ${line.stock.toLocaleString('th-TH')} ชิ้น`}
+                                {line.stock <= 0 ? 'สินค้าหมด' : `เหลือ ${line.stock.toLocaleString('th-TH')} ${unitLabel}`}
                               </p>
                             </div>
                             <div className="flex items-center rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] p-1">
@@ -203,12 +207,13 @@ export function CartSheet({
                               <input
                                 type="number"
                                 min={1}
+                                max={Math.max(1, line.stock)}
                                 step={1}
                                 value={draftQuantities[line.productId] ?? String(line.quantity)}
                                 onChange={(event) => {
                                   setDraftQuantities((current) => ({
                                     ...current,
-                                    [line.productId]: event.target.value,
+                                    [line.productId]: event.target.value.replace(/[^\d]/g, ''),
                                   }));
                                 }}
                                 onBlur={(event) => {
@@ -222,7 +227,7 @@ export function CartSheet({
                                   }
                                 }}
                                 className="w-14 border-0 bg-transparent text-center text-sm font-semibold text-[var(--text-primary)] outline-none [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                aria-label="จำนวนสินค้า"
+                                aria-label={`จำนวน${unitLabel}`}
                               />
                               <button
                                 type="button"
@@ -235,11 +240,13 @@ export function CartSheet({
                             </div>
                           </div>
                           <div className="mt-2 flex justify-between border-t border-[var(--border-color)] pt-2 text-sm">
-                            <span className="text-[var(--text-secondary)]">รวม</span>
+                            <span className="text-[var(--text-secondary)]">รวม {line.quantity.toLocaleString('th-TH')} {unitLabel}</span>
                             <span className="font-semibold text-[var(--catalog-emphasis)]">฿{formatMoney(line.unitPrice * line.quantity)}</span>
                           </div>
                         </div>
                       </div>
+                        );
+                      })()}
                     </div>
                   ))}
                 </div>

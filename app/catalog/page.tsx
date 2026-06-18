@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 import PullToRefresh from 'pulltorefreshjs';
 import { useInventoryStream } from '@/lib/hooks/use-inventory-stream';
-import { ArrowUpDown, LogOut, Plus, Search, ShoppingCart, SlidersHorizontal, X } from 'lucide-react';
+import { ArrowUpDown, Check, ChevronDown, LogOut, Plus, Search, ShoppingCart, SlidersHorizontal, X } from 'lucide-react';
 import { AnnouncementCarousel } from '@/components/catalog/AnnouncementCarousel';
 import { ProductImage, FALLBACK_IMAGE_SRC, toSafeImageSrc } from '@/components/ProductImage';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -17,6 +17,7 @@ import { SettingsPage } from '@/components/SettingsPage';
 import { useToast } from '@/components/ui/toast';
 import { CartSheet } from '@/components/catalog/CartSheet';
 import type { CartLine } from '@/components/catalog/quote-types';
+import { getCheckoutUnitLabel } from '@/lib/catalog-units';
 import type { AccessTier, AnnouncementItem, CatalogItem, UserRole } from '@/lib/types';
 
 function FullscreenImageViewer({ src, onClose }: { src: string; onClose: () => void }) {
@@ -138,16 +139,14 @@ type CatalogResponse = {
 };
 
 type StockFilter = 'all' | 'inStock' | 'lowStock' | 'outOfStock';
-type SortOption = 'sheetOrder' | 'nameAsc' | 'nameDesc' | 'priceLow' | 'priceHigh' | 'lowStock';
+type SortOption = 'sheetOrder' | 'priceHigh' | 'priceLow' | 'lowStock';
 type CatalogViewMode = 'grid' | 'list';
 
 const SORT_OPTIONS: { id: SortOption; label: string }[] = [
-  { id: 'sheetOrder', label: 'ลำดับในชีต' },
-  { id: 'nameAsc', label: 'ชื่อ ก-ฮ' },
-  { id: 'nameDesc', label: 'ชื่อ ฮ-ก' },
-  { id: 'priceLow', label: 'ราคาต่ำสุด' },
-  { id: 'priceHigh', label: 'ราคาสูงสุด' },
-  { id: 'lowStock', label: 'ใกล้หมดก่อน' },
+  { id: 'sheetOrder', label: 'เรียงตามชีท' },
+  { id: 'priceHigh', label: 'ราคา: สูง-ต่ำ' },
+  { id: 'priceLow', label: 'ราคา: ต่ำ-สูง' },
+  { id: 'lowStock', label: 'ใกล้หมด' },
 ];
 
 function canViewVvipPrice(tier: AccessTier) {
@@ -307,15 +306,18 @@ export default function CatalogPage() {
   const [seriesFilter, setSeriesFilter] = useState<string[]>([]);
   const [sort, setSort] = useState<SortOption>('sheetOrder');
   const [selectedItem, setSelectedItem] = useState<CatalogItem | null>(null);
+  const [selectedQuantity, setSelectedQuantity] = useState('1');
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const [isDesktopSortOpen, setIsDesktopSortOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [cartLines, setCartLines] = useState<CartLine[]>([]);
   const [poCustomerName, setPoCustomerName] = useState('');
   const loadedCartKeyRef = useRef<string | null>(null);
   const [activeTab, setActiveTab] = useState<'catalog' | 'settings'>('catalog');
+  const sortMenuRef = useRef<HTMLDivElement>(null);
   const [catalogViewMode, setCatalogViewMode] = useState<CatalogViewMode>(() => {
     if (typeof window === 'undefined') return 'grid';
     return window.localStorage.getItem('sheetstock-catalog-view') === 'list' ? 'list' : 'grid';
@@ -376,6 +378,38 @@ export default function CatalogPage() {
     };
   }, [data]);
 
+  const activeSortOption = SORT_OPTIONS.find((option) => option.id === sort) ?? SORT_OPTIONS[0];
+
+  const applySort = useCallback((nextSort: SortOption) => {
+    resetCatalogPagination();
+    setSort(nextSort);
+    setIsSortOpen(false);
+    setIsDesktopSortOpen(false);
+  }, [resetCatalogPagination]);
+
+  useEffect(() => {
+    if (!isDesktopSortOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!sortMenuRef.current?.contains(event.target as Node)) {
+        setIsDesktopSortOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsDesktopSortOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isDesktopSortOpen]);
+
   const items = useMemo(() => {
     let list = data?.items ?? [];
     const q = searchQuery.trim().toLowerCase();
@@ -396,8 +430,6 @@ export default function CatalogPage() {
 
     if (sort !== 'sheetOrder') {
       list = [...list].sort((a, b) => {
-        if (sort === 'nameAsc') return a.name.localeCompare(b.name, 'th');
-        if (sort === 'nameDesc') return b.name.localeCompare(a.name, 'th');
         if (sort === 'priceLow') return getDisplayPrice(a, accessTier) - getDisplayPrice(b, accessTier);
         if (sort === 'priceHigh') return getDisplayPrice(b, accessTier) - getDisplayPrice(a, accessTier);
         if (sort === 'lowStock') return a.stock - b.stock;
@@ -482,25 +514,37 @@ export default function CatalogPage() {
   }, [resetCatalogPagination]);
 
   const addToCart = useCallback((item: CatalogItem, quantity = 1) => {
+    if (item.stock <= 0) return;
+    const requestedQuantity = Math.min(item.stock, normalizeCartQuantity(quantity));
     setCartLines((current) => {
       const existing = current.find((line) => line.productId === item.productId);
       if (existing) {
         return current.map((line) => (
           line.productId === item.productId
-            ? toCartLine(item, accessTier, line.quantity + quantity)
+            ? toCartLine(item, accessTier, Math.min(item.stock, line.quantity + requestedQuantity))
             : line
         ));
       }
-      return [...current, toCartLine(item, accessTier, quantity)];
+      return [...current, toCartLine(item, accessTier, requestedQuantity)];
     });
-    toast('เพิ่มสินค้าเข้าตะกร้าแล้ว', 'success');
+    toast('เพิ่มสินค้าเข้าตะกร้าแล้ว', 'success', {
+      action: {
+        label: 'ดูตะกร้า',
+        onClick: () => setIsCartOpen(true),
+      },
+    });
   }, [accessTier, toast]);
+
+  const openProductDetail = useCallback((item: CatalogItem) => {
+    setSelectedQuantity('1');
+    setSelectedItem(item);
+  }, []);
 
   const updateCartQuantity = useCallback((productId: string, quantity: number) => {
     setCartLines((current) => current.flatMap((line) => {
       if (line.productId !== productId) return [line];
       if (quantity <= 0) return [];
-      return [{ ...line, quantity: normalizeCartQuantity(quantity) }];
+      return [{ ...line, quantity: Math.min(Math.max(1, line.stock), normalizeCartQuantity(quantity)) }];
     }));
   }, []);
 
@@ -513,7 +557,7 @@ export default function CatalogPage() {
   }, []);
 
   const isSettingsTab = activeTab === 'settings';
-  const activeFilterCount = categoryFilter.length + brandFilter.length + seriesFilter.length;
+  const activeFilterCount = Number(stockFilter !== 'all') + categoryFilter.length + brandFilter.length;
   const catalogStatusLabel = accessTier === 'vvip' ? 'VVIP' : 'GUEST';
   const desktopRoleLabel = userRole === 'admin' ? 'ADMIN' : userRole === 'sale' ? 'SALE' : 'CUSTOMER';
   const desktopRoleClass = userRole === 'admin'
@@ -549,6 +593,22 @@ export default function CatalogPage() {
               </span>
             )}
             <div className="hidden items-center gap-2 lg:flex">
+              {!isSettingsTab && cartLines.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsCartOpen(true)}
+                  className="catalog-cart-header inline-flex h-10 items-center gap-2 rounded-full border border-[color:color-mix(in_oklab,var(--catalog-header-text)_18%,transparent)] bg-[color:color-mix(in_oklab,var(--bg-card)_12%,transparent)] px-3 text-sm font-semibold text-[var(--catalog-header-text)] transition-[background-color,color,border-color,transform] duration-150 hover:-translate-y-0.5 hover:border-[color:color-mix(in_oklab,var(--catalog-header-text)_28%,transparent)] hover:bg-[color:color-mix(in_oklab,var(--bg-card)_20%,transparent)]"
+                  aria-label="เปิดตะกร้าสินค้า"
+                >
+                  <span className="relative flex h-6 w-6 items-center justify-center">
+                    <ShoppingCart className="h-4 w-4" />
+                    <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--catalog-header-action)] px-1 text-[10px] font-bold leading-none text-[var(--catalog-header-action-text)]">
+                      {cartItemCount}
+                    </span>
+                  </span>
+                  <span>{formatBaht(cartTotal)}</span>
+                </button>
+              )}
               {isLoggedIn ? (
                 <>
                   <span className={`inline-flex h-9 items-center rounded-full border px-3 text-[11px] font-semibold tracking-[0.02em] ${desktopRoleClass}`}>
@@ -687,13 +747,62 @@ export default function CatalogPage() {
                   <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[var(--brand-primary)] text-[var(--bg-card)] text-[9px] font-bold rounded-md flex items-center justify-center">{activeFilterCount}</span>
                 )}
               </button>
-              <button
-                type="button"
-                onClick={() => setIsSortOpen(true)}
-                className="flex min-h-10 items-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 text-xs font-medium text-[var(--text-secondary)] transition-[background-color,border-color] duration-150 ease-out active:bg-[var(--bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:color-mix(in_oklab,var(--brand-primary)_28%,transparent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)]"
-              >
-                <ArrowUpDown className="w-3.5 h-3.5" /> เรียงลำดับ
-              </button>
+              <div ref={sortMenuRef} className="relative">
+                <button
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={isDesktopSortOpen}
+                  onClick={() => {
+                    if (window.matchMedia('(min-width: 1024px)').matches) {
+                      setIsDesktopSortOpen((open) => !open);
+                      return;
+                    }
+                    setIsSortOpen(true);
+                  }}
+                  className={`flex min-h-10 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-[background-color,border-color,color] duration-150 ease-out active:bg-[var(--bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:color-mix(in_oklab,var(--brand-primary)_28%,transparent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)] ${
+                    isDesktopSortOpen
+                      ? 'border-[var(--text-primary)] bg-[var(--bg-card)] text-[var(--text-primary)]'
+                      : 'border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-secondary)]'
+                  }`}
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5" />
+                  <span className="lg:hidden">เรียงลำดับ</span>
+                  <span className="hidden lg:inline">
+                    <span className="text-[var(--text-primary)]">เรียงตาม:</span>{' '}
+                    <span className="text-[var(--text-muted)]">{activeSortOption.label}</span>
+                  </span>
+                  <ChevronDown className={`hidden h-3.5 w-3.5 transition-transform duration-150 ease-out lg:block ${isDesktopSortOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isDesktopSortOpen && (
+                  <div
+                    role="menu"
+                    aria-label="เรียงลำดับสินค้า"
+                    className="absolute right-0 z-30 mt-2 hidden min-w-[13rem] overflow-hidden rounded-[1.5rem] border border-[var(--border-color)] bg-[var(--bg-card)] py-2 text-sm shadow-[0_24px_60px_-34px_rgba(41,51,92,0.75)] lg:block"
+                  >
+                    {SORT_OPTIONS.map((opt) => {
+                      const selected = sort === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={selected}
+                          onClick={() => applySort(opt.id)}
+                          className={`flex w-full items-center justify-between gap-4 px-5 py-2.5 text-left transition-[background-color,color] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:color-mix(in_oklab,var(--brand-primary)_32%,transparent)] ${
+                            selected
+                              ? 'bg-[var(--bg-card)] font-semibold text-[var(--text-primary)]'
+                              : 'text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]'
+                          }`}
+                        >
+                          <span>{opt.label}</span>
+                          <Check className={`h-4 w-4 ${selected ? 'opacity-100' : 'opacity-0'}`} />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -738,6 +847,7 @@ export default function CatalogPage() {
                     const isOut = item.stock <= 0;
                     const isLow = item.stock > 0 && item.stock < 10;
                     const metaLine = [item.brand, item.category, item.series].filter(Boolean).join(' • ');
+                    const unitLabel = getCheckoutUnitLabel(item);
 
                     if (catalogViewMode === 'grid') {
                       return (
@@ -751,7 +861,7 @@ export default function CatalogPage() {
                             type="button"
                             aria-label={`ดูรายละเอียดสินค้า ${item.name}`}
                             className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:color-mix(in_oklab,var(--brand-primary)_26%,transparent)] focus-visible:ring-inset"
-                            onClick={() => setSelectedItem(item)}
+                            onClick={() => openProductDetail(item)}
                           >
                             <div className="relative aspect-[1.03] w-full overflow-hidden bg-[var(--bg-secondary)]">
                               <ProductImage src={item.imageUrl} alt={item.name} sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 25vw" className="object-cover" />
@@ -772,14 +882,14 @@ export default function CatalogPage() {
                               <h3 className="mt-1.5 line-clamp-2 text-[13px] font-semibold leading-snug text-[var(--text-primary)]">
                                 {item.name || item.barcode}
                               </h3>
-                              <p className="mt-0.5 truncate font-mono text-[11px] leading-none text-[var(--text-muted)]">
+                              <p className="mt-0.5 truncate font-mono text-[11px] leading-none text-[color:color-mix(in_oklab,var(--text-muted)_62%,var(--bg-card))]">
                                 {item.barcode}
                               </p>
                               <div className="mt-1.5 flex items-end justify-between gap-2">
                                 <CatalogPrice item={item} tier={accessTier} />
                                 <div className="text-right">
                                   <p className="text-base font-bold leading-none text-[var(--text-primary)]">{item.stock.toLocaleString('th-TH')}</p>
-                                  <p className="mt-0.5 text-[9px] font-medium leading-none text-[var(--text-muted)]">จำนวน</p>
+                                  <p className="mt-0.5 text-[9px] font-medium leading-none text-[var(--text-muted)]">{unitLabel}</p>
                                 </div>
                               </div>
                             </div>
@@ -788,6 +898,7 @@ export default function CatalogPage() {
                             <button
                               type="button"
                               onClick={() => addToCart(item)}
+                              disabled={isOut}
                               className="catalog-add-button flex h-9 w-full items-center justify-center gap-1.5 rounded-full border border-transparent bg-[#29335C] text-[12px] font-semibold text-white shadow-[0_10px_18px_-14px_rgba(41,51,92,0.7)] transition-all duration-150 ease-out hover:-translate-y-0.5 hover:bg-[#36446F] hover:shadow-[0_14px_24px_-12px_rgba(41,51,92,0.75)] active:translate-y-0 active:shadow-[0_8px_14px_-12px_rgba(41,51,92,0.65)] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:bg-[#29335C] disabled:hover:shadow-[0_10px_18px_-14px_rgba(41,51,92,0.7)]"
                             >
                               <ShoppingCart className="h-3.5 w-3.5" />
@@ -806,7 +917,7 @@ export default function CatalogPage() {
                         className={`catalog-list-row flex min-h-[116px] cursor-pointer overflow-hidden rounded-xl border bg-[var(--bg-card)] text-left transition-[background-color,border-color,transform] duration-150 ease-out active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:color-mix(in_oklab,var(--brand-primary)_26%,transparent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)] ${
                           isOut ? 'border-[color:color-mix(in_oklab,var(--status-danger)_24%,var(--bg-card))]' : isLow ? 'border-[color:color-mix(in_oklab,var(--status-warning)_28%,var(--bg-card))]' : 'border-[var(--border-color)]'
                         }`}
-                        onClick={() => setSelectedItem(item)}
+                        onClick={() => openProductDetail(item)}
                       >
                         <div className="relative m-2 h-[100px] w-[92px] shrink-0 overflow-hidden rounded-lg bg-[var(--bg-secondary)]">
                           <ProductImage src={item.imageUrl} alt={item.name} sizes="92px" className="object-cover" />
@@ -825,7 +936,7 @@ export default function CatalogPage() {
                                 </span>
                               ) : <span />}
                               <span className={`inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-[10px] font-semibold ${stockTone(item.stock)}`}>
-                                {item.stock <= 0 ? 'หมดสต็อก' : item.stock < 10 ? `ใกล้หมด ${item.stock}` : `พร้อมส่ง ${item.stock}`}
+                                {item.stock <= 0 ? 'หมดสต็อก' : item.stock < 10 ? `ใกล้หมด ${item.stock} ${unitLabel}` : `พร้อมส่ง ${item.stock} ${unitLabel}`}
                               </span>
                             </div>
                             <h3 className="line-clamp-2 text-[13px] font-semibold leading-snug text-[var(--text-primary)]">
@@ -843,7 +954,7 @@ export default function CatalogPage() {
                               <CatalogPrice item={item} tier={accessTier} />
                             </div>
                             <p className="text-right text-[11px] font-medium leading-tight text-[var(--text-secondary)]">
-                              {item.quantityPerBox ? `${item.quantityPerBox}/ลัง` : `${item.stock.toLocaleString('th-TH')} ชิ้น`}
+                              {item.stock.toLocaleString('th-TH')} {unitLabel}
                             </p>
                           </div>
                         </div>
@@ -870,6 +981,10 @@ export default function CatalogPage() {
         <SheetContent side="bottom" className="catalog-theme catalog-detail-dialog max-h-[92dvh] rounded-t-2xl border border-[var(--border-color)] bg-[var(--bg-card)] lg:rounded-[1.75rem] lg:border lg:shadow-[0_28px_80px_-46px_rgba(41,51,92,0.7)]" showCloseButton={false}>
           {selectedItem && (() => {
             const displayPrice = getDisplayPrice(selectedItem, accessTier);
+            const unitLabel = getCheckoutUnitLabel(selectedItem);
+            const quantityValue = Math.max(1, Number.parseInt(selectedQuantity, 10) || 1);
+            const maxQuantity = Math.max(1, selectedItem.stock);
+            const detailQuantity = selectedItem.stock > 0 ? Math.min(quantityValue, maxQuantity) : 1;
             return (
               <div className="flex max-h-[92dvh] flex-col">
                 <div className="overflow-y-auto px-5 pt-4 lg:grid lg:grid-cols-[220px_1fr] lg:gap-6 lg:px-6 lg:pt-6" style={{ WebkitOverflowScrolling: 'touch', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
@@ -921,11 +1036,11 @@ export default function CatalogPage() {
                   <div className="flex items-start justify-between gap-3 border-t border-[var(--border-color)] pt-3">
                     <span className="text-sm text-[var(--text-secondary)]">สต็อก</span>
                     <span className={`min-w-0 text-right text-sm font-medium ${selectedItem.stock <= 0 ? 'text-[var(--status-danger)]' : selectedItem.stock < 10 ? 'text-[var(--status-warning)]' : 'text-[var(--status-success)]'}`}>
-                      {selectedItem.stock <= 0 ? 'สินค้าหมด' : `${selectedItem.stock} ชิ้น`}
+                      {selectedItem.stock <= 0 ? 'สินค้าหมด' : `${selectedItem.stock} ${unitLabel}`}
                     </span>
                   </div>
                   <div className="flex items-start justify-between gap-3 border-t border-[var(--border-color)] pt-3">
-                    <span className="text-sm text-[var(--text-secondary)]">จำนวนต่อลัง</span>
+                    <span className="text-sm text-[var(--text-secondary)]">จำนวนลัง</span>
                     <span className="min-w-0 break-words text-right text-sm text-[var(--text-primary)]">
                       {selectedItem.quantityPerBox || '-'}
                     </span>
@@ -938,15 +1053,64 @@ export default function CatalogPage() {
                   )}
                 </div>
 
+                <div className="mb-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3">
+                  <label htmlFor="detail-quantity" className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">
+                    จำนวนที่ต้องการ ({unitLabel})
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedQuantity(String(Math.max(1, detailQuantity - 1)))}
+                      disabled={selectedItem.stock <= 0 || detailQuantity <= 1}
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] text-lg font-semibold text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-45"
+                      aria-label="ลดจำนวน"
+                    >
+                      -
+                    </button>
+                    <input
+                      id="detail-quantity"
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={selectedItem.stock > 0 ? selectedItem.stock : 1}
+                      value={selectedQuantity}
+                      onChange={(event) => {
+                        const value = event.target.value.replace(/[^\d]/g, '');
+                        if (!value) {
+                          setSelectedQuantity('');
+                          return;
+                        }
+                        setSelectedQuantity(String(Math.min(Number.parseInt(value, 10), maxQuantity)));
+                      }}
+                      onBlur={() => setSelectedQuantity(String(detailQuantity))}
+                      disabled={selectedItem.stock <= 0}
+                      className="h-11 min-w-0 flex-1 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 text-center text-base font-semibold text-[var(--text-primary)] outline-none transition-[border-color,box-shadow] focus:border-[var(--catalog-header-action)] focus:shadow-[0_0_0_3px_color-mix(in_oklab,var(--catalog-header-action)_18%,transparent)] disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setSelectedQuantity(String(Math.min(maxQuantity, detailQuantity + 1)))}
+                      disabled={selectedItem.stock <= 0 || detailQuantity >= maxQuantity}
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] text-lg font-semibold text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-45"
+                      aria-label="เพิ่มจำนวน"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-[var(--text-muted)]">
+                    {selectedItem.stock > 0 ? `สั่งได้สูงสุด ${selectedItem.stock.toLocaleString('th-TH')} ${unitLabel}` : 'สินค้าหมด'}
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-[0.8fr_1.2fr] gap-2 pb-1 lg:sticky lg:bottom-0 lg:bg-[var(--bg-card)] lg:pb-0 lg:pt-1">
                   <button onClick={() => setSelectedItem(null)} className="h-12 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] text-sm font-medium text-[var(--text-secondary)]">
                     ปิด
                   </button>
                   <button
                     onClick={() => {
-                      addToCart(selectedItem);
+                      addToCart(selectedItem, detailQuantity);
                       setSelectedItem(null);
                     }}
+                    disabled={selectedItem.stock <= 0}
                     className="flex h-12 items-center justify-center gap-2 rounded-xl border border-transparent bg-[#29335C] text-sm font-semibold text-white shadow-[0_10px_18px_-14px_rgba(41,51,92,0.7)] transition-all duration-150 ease-out hover:-translate-y-0.5 hover:bg-[#36446F] hover:shadow-[0_14px_24px_-12px_rgba(41,51,92,0.75)] active:translate-y-0 active:shadow-[0_8px_14px_-12px_rgba(41,51,92,0.65)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:bg-[#29335C] disabled:hover:shadow-[0_10px_18px_-14px_rgba(41,51,92,0.7)]"
                   >
                     <Plus className="h-4 w-4" />
@@ -969,11 +1133,7 @@ export default function CatalogPage() {
             {SORT_OPTIONS.map((opt) => (
               <button
                 key={opt.id}
-                onClick={() => {
-                  resetCatalogPagination();
-                  setSort(opt.id);
-                  setIsSortOpen(false);
-                }}
+                onClick={() => applySort(opt.id)}
                 className={`w-full min-h-11 py-3 px-4 rounded-xl border text-left font-medium text-sm transition-[background-color,color,border-color] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)] focus-visible:ring-offset-2 ${
                   sort === opt.id ? 'border-[var(--text-primary)] bg-[var(--text-primary)] text-[var(--bg-card)]' : 'border-[var(--border-color)] bg-[var(--bg-secondary)] text-[var(--text-secondary)]'
                 }`}
@@ -995,12 +1155,14 @@ export default function CatalogPage() {
         series={seriesFilter}
         facets={facets}
         allItems={data?.items}
+        showSeries={false}
+        desktopLayout="sidebar"
         applyFilters={(f) => {
           resetCatalogPagination();
           setStockFilter(f.stock as StockFilter);
           setCategoryFilter(f.category);
           setBrandFilter(f.brand);
-          setSeriesFilter(f.series);
+          setSeriesFilter([]);
         }}
         clearFilters={() => {
           resetCatalogPagination();
@@ -1015,7 +1177,7 @@ export default function CatalogPage() {
         <button
           type="button"
           onClick={() => setIsCartOpen(true)}
-          className="catalog-cart-fab fixed bottom-[calc(env(safe-area-inset-bottom,0px)+64px)] right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-[color:color-mix(in_oklab,var(--brand-primary)_22%,transparent)] bg-[#29335C] text-white shadow-[0_14px_30px_-18px_rgba(41,51,92,0.72)] transition-all duration-150 ease-out hover:-translate-y-0.5 hover:bg-[#36446F] hover:shadow-[0_18px_34px_-16px_rgba(41,51,92,0.78)] active:translate-y-0 active:shadow-[0_12px_24px_-18px_rgba(41,51,92,0.7)] lg:bottom-6 lg:right-[max(2rem,calc((100vw-1180px)/2))]"
+          className="catalog-cart-fab fixed bottom-[calc(env(safe-area-inset-bottom,0px)+64px)] right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-[color:color-mix(in_oklab,var(--brand-primary)_22%,transparent)] bg-[#29335C] text-white shadow-[0_14px_30px_-18px_rgba(41,51,92,0.72)] transition-all duration-150 ease-out hover:-translate-y-0.5 hover:bg-[#36446F] hover:shadow-[0_18px_34px_-16px_rgba(41,51,92,0.78)] active:translate-y-0 active:shadow-[0_12px_24px_-18px_rgba(41,51,92,0.7)] lg:hidden"
           aria-label="เปิดตะกร้าสินค้า"
         >
           <span className="relative flex h-10 w-10 items-center justify-center">

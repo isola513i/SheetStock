@@ -2,6 +2,7 @@
 
 import { forwardRef } from 'react';
 import { FALLBACK_IMAGE_SRC } from '@/components/ProductImage';
+import { getCheckoutUnitLabel } from '@/lib/catalog-units';
 import type { CartLine, PurchaseOrderCustomer, PurchaseOrderSeller } from './quote-types';
 
 const DEFAULT_SELLER: PurchaseOrderSeller = {
@@ -139,6 +140,7 @@ export const PurchaseOrderDocument = forwardRef<HTMLDivElement, PurchaseOrderDoc
           {lines.map((line, index) => {
             const subtotal = line.unitPrice * line.quantity;
             const imageSrc = toPurchaseOrderImageSrc(line.imageUrl, exportSafeImages);
+            const unitLabel = getCheckoutUnitLabel(line);
             return (
               <div key={line.productId} className="grid grid-cols-[1fr_82px_64px_96px_112px] gap-0 border-b border-gray-200 px-3 py-4 text-sm">
                 <div className="min-w-0">
@@ -162,7 +164,7 @@ export const PurchaseOrderDocument = forwardRef<HTMLDivElement, PurchaseOrderDoc
                   </div>
                 </div>
                 <span className="text-right font-semibold">{line.quantity.toFixed(2)}</span>
-                <span className="text-center">ชิ้น</span>
+                <span className="text-center">{unitLabel}</span>
                 <span className="text-right">{formatMoney(line.unitPrice)}</span>
                 <span className="text-right">{formatMoney(subtotal)}</span>
               </div>

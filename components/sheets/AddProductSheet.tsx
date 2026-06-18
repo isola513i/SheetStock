@@ -60,7 +60,7 @@ const FIELD_CONFIG: { key: keyof FormData; label: string; type: string; inputMod
   { key: 'price', label: 'ราคา', type: 'number', inputMode: 'decimal', placeholder: '0.00', required: true },
   { key: 'quantity', label: 'จำนวน', type: 'number', inputMode: 'numeric', placeholder: '0', required: true },
   { key: 'expiryDate', label: 'วันหมดอายุ', type: 'text', placeholder: 'DD/MM/YYYY', required: false },
-  { key: 'quantityPerBox', label: 'จำนวนต่อลัง', type: 'number', inputMode: 'numeric', placeholder: '0', required: false },
+  { key: 'quantityPerBox', label: 'จำนวนลัง', type: 'number', inputMode: 'numeric', placeholder: '0', required: false },
   { key: 'notes', label: 'หมายเหตุ', type: 'text', placeholder: 'ข้อมูลเพิ่มเติม', required: false },
 ];
 

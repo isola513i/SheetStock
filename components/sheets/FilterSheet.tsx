@@ -17,6 +17,8 @@ type FilterSheetProps = {
   clearFilters: () => void;
   facets?: InventoryFacetData | null;
   allItems?: { stock?: number; quantity?: number; category?: string; brand?: string; series?: string }[];
+  showSeries?: boolean;
+  desktopLayout?: 'sheet' | 'sidebar';
 };
 
 const EMPTY_FACETS: InventoryFacetData = { categories: [], brands: [], series: [] };
@@ -259,13 +261,17 @@ export function FilterSheet(props: FilterSheetProps) {
   const applyFilters = props?.applyFilters;
   const facets = props?.facets ?? EMPTY_FACETS;
   const allItems = props?.allItems;
+  const showSeries = props?.showSeries ?? true;
+  const desktopLayout = props?.desktopLayout ?? 'sheet';
 
   const [renderSheet, setRenderSheet] = useState(open);
   const [isClosing, setIsClosing] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const [draftStock, setDraftStock] = useState<InventoryStockFilter>(stockFilter);
   const [draftCategory, setDraftCategory] = useState<string[]>(category);
   const [draftBrand, setDraftBrand] = useState<string[]>(brand);
   const [draftSeries, setDraftSeries] = useState<string[]>(series);
+  const isSidebar = desktopLayout === 'sidebar' && isDesktop;
 
   const safeFacets = useMemo<InventoryFacetData>(() => ({
     categories: readFacetOptions(facets, 'categories'),
@@ -279,7 +285,7 @@ export function FilterSheet(props: FilterSheetProps) {
         setDraftStock(stockFilter);
         setDraftCategory(category);
         setDraftBrand(brand);
-        setDraftSeries(series);
+        setDraftSeries(showSeries ? series : []);
         setRenderSheet(true);
         setIsClosing(false);
       }, 0);
@@ -301,7 +307,15 @@ export function FilterSheet(props: FilterSheetProps) {
       window.clearTimeout(closeFrameId);
       window.clearTimeout(timeoutId);
     };
-  }, [open, renderSheet, stockFilter, category, brand, series]);
+  }, [open, renderSheet, stockFilter, category, brand, series, showSeries]);
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)');
+    const update = () => setIsDesktop(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   useEffect(() => {
     if (!renderSheet) return;
@@ -321,7 +335,8 @@ export function FilterSheet(props: FilterSheetProps) {
     return () => window.removeEventListener('keydown', handleEscape);
   }, [renderSheet, onOpenChange]);
 
-  const activeCount = Number(draftStock !== 'all') + draftCategory.length + draftBrand.length + draftSeries.length;
+  const activeSeries = showSeries ? draftSeries : EMPTY_VALUES;
+  const activeCount = Number(draftStock !== 'all') + draftCategory.length + draftBrand.length + activeSeries.length;
 
   const previewCount = useMemo(() => {
     if (!allItems) return null;
@@ -332,10 +347,10 @@ export function FilterSheet(props: FilterSheetProps) {
       if (draftStock === 'outOfStock' && qty > 0) return false;
       if (draftCategory.length > 0 && !draftCategory.includes(item.category ?? '')) return false;
       if (draftBrand.length > 0 && !draftBrand.includes(item.brand ?? '')) return false;
-      if (draftSeries.length > 0 && !draftSeries.includes(item.series ?? '')) return false;
+      if (activeSeries.length > 0 && !activeSeries.includes(item.series ?? '')) return false;
       return true;
     }).length;
-  }, [allItems, draftStock, draftCategory, draftBrand, draftSeries]);
+  }, [allItems, draftStock, draftCategory, draftBrand, activeSeries]);
 
   const toggleMultiValue = (setter: React.Dispatch<React.SetStateAction<string[]>>, value: string) => {
     setter((current) => (current.includes(value) ? current.filter((item) => item !== value) : [...current, value]));
@@ -356,17 +371,23 @@ export function FilterSheet(props: FilterSheetProps) {
       />
 
       <motion.div
-        initial={{ y: '100%', opacity: 1 }}
-        animate={isClosing ? { y: -48, opacity: 0.98 } : { y: 0, opacity: 1 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="filter-sheet-title"
+        key={isSidebar ? 'sidebar' : 'sheet'}
+        initial={isSidebar ? { x: '100%', opacity: 1 } : { y: '100%', opacity: 1 }}
+        animate={isClosing ? (isSidebar ? { x: '100%', opacity: 0.98 } : { y: -48, opacity: 0.98 }) : (isSidebar ? { x: 0, opacity: 1 } : { y: 0, opacity: 1 })}
         transition={SHEET_TRANSITION}
-        className="absolute inset-x-0 bottom-0 flex max-h-[92dvh] flex-col overflow-hidden rounded-t-[2rem] border-t border-[color:color-mix(in_oklab,var(--catalog-header)_14%,var(--border-color))] bg-[color:color-mix(in_oklab,var(--bg-card)_97%,var(--catalog-header-action)_3%)] shadow-[0_-16px_48px_-30px_rgba(17,24,39,0.4)]"
+        className={`absolute inset-x-0 bottom-0 flex max-h-[92dvh] flex-col overflow-hidden rounded-t-[2rem] border-t border-[color:color-mix(in_oklab,var(--catalog-header)_14%,var(--border-color))] bg-[color:color-mix(in_oklab,var(--bg-card)_97%,var(--catalog-header-action)_3%)] shadow-[0_-16px_48px_-30px_rgba(17,24,39,0.4)] ${
+          isSidebar ? 'lg:inset-y-0 lg:left-auto lg:right-0 lg:bottom-auto lg:h-full lg:max-h-none lg:w-[min(430px,calc(100vw-3rem))] lg:rounded-l-[1.75rem] lg:rounded-tr-none lg:border-l lg:border-t-0 lg:shadow-[-28px_0_70px_-48px_rgba(41,51,92,0.75)]' : ''
+        }`}
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
         <div className="shrink-0 border-b border-[var(--border-subtle)] px-5 pb-4 pt-3">
-          <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-[color:color-mix(in_oklab,var(--catalog-header)_14%,var(--bg-card))]" />
+          <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-[color:color-mix(in_oklab,var(--catalog-header)_14%,var(--bg-card))] lg:hidden" />
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <h3 className="text-[1.9rem] font-semibold leading-none text-[var(--catalog-header)]">ตัวกรอง</h3>
+              <h3 id="filter-sheet-title" className="text-[1.9rem] font-semibold leading-none text-[var(--catalog-header)]">ตัวกรอง</h3>
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
                 {activeCount > 0 ? `เลือกไว้ ${activeCount} ตัวกรอง` : 'ปรับรายการให้ตรงสินค้าที่ต้องการ'}
               </p>
@@ -415,12 +436,14 @@ export function FilterSheet(props: FilterSheetProps) {
             onToggle={(value) => toggleMultiValue(setDraftBrand, value)}
           />
 
-          <FacetSection
-            title="ซีรีส์"
-            options={safeFacets.series}
-            selectedValues={draftSeries}
-            onToggle={(value) => toggleMultiValue(setDraftSeries, value)}
-          />
+          {showSeries ? (
+            <FacetSection
+              title="ซีรีส์"
+              options={safeFacets.series}
+              selectedValues={draftSeries}
+              onToggle={(value) => toggleMultiValue(setDraftSeries, value)}
+            />
+          ) : null}
         </div>
 
         <div className="shrink-0 border-t border-[var(--border-subtle)] bg-[color:color-mix(in_oklab,var(--bg-card)_98%,var(--catalog-header-action)_2%)] px-5 pb-[calc(env(safe-area-inset-bottom,0px)+14px)] pt-4">
@@ -438,7 +461,7 @@ export function FilterSheet(props: FilterSheetProps) {
                 setDraftStock('all');
                 setDraftCategory([]);
                 setDraftBrand([]);
-                setDraftSeries([]);
+                if (showSeries) setDraftSeries([]);
               }}
               className="flex min-h-[54px] items-center justify-center rounded-full border border-[color:color-mix(in_oklab,var(--catalog-header)_18%,var(--border-color))] bg-[var(--bg-card)] px-4 text-base font-semibold text-[var(--catalog-header)]"
             >
@@ -448,7 +471,7 @@ export function FilterSheet(props: FilterSheetProps) {
               type="button"
               onClick={() => {
                 softHaptic();
-                applyFilters?.({ stock: draftStock, category: draftCategory, brand: draftBrand, series: draftSeries });
+                applyFilters?.({ stock: draftStock, category: draftCategory, brand: draftBrand, series: showSeries ? draftSeries : [] });
                 onOpenChange?.(false);
               }}
               className="flex min-h-[54px] items-center justify-center rounded-full bg-[var(--catalog-header)] px-4 text-base font-semibold text-[var(--bg-card)] shadow-[0_16px_30px_-22px_rgba(41,51,92,0.7)]"

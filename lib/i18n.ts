@@ -61,7 +61,7 @@ const translations = {
   'product.price': { th: 'ราคา', en: 'Price' },
   'product.quantity': { th: 'จำนวน', en: 'Quantity' },
   'product.expiryDate': { th: 'วันหมดอายุ', en: 'Expiry Date' },
-  'product.quantityPerBox': { th: 'จำนวนต่อลัง', en: 'Qty per Box' },
+  'product.quantityPerBox': { th: 'จำนวนลัง', en: 'Box Qty' },
   'product.notes': { th: 'หมายเหตุ', en: 'Notes' },
   'product.productInfo': { th: 'ข้อมูลสินค้า', en: 'Product Info' },
   'product.qtyPrice': { th: 'จำนวนและราคา', en: 'Quantity & Price' },
